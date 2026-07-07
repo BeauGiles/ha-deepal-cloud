@@ -1,5 +1,5 @@
 {
   "name": "Changan Deepal Cloud",
-  "country": ["GB", "PT"],
+  "country": ["GB", "IL", "PT"],
   "homeassistant": "2025.1.0"
 }

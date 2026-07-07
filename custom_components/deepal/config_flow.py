@@ -47,11 +47,13 @@ _LOGGER = logging.getLogger(__name__)
 
 COUNTRY_OPTIONS = {
     "GB": "United Kingdom (+44)",
+    "IL": "Israel (+972)",
     "PT": "Portugal (+351)",
 }
 
 COUNTRY_DIAL_CODES = {
     "GB": "44",
+    "IL": "972",
     "PT": "351",
 }
 
