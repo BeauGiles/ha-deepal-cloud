@@ -50,6 +50,16 @@ COUNTRY_OPTIONS = {
     "IL": "Israel (+972)",
     "PT": "Portugal (+351)",
     "AU": "Australia (+61)",
+    "NZ": "New Zealand (+64)",
+    "SG": "Singapore (+65)",
+    "MY": "Malaysia (+60)",
+    "TH": "Thailand (+66)",
+    "VN": "Vietnam (+84)",
+    "HK": "Hong Kong (+852)",
+    "MO": "Macau (+853)",
+    "ID": "Indonesia (+62)",
+    "PH": "Philippines (+63)",
+    "MN": "Mongolia (+976)",
 }
 
 COUNTRY_DIAL_CODES = {
@@ -57,6 +67,16 @@ COUNTRY_DIAL_CODES = {
     "IL": "972",
     "PT": "351",
     "AU": "61",
+    "NZ": "64",
+    "SG": "65",
+    "MY": "60",
+    "TH": "66",
+    "VN": "84",
+    "HK": "852",
+    "MO": "853",
+    "ID": "62",
+    "PH": "63",
+    "MN": "976",
 }
 
 LOGIN_METHOD_EMAIL = "email"

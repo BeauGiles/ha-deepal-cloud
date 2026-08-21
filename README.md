@@ -38,7 +38,8 @@ Full details are in [CHANGELOG.md](CHANGELOG.md).
 
 - Deepal S07: telemetry and optional remote controls.
 - Deepal S05: read-only telemetry.
-- Login regions: United Kingdom, Israel, Portugal, Australia
+- Login regions: United Kingdom, Israel, Portugal and Australia.
+  — New Zealand, Singapore, Malaysia, Thailand, Vietnam, Hong Kong, Macau, Indonesia, Philippines, Mongolia are untested and assumed to share Australia's Singapore-cluster endpoint (see [CHANGELOG.md](CHANGELOG.md))
 
 ## Current Features
 

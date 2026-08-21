@@ -2,6 +2,28 @@
 
 All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
+## [0.3.1] - 2026-08-21
+
+### Added
+
+- Login region support for New Zealand, Singapore, Malaysia, Thailand, Vietnam,
+  Hong Kong, Macau, Indonesia, Philippines, and Mongolia, added alongside
+  Australia to `REGION_GATEWAYS`.
+
+### Known limitations / deferred
+
+- **Only Australia is confirmed working.** The other nine countries added in
+  this release assume they're homed on the same Singapore cluster/gateway
+  (`m.iov.changanauto.sg`, `/appgw`) as Australia, on the basis that the
+  original (pre-rebase) `BeauGiles/ha-deepal` integration worked for all of
+  them against a single shared endpoint. That integration used a different,
+  simpler auth model (manually captured bearer tokens) that didn't
+  distinguish between regional clusters the way this one does, so the
+  assumption hasn't been independently verified per-country here. If login
+  fails for one of these regions, it likely means that account is actually
+  homed on a different cluster — flag it with the failing country and, if
+  possible, a packet capture of the login request/response.
+
 ## [0.3.0] - 2026-08-21
 
 Rebased on [danperks/ha-deepal](https://github.com/danperks/ha-deepal) (via

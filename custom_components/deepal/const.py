@@ -51,13 +51,29 @@ CA_BASE_URL = "https://ca-m.iov.changanauto.com.de"
 DEFAULT_GATEWAY = "/intl-app-gw"
 
 # Region-specific gateways. Accounts are homed on regional clusters: the default
-# European cluster serves GB/IL/PT, while Australia (and other APAC accounts) are
+# European cluster serves GB/IL/PT, while Australia and the rest of APAC are
 # homed on the Singapore cluster, which fronts the same services behind an
-# "/appgw" gateway prefix instead of "/intl-app-gw". Authenticating an AU-homed
+# "/appgw" gateway prefix instead of "/intl-app-gw". Authenticating an APAC-homed
 # account against the European cluster returns CAC_1_1_01_024 "Account not
-# registered", so AU requests must be routed here instead.
+# registered", so these requests must be routed here instead.
+#
+# NOTE: only AU has been confirmed working. The remaining entries assume the
+# original BeauGiles/ha-deepal integration's APAC countries all share the same
+# Singapore cluster/gateway as AU, since that integration worked for them
+# against a single shared endpoint. This is UNTESTED for anything other than
+# AU — flag issues per-country if login fails.
 REGION_GATEWAYS = {
     "AU": {"base_url": "https://m.iov.changanauto.sg", "gateway": "/appgw"},
+    "NZ": {"base_url": "https://m.iov.changanauto.sg", "gateway": "/appgw"},
+    "SG": {"base_url": "https://m.iov.changanauto.sg", "gateway": "/appgw"},
+    "MY": {"base_url": "https://m.iov.changanauto.sg", "gateway": "/appgw"},
+    "TH": {"base_url": "https://m.iov.changanauto.sg", "gateway": "/appgw"},
+    "VN": {"base_url": "https://m.iov.changanauto.sg", "gateway": "/appgw"},
+    "HK": {"base_url": "https://m.iov.changanauto.sg", "gateway": "/appgw"},
+    "MO": {"base_url": "https://m.iov.changanauto.sg", "gateway": "/appgw"},
+    "ID": {"base_url": "https://m.iov.changanauto.sg", "gateway": "/appgw"},
+    "PH": {"base_url": "https://m.iov.changanauto.sg", "gateway": "/appgw"},
+    "MN": {"base_url": "https://m.iov.changanauto.sg", "gateway": "/appgw"},
 }
 
 # 2048-bit RSA public key used by the app to encrypt mobile/password/control PIN fields.
