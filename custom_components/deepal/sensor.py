@@ -67,43 +67,45 @@ class DeepalSensorDescription(SensorEntityDescription):
     divide_by: float | None = None
     timestamp_ms: bool = False
     options: list[str] | None = None
+    value_map: dict[int, str] | None = None
 
 
 SENSOR_NAMES = {
-    "soc": "Battery",
-    "range": "Estimated range",
-    "total_mileage": "Total mileage",
+    "soc": "State of Charge",
+    "drv_mileage": "Estimated Range",
+    "total_mileage": "Odometer",
     "speed": "Speed",
-    "last_updated": "Vehicle data timestamp",
-    "inside_temperature": "Inside temperature",
-    "outside_temperature": "Outside temperature",
-    "cabin_climate_mode": "Cabin climate mode",
-    "cabin_humidity": "Cabin humidity",
+    "last_updated_at": "Vehicle Data Timestamp",
+    "inside_temp": "Inside Temperature",
+    "outside_temp": "Outside Temperature",
+    "ac_status": "Cabin Climate Mode",
+    "inside_humidity": "Cabin Humidity",
     "inside_pm25": "Cabin PM2.5",
-    "inside_air_quality_level": "Cabin air quality level",
-    "charge_status": "Charge status",
-    "charge_current": "Reported charge current",
-    "ac_charge_current": "AC input current",
-    "dc_charge_current": "Battery current",
-    "remaining_charge_time": "Remaining charge time",
-    "charge_limit": "Charge limit",
-    "charge_schedule_start_time": "Charge schedule start time",
-    "charge_schedule_end_time": "Charge schedule end time",
-    "tire_left_front_pressure": "Left front tire pressure",
-    "tire_right_front_pressure": "Right front tire pressure",
-    "tire_left_rear_pressure": "Left rear tire pressure",
-    "tire_right_rear_pressure": "Right rear tire pressure",
-    "driver_seat_heater_level": "Driver seat heater level",
-    "front_passenger_seat_heater_level": "Front passenger seat heater level",
-    "left_rear_seat_heater_level": "Left rear seat heater level",
-    "right_rear_seat_heater_level": "Right rear seat heater level",
-    "steering_wheel_heater": "Steering wheel heater",
-    "vehicle_status": "Vehicle status",
-    "power_status": "Power status",
-    "gear_signal": "Gear signal",
-    "epb_status": "Electronic parking brake status",
-    "vehicle_image_url": "Vehicle image URL",
-    "refresh_failure_count": "Refresh failure count",
+    "inside_air_quality_level": "Cabin Air Quality Level",
+    "charge_status": "Charge Status",
+    "charge_current": "Reported Charge Current",
+    "ac_charge_current": "AC Charge Current",
+    "dc_charge_current": "DC Charge Current",
+    "remain_charge_time": "Remaining Charge Time",
+    "max_soc_percent": "Max Charge Limit",
+    "charge_plan_start_time": "Charge Schedule Start Time",
+    "charge_plan_end_time": "Charge Schedule End Time",
+    "tire_front_left_pressure": "Front Left Tyre Pressure",
+    "tire_front_right_pressure": "Front Right Tyre Pressure",
+    "tire_rear_left_pressure": "Rear Left Tyre Pressure",
+    "tire_rear_right_pressure": "Rear Right Tyre Pressure",
+    "driver_seat_heater_level": "Driver Seat Heater Level",
+    "front_passenger_seat_heater_level": "Front Passenger Seat Heater Level",
+    "rear_left_seat_heater_level": "Rear Left Seat Heater Level",
+    "rear_right_seat_heater_level": "Rear Right Seat Heater Level",
+    "steering_wheel_heater": "Steering Wheel Heater",
+    "vehicle_status": "Vehicle Status",
+    "power_status": "Power Status",
+    "gear_signal": "Gear Signal",
+    "epb_sts": "Electronic Parking Brake Status",
+    "img_url": "Vehicle Image URL",
+    "refresh_failure_count": "Refresh Failure Count",
+    "ota_status": "OTA Status",
 }
 
 
@@ -117,8 +119,8 @@ SENSORS: tuple[DeepalSensorDescription, ...] = (
         path=("vehicleStatus", "soc"),
     ),
     DeepalSensorDescription(
-        key="range",
-        translation_key="range",
+        key="drv_mileage",
+        translation_key="drv_mileage",
         native_unit_of_measurement=UnitOfLength.KILOMETERS,
         device_class=SensorDeviceClass.DISTANCE,
         state_class=SensorStateClass.MEASUREMENT,
@@ -141,16 +143,16 @@ SENSORS: tuple[DeepalSensorDescription, ...] = (
         path=("vehicleStatus", "speed"),
     ),
     DeepalSensorDescription(
-        key="last_updated",
-        translation_key="last_updated",
+        key="last_updated_at",
+        translation_key="last_updated_at",
         device_class=SensorDeviceClass.TIMESTAMP,
         entity_category=EntityCategory.DIAGNOSTIC,
         path=("lastUpdatedAt",),
         timestamp_ms=True,
     ),
     DeepalSensorDescription(
-        key="inside_temperature",
-        translation_key="inside_temperature",
+        key="inside_temp",
+        translation_key="inside_temp",
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
@@ -158,8 +160,8 @@ SENSORS: tuple[DeepalSensorDescription, ...] = (
         divide_by=10,
     ),
     DeepalSensorDescription(
-        key="outside_temperature",
-        translation_key="outside_temperature",
+        key="outside_temp",
+        translation_key="outside_temp",
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
@@ -167,15 +169,16 @@ SENSORS: tuple[DeepalSensorDescription, ...] = (
         divide_by=10,
     ),
     DeepalSensorDescription(
-        key="cabin_climate_mode",
-        translation_key="cabin_climate_mode",
+        key="ac_status",
+        translation_key="ac_status",
         device_class=SensorDeviceClass.ENUM,
+        icon="mdi:air-conditioner",
         path=(),
         options=["off", "heat_cool"],
     ),
     DeepalSensorDescription(
-        key="cabin_humidity",
-        translation_key="cabin_humidity",
+        key="inside_humidity",
+        translation_key="inside_humidity",
         native_unit_of_measurement=PERCENTAGE,
         device_class=SensorDeviceClass.HUMIDITY,
         state_class=SensorStateClass.MEASUREMENT,
@@ -185,6 +188,7 @@ SENSORS: tuple[DeepalSensorDescription, ...] = (
         key="inside_pm25",
         translation_key="inside_pm25",
         native_unit_of_measurement="ug/m3",
+        icon="mdi:air-filter",
         state_class=SensorStateClass.MEASUREMENT,
         path=("hvac", "insidePm25"),
     ),
@@ -199,13 +203,13 @@ SENSORS: tuple[DeepalSensorDescription, ...] = (
         translation_key="charge_status",
         entity_category=EntityCategory.DIAGNOSTIC,
         path=("charge", "chargeStatus"),
+        value_map={0: "Charge Complete", 1: "Not Charging", 6: "Charging"},
     ),
     DeepalSensorDescription(
         key="charge_current",
         translation_key="charge_current",
         native_unit_of_measurement="A",
         device_class=SensorDeviceClass.CURRENT,
-        entity_category=EntityCategory.DIAGNOSTIC,
         state_class=SensorStateClass.MEASUREMENT,
         path=("charge", "chargeCurrent"),
     ),
@@ -214,6 +218,7 @@ SENSORS: tuple[DeepalSensorDescription, ...] = (
         translation_key="ac_charge_current",
         native_unit_of_measurement="A",
         device_class=SensorDeviceClass.CURRENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
         state_class=SensorStateClass.MEASUREMENT,
         path=("charge", "acChargeCurrent"),
     ),
@@ -222,60 +227,61 @@ SENSORS: tuple[DeepalSensorDescription, ...] = (
         translation_key="dc_charge_current",
         native_unit_of_measurement="A",
         device_class=SensorDeviceClass.CURRENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
         state_class=SensorStateClass.MEASUREMENT,
         path=("charge", "dcChargeCurrent"),
     ),
     DeepalSensorDescription(
-        key="remaining_charge_time",
-        translation_key="remaining_charge_time",
+        key="remain_charge_time",
+        translation_key="remain_charge_time",
         native_unit_of_measurement="min",
         state_class=SensorStateClass.MEASUREMENT,
         path=("charge", "remainChargeTime"),
     ),
     DeepalSensorDescription(
-        key="charge_limit",
-        translation_key="charge_limit",
+        key="max_soc_percent",
+        translation_key="max_soc_percent",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         path=("charge", "maxSocPercent"),
     ),
     DeepalSensorDescription(
-        key="charge_schedule_start_time",
-        translation_key="charge_schedule_start_time",
+        key="charge_plan_start_time",
+        translation_key="charge_plan_start_time",
         path=(),
     ),
     DeepalSensorDescription(
-        key="charge_schedule_end_time",
-        translation_key="charge_schedule_end_time",
+        key="charge_plan_end_time",
+        translation_key="charge_plan_end_time",
         path=(),
     ),
     DeepalSensorDescription(
-        key="tire_left_front_pressure",
-        translation_key="tire_left_front_pressure",
+        key="tire_front_left_pressure",
+        translation_key="tire_front_left_pressure",
         native_unit_of_measurement="kPa",
         device_class=SensorDeviceClass.PRESSURE,
         state_class=SensorStateClass.MEASUREMENT,
         path=("tire", "leftFront", "pressure"),
     ),
     DeepalSensorDescription(
-        key="tire_right_front_pressure",
-        translation_key="tire_right_front_pressure",
+        key="tire_front_right_pressure",
+        translation_key="tire_front_right_pressure",
         native_unit_of_measurement="kPa",
         device_class=SensorDeviceClass.PRESSURE,
         state_class=SensorStateClass.MEASUREMENT,
         path=("tire", "rightFront", "pressure"),
     ),
     DeepalSensorDescription(
-        key="tire_left_rear_pressure",
-        translation_key="tire_left_rear_pressure",
+        key="tire_rear_left_pressure",
+        translation_key="tire_rear_left_pressure",
         native_unit_of_measurement="kPa",
         device_class=SensorDeviceClass.PRESSURE,
         state_class=SensorStateClass.MEASUREMENT,
         path=("tire", "leftBack", "pressure"),
     ),
     DeepalSensorDescription(
-        key="tire_right_rear_pressure",
-        translation_key="tire_right_rear_pressure",
+        key="tire_rear_right_pressure",
+        translation_key="tire_rear_right_pressure",
         native_unit_of_measurement="kPa",
         device_class=SensorDeviceClass.PRESSURE,
         state_class=SensorStateClass.MEASUREMENT,
@@ -284,22 +290,22 @@ SENSORS: tuple[DeepalSensorDescription, ...] = (
     DeepalSensorDescription(
         key="driver_seat_heater_level",
         translation_key="driver_seat_heater_level",
-        path=("seat", "rightFront", "level"),
+        path=("seat", "rightFront", "heatStatus"),
     ),
     DeepalSensorDescription(
         key="front_passenger_seat_heater_level",
         translation_key="front_passenger_seat_heater_level",
-        path=("seat", "leftFront", "level"),
+        path=("seat", "leftFront", "heatStatus"),
     ),
     DeepalSensorDescription(
-        key="left_rear_seat_heater_level",
-        translation_key="left_rear_seat_heater_level",
-        path=("seat", "leftBack", "level"),
+        key="rear_left_seat_heater_level",
+        translation_key="rear_left_seat_heater_level",
+        path=("seat", "leftBack", "heatStatus"),
     ),
     DeepalSensorDescription(
-        key="right_rear_seat_heater_level",
-        translation_key="right_rear_seat_heater_level",
-        path=("seat", "rightBack", "level"),
+        key="rear_right_seat_heater_level",
+        translation_key="rear_right_seat_heater_level",
+        path=("seat", "rightBack", "heatStatus"),
     ),
     DeepalSensorDescription(
         key="steering_wheel_heater",
@@ -317,6 +323,7 @@ SENSORS: tuple[DeepalSensorDescription, ...] = (
         translation_key="power_status",
         entity_category=EntityCategory.DIAGNOSTIC,
         path=("vehicleStatus", "powerStatus"),
+        value_map={0: "Idle", 2: "Drive"},
     ),
     DeepalSensorDescription(
         key="gear_signal",
@@ -325,8 +332,8 @@ SENSORS: tuple[DeepalSensorDescription, ...] = (
         path=("vehicleStatus", "gearSignal"),
     ),
     DeepalSensorDescription(
-        key="epb_status",
-        translation_key="epb_status",
+        key="epb_sts",
+        translation_key="epb_sts",
         entity_category=EntityCategory.DIAGNOSTIC,
         path=("vehicleStatus", "epbSts"),
     ),
@@ -338,8 +345,16 @@ SENSORS: tuple[DeepalSensorDescription, ...] = (
         path=(),
     ),
     DeepalSensorDescription(
-        key="vehicle_image_url",
-        translation_key="vehicle_image_url",
+        key="img_url",
+        translation_key="img_url",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        path=(),
+    ),
+    DeepalSensorDescription(
+        key="ota_status",
+        translation_key="ota_status",
+        icon="mdi:update",
         entity_category=EntityCategory.DIAGNOSTIC,
         path=(),
     ),
@@ -367,21 +382,36 @@ class DeepalSensor(DeepalEntity, SensorEntity):
 
     @property
     def native_value(self) -> Any:
-        if self.entity_description.key == "cabin_climate_mode":
+        if self.entity_description.key == "ac_status":
             return _cabin_climate_mode_state(self.condition)
-        if self.entity_description.key == "charge_schedule_start_time":
+        if self.entity_description.key == "charge_plan_start_time":
             return _format_hhmm(_charge_schedule(self.condition).get("startTime"))
-        if self.entity_description.key == "charge_schedule_end_time":
+        if self.entity_description.key == "charge_plan_end_time":
             return _format_hhmm(_charge_schedule(self.condition).get("endTime"))
         if self.entity_description.key == "steering_wheel_heater":
             return _steering_wheel_heater_state(self.condition)
         if self.entity_description.key == "refresh_failure_count":
             return self.coordinator.refresh_failure_count
-        if self.entity_description.key == "vehicle_image_url":
+        if self.entity_description.key == "img_url":
             return ((self.coordinator.data or {}).get("vehicle") or {}).get("imgUrl")
+        if self.entity_description.key == "ota_status":
+            ota = (self.coordinator.data or {}).get("ota")
+            if not ota:
+                return None
+            state = ota.get("state", "Unknown")
+            process = ota.get("process", 0)
+            if state == "INSTALLED":
+                return "Up to date"
+            if state == "DOWNLOADING":
+                return f"Downloading {process}%"
+            if state == "INSTALLING":
+                return f"Installing {process}%"
+            return state
         if self.entity_description.timestamp_ms:
             return _millis_to_datetime(_path_value(self.condition, self.entity_description.path))
         value = _path_value(self.condition, self.entity_description.path)
+        if self.entity_description.value_map is not None and value is not None:
+            return self.entity_description.value_map.get(value, f"Unknown ({value})")
         if self.entity_description.divide_by and isinstance(value, int | float):
             return value / self.entity_description.divide_by
         return value
@@ -390,19 +420,29 @@ class DeepalSensor(DeepalEntity, SensorEntity):
     def extra_state_attributes(self) -> dict[str, Any] | None:
         if self.entity_description.key == "refresh_failure_count":
             return {"last_failure": self.coordinator.last_refresh_failure}
-        if self.entity_description.key == "vehicle_image_url":
+        if self.entity_description.key == "img_url":
             vehicle = ((self.coordinator.data or {}).get("vehicle") or {})
             return {
                 "series": vehicle.get("seriesName") or vehicle.get("seriesCode"),
                 "model": vehicle.get("modelName") or vehicle.get("modelCode"),
             }
-        if self.entity_description.key == "cabin_climate_mode":
+        if self.entity_description.key == "ota_status":
+            ota = (self.coordinator.data or {}).get("ota")
+            if not ota:
+                return {}
+            return {
+                "stage": ota.get("stage"),
+                "process": ota.get("process"),
+                "state": ota.get("state"),
+                "task_id": (ota.get("taskBase") or {}).get("taskId"),
+            }
+        if self.entity_description.key == "ac_status":
             hvac = self.condition.get("hvac") or {}
             return {
                 "raw_ac_status": hvac.get("acStatus"),
                 "target_temperature": _temp_value(self.condition, ("hvac", "remoteTemp")),
             }
-        if self.entity_description.key in ("charge_schedule_start_time", "charge_schedule_end_time"):
+        if self.entity_description.key in ("charge_plan_start_time", "charge_plan_end_time"):
             return _charge_schedule_attributes(self.condition)
         if self.entity_description.key == "steering_wheel_heater":
             vehicle_status = self.condition.get("vehicleStatus") or {}
@@ -418,7 +458,7 @@ class DeepalRawConditionSensor(DeepalEntity, SensorEntity):
     """Diagnostic sensor exposing the complete condition payload."""
 
     _attr_translation_key = "raw_condition"
-    _attr_name = "Raw condition data"
+    _attr_name = "Raw Condition Data"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_device_class = SensorDeviceClass.TIMESTAMP
     _attr_entity_registry_enabled_default = False

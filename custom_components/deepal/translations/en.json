@@ -85,6 +85,256 @@
       }
     }
   },
+  "entity": {
+    "sensor": {
+      "soc": {
+        "name": "State of Charge"
+      },
+      "drv_mileage": {
+        "name": "Estimated Range"
+      },
+      "total_mileage": {
+        "name": "Odometer"
+      },
+      "speed": {
+        "name": "Speed"
+      },
+      "last_updated_at": {
+        "name": "Vehicle Data Timestamp"
+      },
+      "inside_temp": {
+        "name": "Inside Temperature"
+      },
+      "outside_temp": {
+        "name": "Outside Temperature"
+      },
+      "ac_status": {
+        "name": "Cabin Climate Mode"
+      },
+      "inside_humidity": {
+        "name": "Cabin Humidity"
+      },
+      "inside_pm25": {
+        "name": "Cabin PM2.5"
+      },
+      "inside_air_quality_level": {
+        "name": "Cabin Air Quality Level"
+      },
+      "charge_status": {
+        "name": "Charge Status"
+      },
+      "charge_current": {
+        "name": "Reported Charge Current"
+      },
+      "ac_charge_current": {
+        "name": "AC Charge Current"
+      },
+      "dc_charge_current": {
+        "name": "DC Charge Current"
+      },
+      "remain_charge_time": {
+        "name": "Remaining Charge Time"
+      },
+      "max_soc_percent": {
+        "name": "Max Charge Limit"
+      },
+      "charge_plan_start_time": {
+        "name": "Charge Schedule Start Time"
+      },
+      "charge_plan_end_time": {
+        "name": "Charge Schedule End Time"
+      },
+      "tire_front_left_pressure": {
+        "name": "Front Left Tyre Pressure"
+      },
+      "tire_front_right_pressure": {
+        "name": "Front Right Tyre Pressure"
+      },
+      "tire_rear_left_pressure": {
+        "name": "Rear Left Tyre Pressure"
+      },
+      "tire_rear_right_pressure": {
+        "name": "Rear Right Tyre Pressure"
+      },
+      "driver_seat_heater_level": {
+        "name": "Driver Seat Heater Level"
+      },
+      "front_passenger_seat_heater_level": {
+        "name": "Front Passenger Seat Heater Level"
+      },
+      "rear_left_seat_heater_level": {
+        "name": "Rear Left Seat Heater Level"
+      },
+      "rear_right_seat_heater_level": {
+        "name": "Rear Right Seat Heater Level"
+      },
+      "steering_wheel_heater": {
+        "name": "Steering Wheel Heater"
+      },
+      "vehicle_status": {
+        "name": "Vehicle Status"
+      },
+      "power_status": {
+        "name": "Power Status"
+      },
+      "img_url": {
+        "name": "Vehicle Image URL"
+      },
+      "gear_signal": {
+        "name": "Gear Signal"
+      },
+      "epb_sts": {
+        "name": "Electronic Parking Brake Status"
+      },
+      "refresh_failure_count": {
+        "name": "Refresh Failure Count"
+      },
+      "ota_status": {
+        "name": "OTA Status"
+      },
+      "raw_condition": {
+        "name": "Raw Condition Data"
+      }
+    },
+    "binary_sensor": {
+      "any_door_open": {
+        "name": "Any Door"
+      },
+      "front_left_door_open": {
+        "name": "Front Left Door"
+      },
+      "front_right_door_open": {
+        "name": "Front Right Door"
+      },
+      "rear_left_door_open": {
+        "name": "Rear Left Door"
+      },
+      "rear_right_door_open": {
+        "name": "Rear Right Door"
+      },
+      "trunk": {
+        "name": "Boot"
+      },
+      "driver_lock": {
+        "name": "Driver Door Locked"
+      },
+      "passenger_lock": {
+        "name": "Passenger Door Locked"
+      },
+      "front_left_window_open": {
+        "name": "Front Left Window"
+      },
+      "front_right_window_open": {
+        "name": "Front Right Window"
+      },
+      "rear_left_window_open": {
+        "name": "Rear Left Window"
+      },
+      "rear_right_window_open": {
+        "name": "Rear Right Window"
+      },
+      "charge_con_status": {
+        "name": "Charging Cable"
+      },
+      "dc_charge_gun_connect_status": {
+        "name": "DC Charge Gun"
+      },
+      "charge_status": {
+        "name": "Charging"
+      },
+      "charge_schedule_enabled": {
+        "name": "Charge Schedule Enabled"
+      },
+      "defrost_status": {
+        "name": "Defrost Status"
+      },
+      "connect_status": {
+        "name": "Vehicle Connected"
+      },
+      "engine_sts": {
+        "name": "Engine On"
+      },
+      "high_beam": {
+        "name": "High Beam"
+      },
+      "low_beam": {
+        "name": "Low Beam"
+      },
+      "position_lamp": {
+        "name": "Position Lamp"
+      },
+      "left_turn": {
+        "name": "Left Turn Signal"
+      },
+      "right_turn": {
+        "name": "Right Turn Signal"
+      },
+      "driver_seat_heater_on": {
+        "name": "Driver Seat Heater On"
+      },
+      "front_passenger_seat_heater_on": {
+        "name": "Front Passenger Seat Heater On"
+      },
+      "driver_seat_ventilation_on": {
+        "name": "Driver Seat Ventilation On"
+      },
+      "front_passenger_seat_ventilation_on": {
+        "name": "Front Passenger Seat Ventilation On"
+      }
+    },
+    "lock": {
+      "doors": {
+        "name": "Doors"
+      }
+    },
+    "cover": {
+      "windows": {
+        "name": "Windows"
+      },
+      "boot": {
+        "name": "Boot"
+      }
+    },
+    "button": {
+      "refresh": {
+        "name": "Refresh Vehicle Data"
+      },
+      "flash_lights": {
+        "name": "Flash Lights"
+      },
+      "honk_horn": {
+        "name": "Honk Horn"
+      }
+    },
+    "climate": {
+      "cabin_climate": {
+        "name": "Cabin Climate"
+      }
+    },
+    "number": {
+      "charge_limit_control": {
+        "name": "Charge Limit"
+      }
+    },
+    "switch": {
+      "charge_schedule_control": {
+        "name": "Charge Schedule"
+      }
+    },
+    "time": {
+      "charge_schedule_start_time": {
+        "name": "Charge Schedule Start"
+      },
+      "charge_schedule_end_time": {
+        "name": "Charge Schedule End"
+      }
+    },
+    "image": {
+      "vehicle_image": {
+        "name": "Vehicle Image"
+      }
+    }
+  },
   "issues": {
     "command_reauth": {
       "title": "Deepal remote commands need reauthentication",

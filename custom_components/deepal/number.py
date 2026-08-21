@@ -27,7 +27,7 @@ class DeepalChargeLimitNumber(DeepalEntity, NumberEntity):
     """Maximum battery state-of-charge for AC charging."""
 
     _attr_translation_key = "charge_limit_control"
-    _attr_name = "Charge limit"
+    _attr_name = "Charge Limit"
     _attr_native_min_value = 50
     _attr_native_max_value = 100
     _attr_native_step = 10

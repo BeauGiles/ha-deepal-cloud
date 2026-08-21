@@ -29,7 +29,7 @@ class DeepalClimate(DeepalEntity, ClimateEntity):
     """Thermostat-style entity for the car-wide HVAC state."""
 
     _attr_translation_key = "cabin_climate"
-    _attr_name = "Cabin climate"
+    _attr_name = "Cabin Climate"
     _attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT_COOL]
     _attr_target_temperature_step = 0.5
     _attr_min_temp = 16

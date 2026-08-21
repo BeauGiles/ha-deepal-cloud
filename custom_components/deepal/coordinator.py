@@ -66,7 +66,16 @@ class DeepalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         self.last_refresh_failure = None
         vehicle = self._vehicle_from_list(vehicles)
-        return {"vehicles": vehicles, "vehicle": vehicle or {}, "condition": condition}
+        ota = None
+        if not self._vehicle_uses_mqtt(vehicle or {}):
+            try:
+                ota = await self.client.ota_status(self.vehicle_id)
+            except DeepalApiError as err:
+                # OTA status is a nice-to-have; a failure here shouldn't fail the
+                # whole update (ported from the original repo's same approach).
+                _LOGGER.debug("Deepal: failed to fetch OTA status: %s", err)
+                ota = None
+        return {"vehicles": vehicles, "vehicle": vehicle or {}, "condition": condition, "ota": ota}
 
     async def _async_fetch(self) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         """Fetch vehicle metadata and condition."""

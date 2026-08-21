@@ -22,8 +22,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         return
     async_add_entities(
         [
-            DeepalChargeScheduleTime(coordinator, "charge_schedule_start_time", "Charge schedule start", "startTime"),
-            DeepalChargeScheduleTime(coordinator, "charge_schedule_end_time", "Charge schedule end", "endTime"),
+            DeepalChargeScheduleTime(coordinator, "charge_schedule_start_time", "Charge Schedule Start", "startTime"),
+            DeepalChargeScheduleTime(coordinator, "charge_schedule_end_time", "Charge Schedule End", "endTime"),
         ]
     )
 

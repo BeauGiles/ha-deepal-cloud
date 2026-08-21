@@ -32,6 +32,7 @@ class DeepalEntity(CoordinatorEntity[DeepalDataUpdateCoordinator]):
             manufacturer="Changan Deepal",
             model=vehicle.get("modelName") or vehicle.get("modelCode"),
             name=vehicle.get("carName") or vehicle.get("vin") or f"Deepal {self.coordinator.vehicle_id}",
+            serial_number=vehicle.get("vin"),
         )
 
     @property

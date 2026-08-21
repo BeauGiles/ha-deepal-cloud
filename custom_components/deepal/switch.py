@@ -31,7 +31,7 @@ class DeepalChargeScheduleSwitch(DeepalEntity, SwitchEntity):
     """Enable or disable the charging schedule."""
 
     _attr_translation_key = "charge_schedule_control"
-    _attr_name = "Charge schedule"
+    _attr_name = "Charge Schedule"
 
     def __init__(self, coordinator: DeepalDataUpdateCoordinator) -> None:
         super().__init__(coordinator, "charge_schedule_control")

@@ -26,7 +26,7 @@ class DeepalRefreshButton(DeepalEntity, ButtonEntity):
     """Manually refresh cached Deepal cloud vehicle data."""
 
     _attr_translation_key = "refresh"
-    _attr_name = "Refresh vehicle data"
+    _attr_name = "Refresh Vehicle Data"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, coordinator: DeepalDataUpdateCoordinator) -> None:
@@ -74,7 +74,8 @@ class DeepalFlashLightsButton(_DeepalFlashHonkButton):
     """Momentary button to flash the vehicle lights."""
 
     _attr_translation_key = "flash_lights"
-    _attr_name = "Flash lights"
+    _attr_name = "Flash Lights"
+    _attr_icon = "mdi:car-parking-lights"
     _action_type = 1
 
     def __init__(self, coordinator: DeepalDataUpdateCoordinator) -> None:
@@ -85,7 +86,8 @@ class DeepalHonkHornButton(_DeepalFlashHonkButton):
     """Momentary button to sound the horn."""
 
     _attr_translation_key = "honk_horn"
-    _attr_name = "Honk horn"
+    _attr_name = "Honk Horn"
+    _attr_icon = "mdi:bullhorn"
     _action_type = 3
 
     def __init__(self, coordinator: DeepalDataUpdateCoordinator) -> None:
