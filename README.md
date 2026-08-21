@@ -12,7 +12,8 @@ This integration was built against a UK-market Deepal S07 and a Portugal-market 
 
 ## About This Fork
 
-This repo is rebased on [danperks/ha-deepal](https://github.com/danperks/ha-deepal) (via [DylanTusler's fork](https://github.com/DylanTusler/ha-deepal)), which brought account-based login, full remote vehicle control, and Deepal S05 support — a big step up from the earlier version of this integration, which was read-only and required manually capturing tokens with a proxy tool. Credit to danperks and DylanTusler for that work.
+This repo is rebased on [danperks/ha-deepal](https://github.com/danperks/ha-deepal) (via [DylanTusler's fork](https://github.com/DylanTusler/ha-deepal)), which brought account-based login, full remote vehicle control, and Deepal S05 support — a big step up from the [earlier version of this integration](https://github.com/BeauGiles/ha-deepal), which was read-only and required manually capturing tokens with a proxy tool.
+Credit to danperks and DylanTusler for that work.
 
 On top of that base, this fork:
 
