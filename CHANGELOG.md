@@ -56,13 +56,13 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
 ## [0.3.0] - 2026-08-21
 
-Rebased on [danperks/ha-deepal](https://github.com/danperks/ha-deepal) (via
-[DylanTusler's fork](https://github.com/DylanTusler/ha-deepal)) in place of the
+Rebased on [danperks/ha-deepal](https://github.com/danperks/ha-deepal) in place of the
 earlier standalone version of this integration, to pick up account-based login
 (no more manually capturing tokens with a proxy tool), full remote vehicle
 control (locks, windows, boot, climate, charge limit/schedule, lights, horn),
 and Deepal S05 support alongside the existing S07 telemetry. Credit to
-danperks and DylanTusler for that base. Everything below was added, changed,
+danperks for that base; also thanks to [DylanTusler's fork](https://github.com/DylanTusler/ha-deepal) for the Australia
+region addition on top of it. Everything below was added, changed,
 or fixed on top of it.
 
 ### Added
