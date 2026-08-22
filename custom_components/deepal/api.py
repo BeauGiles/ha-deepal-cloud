@@ -507,46 +507,70 @@ class DeepalClient:
         url = f"{base_url}{path}"
         headers = self._headers(include_auth=include_auth)
         started_at = time.monotonic()
-        try:
-            request_payload = payload or {}
-            if self.enable_api_logging:
-                _LOGGER.warning(
-                    "Deepal API debug request path=%s headers=%s payload=%s",
-                    path,
-                    _safe_log_headers(headers),
-                    _redact_for_log(request_payload),
-                )
-            request_body = json.dumps(request_payload, separators=(",", ":"), ensure_ascii=False)
-            async with self._session.post(
-                url,
-                data=request_body,
-                headers=headers,
-                timeout=30,
-            ) as resp:
-                status = resp.status
-                resp.raise_for_status()
-                body = await resp.json(content_type=None)
-        except ClientResponseError as err:
-            if self.enable_api_logging:
-                _LOGGER.warning(
-                    "Deepal API debug HTTP error path=%s status=%s elapsed=%.3fs error=%s",
-                    path,
-                    err.status,
-                    time.monotonic() - started_at,
-                    type(err).__name__,
-                )
-            if err.status in (401, 403):
-                raise DeepalAuthError(f"Deepal auth failed: HTTP {err.status}") from err
-            raise DeepalApiError(f"Deepal HTTP error {err.status} for {path}") from err
-        except (ClientError, TimeoutError) as err:
-            if self.enable_api_logging:
-                _LOGGER.warning(
-                    "Deepal API debug request error path=%s elapsed=%.3fs error=%s",
-                    path,
-                    time.monotonic() - started_at,
-                    type(err).__name__,
-                )
-            raise DeepalApiError(f"Deepal request failed for {path}: {err}") from err
+        request_payload = payload or {}
+        if self.enable_api_logging:
+            _LOGGER.warning(
+                "Deepal API debug request path=%s headers=%s payload=%s",
+                path,
+                _safe_log_headers(headers),
+                _redact_for_log(request_payload),
+            )
+        request_body = json.dumps(request_payload, separators=(",", ":"), ensure_ascii=False)
+
+        # Retry only on transient, network-level failures (timeouts, connection
+        # resets, brief cloud-gateway blips) - ported from the original repo's
+        # fix for periodic "unavailable" entities caused by single-shot request
+        # failures. HTTP-level errors (auth, 4xx/5xx) are not retried here since
+        # they're not transient and retrying serves no purpose.
+        last_transient_err: Exception | None = None
+        for attempt in range(3):
+            try:
+                async with self._session.post(
+                    url,
+                    data=request_body,
+                    headers=headers,
+                    timeout=30,
+                ) as resp:
+                    status = resp.status
+                    resp.raise_for_status()
+                    body = await resp.json(content_type=None)
+                break
+            except ClientResponseError as err:
+                if self.enable_api_logging:
+                    _LOGGER.warning(
+                        "Deepal API debug HTTP error path=%s status=%s elapsed=%.3fs error=%s",
+                        path,
+                        err.status,
+                        time.monotonic() - started_at,
+                        type(err).__name__,
+                    )
+                if err.status in (401, 403):
+                    raise DeepalAuthError(f"Deepal auth failed: HTTP {err.status}") from err
+                raise DeepalApiError(f"Deepal HTTP error {err.status} for {path}") from err
+            except (ClientError, TimeoutError) as err:
+                last_transient_err = err
+                if self.enable_api_logging:
+                    _LOGGER.warning(
+                        "Deepal API debug request error path=%s attempt=%d elapsed=%.3fs error=%s",
+                        path,
+                        attempt + 1,
+                        time.monotonic() - started_at,
+                        type(err).__name__,
+                    )
+                if attempt < 2:
+                    _LOGGER.debug(
+                        "Deepal: request to %s failed (attempt %d/3): %s - retrying",
+                        path,
+                        attempt + 1,
+                        err,
+                    )
+                    await asyncio.sleep(2)
+                    continue
+                raise DeepalApiError(f"Deepal request failed for {path} after 3 attempts: {err}") from err
+        else:
+            # Should be unreachable (the loop either breaks or raises), but keep
+            # this as a safety net so a logic slip here fails loudly, not silently.
+            raise DeepalApiError(f"Deepal request failed for {path}: {last_transient_err}")
 
         if self.enable_api_logging:
             _LOGGER.warning(
