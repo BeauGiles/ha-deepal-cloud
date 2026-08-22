@@ -2,6 +2,36 @@
 
 All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
+## [0.3.2] - 2026-08-22
+
+### Fixed
+
+- Entities periodically going "Unavailable" for a poll cycle or two (roughly
+  hourly, in scattered short blips). Root cause: every API call went through a
+  single request path with no retry at all — a single transient network
+  hiccup (timeout, connection reset, brief cloud-gateway blip) would
+  immediately fail the whole coordinator update and mark every entity
+  unavailable until the next poll succeeded.
+- Added a retry mechanism to the shared request path (`api.py`'s `_post()`,
+  which token refresh also routes through): up to 3 attempts per request, with
+  a non-blocking 2-second wait between attempts. Only retries transient,
+  network-level failures (timeouts, connection resets) — HTTP-level errors
+  (401/403/4xx/5xx) are not retried, since those aren't transient and
+  retrying them would only delay correct auth/error handling.
+- Adapted from the retry logic originally added to the pre-rebase version of
+  this integration
+  ([commit 13cc8d7](https://github.com/BeauGiles/ha-deepal/commit/13cc8d7cf3e61c6685b9b6b423c298904d36c66c)),
+  reworked for this codebase's single shared request method and for async
+  (`asyncio.sleep` instead of a blocking `time.sleep`, which would otherwise
+  freeze the whole Home Assistant event loop).
+
+### Known limitations / deferred
+
+- This fix covers the standard S07 cloud request path. The separate S05 MQTT
+  condition-fetch path doesn't go through the same request method and wasn't
+  covered by this change — if S05 users see similar "Unavailable" blips, that
+  path would need the same treatment separately.
+
 ## [0.3.1] - 2026-08-21
 
 ### Added
