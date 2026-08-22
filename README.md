@@ -12,8 +12,7 @@ This integration was built against a UK-market Deepal S07 and a Portugal-market 
 
 ## About This Fork
 
-This repo is rebased on [danperks/ha-deepal](https://github.com/danperks/ha-deepal) (via [DylanTusler's fork](https://github.com/DylanTusler/ha-deepal)), which brought account-based login, full remote vehicle control, and Deepal S05 support — a big step up from the [earlier version of this integration](https://github.com/BeauGiles/ha-deepal), which was read-only and required manually capturing tokens with a proxy tool.
-Credit to danperks and DylanTusler for that work.
+This repo is rebased on [danperks/ha-deepal](https://github.com/danperks/ha-deepal), which brought account-based login, full remote vehicle control, and Deepal S05 support — a big step up from the earlier version of this integration, which was read-only and required manually capturing tokens with a proxy tool. Credit to danperks for that work; also thanks to [DylanTusler's fork](https://github.com/DylanTusler/ha-deepal) for the Australia region addition on top of it.
 
 On top of that base, this fork:
 
@@ -21,6 +20,7 @@ On top of that base, this fork:
 - Restores features from the original version of this integration that the upstream fork didn't carry over: the vehicle image entity, VIN as the device serial number, and the OTA firmware status sensor
 - Renames entities to AU/UK conventions throughout (Odometer, Tyre, Boot) with keys aligned to the real Deepal API fields
 - Adds icons and consistent Title Case naming across every entity
+- Disables a couple of noisy diagnostic-only entities by default
 
 Full details are in [CHANGELOG.md](CHANGELOG.md).
 
@@ -38,8 +38,7 @@ Full details are in [CHANGELOG.md](CHANGELOG.md).
 
 - Deepal S07: telemetry and optional remote controls.
 - Deepal S05: read-only telemetry.
-- Login regions: United Kingdom, Israel, Portugal and Australia.
-  — New Zealand, Singapore, Malaysia, Thailand, Vietnam, Hong Kong, Macau, Indonesia, Philippines, Mongolia are untested and assumed to share Australia's Singapore-cluster endpoint (see [CHANGELOG.md](CHANGELOG.md))
+- Login regions: United Kingdom, Israel, Portugal, Australia
 
 ## Current Features
 
@@ -74,6 +73,8 @@ S05 controls are still being reverse engineered and are intentionally not expose
 2. Restart Home Assistant.
 
 ## Configuration
+
+Once installed in HACS or manually:
 
 [![Open your Home Assistant instance and start setting up Changan Deepal Cloud.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=deepal)
 
