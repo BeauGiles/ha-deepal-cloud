@@ -2,6 +2,34 @@
 
 All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
+## [0.3.3] - 2026-08-23
+
+### Fixed
+
+- The periodic "Unavailable" flicker across every entity (roughly hourly, a
+  couple of seconds each time) **was not actually fixed by 0.3.2.** Root
+  cause turned out to be unrelated to network requests entirely: refreshing
+  the access token calls `hass.config_entries.async_update_entry(entry,
+  data=new_data)` to persist the new token, which fires the integration's
+  standard config-entry "update listener" - and that listener unconditionally
+  called `async_reload()` on **every** entry update, not just genuine changes
+  made through the options flow. Since access tokens typically expire roughly
+  hourly, this meant the entire integration - every entity - was being torn
+  down and recreated from scratch each time the token refreshed, which is
+  exactly what a brief "Unavailable" flicker looks like.
+- Fixed by only reloading when the user's actual *options* (set via the
+  options flow) have changed, comparing `entry.options` before and after
+  rather than reloading on any `entry.data`/`entry.options` write. Token
+  refreshes only ever touch `entry.data`, so they no longer trigger a reload;
+  genuine option changes (scan interval, active refresh interval, remote
+  command settings, etc.) still correctly reload as before.
+- The 0.3.2 retry logic (still present in `api.py`) wasn't wrong, it just
+  wasn't the actual cause of this particular symptom - transient network
+  retries and unwanted config-entry reloads are two different failure modes
+  that happen to look similar in the entity history graph. Keeping both
+  fixes, since the retry logic is still worth having for genuine transient
+  network blips.
+
 ## [0.3.2] - 2026-08-22
 
 ### Fixed
@@ -56,13 +84,13 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
 ## [0.3.0] - 2026-08-21
 
-Rebased on [danperks/ha-deepal](https://github.com/danperks/ha-deepal) in place of the
+Rebased on [danperks/ha-deepal](https://github.com/danperks/ha-deepal) (via
+[DylanTusler's fork](https://github.com/DylanTusler/ha-deepal)) in place of the
 earlier standalone version of this integration, to pick up account-based login
 (no more manually capturing tokens with a proxy tool), full remote vehicle
 control (locks, windows, boot, climate, charge limit/schedule, lights, horn),
 and Deepal S05 support alongside the existing S07 telemetry. Credit to
-danperks for that base; also thanks to [DylanTusler's fork](https://github.com/DylanTusler/ha-deepal) for the Australia
-region addition on top of it. Everything below was added, changed,
+danperks and DylanTusler for that base. Everything below was added, changed,
 or fixed on top of it.
 
 ### Added
