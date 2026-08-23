@@ -32,13 +32,23 @@ Full details are in [CHANGELOG.md](CHANGELOG.md).
 - This is an unofficial integration and is not endorsed by Changan or Deepal.
 - Remote commands can affect the vehicle. Make sure it is safe before using controls such as locks, windows, boot, climate, lights, or horn.
 - This integration cannot be used to drive the car. It does not implement the BLE/digital key path required for drive authorization.
-- Logging in through this integration can log you out of the official Deepal app or other devices. Likewise, logging back into the official app may invalidate the Home Assistant session.
+- Logging in through this integration can log you out of the official Deepal app or other devices. Likewise, logging back into the official app may invalidate the Home Assistant session. Consider creating a separate Deepal user/account for Home Assistant and then 'sharing' car access from your main account in the Deepal app.
 
-## Supported Vehicle
+## Supported Vehicles
+* **Deepal S07:** Telemetry and optional remote controls.
+* **Deepal S05:** Read-only telemetry.
 
-- Deepal S07: telemetry and optional remote controls.
-- Deepal S05: read-only telemetry.
-- Login regions: United Kingdom, Israel, Portugal, Australia
+## Supported Regions
+* **Confirmed working:** United Kingdom, Israel, Portugal, and Australia.
+* **Untested support:** New Zealand, Singapore, Malaysia, Thailand, Vietnam, Hong Kong, Macau, Indonesia, Philippines, and Mongolia (added alongside Australia to `REGION_GATEWAYS`).
+
+### Note on Regional Support
+> **Only United Kingdom, Israel, Portugal, and Australia are confirmed working.** 
+> 
+> The other nine countries assume they're homed on the same Singapore cluster/gateway (`m.iov.changanauto.sg`, `/appgw`) as Australia, on the basis that the original (pre-rebase) `BeauGiles/ha-deepal` integration worked for all of them against a single shared endpoint. 
+> 
+> That integration used a different, simpler auth model (manually captured bearer tokens) that didn't distinguish between regional clusters the way this one does, so the assumption hasn't been independently verified per-country here. If login fails for one of these regions, it likely means that account is actually homed on a different cluster—flag it with the failing country and, if possible, a packet capture of the login request/response.
+
 
 ## Current Features
 
