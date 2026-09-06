@@ -1005,10 +1005,14 @@ class DeepalClient:
         """Send one app-style signed command and return its command id."""
         if not self.commands_enabled:
             raise DeepalCommandNotReady("Remote commands are not enabled or command signing is incomplete")
-        if require_rc_token and not self.rc_token:
-            if not self.control_pin:
+        reused_rc_token = False
+        if require_rc_token:
+            if self.rc_token:
+                reused_rc_token = True
+            elif self.control_pin:
+                await self.check_control_code(self.control_pin)
+            else:
                 raise DeepalCommandNotReady("Control PIN or rcToken is required")
-            await self.check_control_code(self.control_pin)
         serial_data = await self.get_serial_data(serial_type)
         seriral_no = self.decrypt_seriral_no(serial_data)
         signed_payload = {
@@ -1018,7 +1022,25 @@ class DeepalClient:
             "vehicleId": vehicle_id,
         }
         signed_payload["sign"] = self.sign_payload(signed_payload, omit_keys=sign_omit_keys)
-        data = await self._post(path, signed_payload)
+        try:
+            data = await self._post(path, signed_payload)
+        except DeepalRateLimitError:
+            raise
+        except DeepalApiError:
+            # A cached rcToken is a session, and sessions expire (the official
+            # app itself asks for the control PIN again roughly weekly). We
+            # only find out it's gone stale when the server rejects a command
+            # that used it. If this request reused a cached token rather than
+            # one we just freshly exchanged, clear it and retry once with a
+            # newly exchanged token before giving up - this only re-prompts
+            # the *server* (via the stored PIN), never the user.
+            if not (require_rc_token and reused_rc_token and self.control_pin):
+                raise
+            self.rc_token = None
+            await self.check_control_code(self.control_pin)
+            signed_payload["rcToken"] = self.rc_token or ""
+            signed_payload["sign"] = self.sign_payload(signed_payload, omit_keys=sign_omit_keys)
+            data = await self._post(path, signed_payload)
         if not isinstance(data, dict) or not data.get("commandId"):
             raise DeepalApiError("Control command did not return commandId")
         return str(data["commandId"])
