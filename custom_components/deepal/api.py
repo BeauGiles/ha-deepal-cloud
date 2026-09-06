@@ -488,6 +488,13 @@ class DeepalClient:
                 if self.cac_token and "|" not in self.tokens.access_token
                 else self.tokens.access_token
             )
+            if self.cac_token:
+                # Newer app builds also echo the cacToken in these two
+                # headers on car-control/security-code requests. Confirmed
+                # from a live capture of the current iOS app (2026-09) - not
+                # present when this integration was first reverse-engineered.
+                headers["X-Tsp-User-Token"] = self.cac_token
+                headers["X-VCS-User-Token"] = self.cac_token
         return headers
 
     async def _post(
@@ -1085,6 +1092,7 @@ class DeepalClient:
             vehicle_id=vehicle_id,
             payload={"chargePercentageMax": int(percentage), "command": "charge_max"},
             serial_type="2",
+            sign_omit_keys={"command", "rcToken"},
         )
 
     async def control_charge_schedule(
@@ -1115,6 +1123,7 @@ class DeepalClient:
                 "timeZone": time_zone,
             },
             serial_type="2",
+            sign_omit_keys={"command", "rcToken"},
         )
 
     async def control_windows(self, *, vehicle_id: str, open_value: bool, open_type: int = 10) -> str:
@@ -1146,6 +1155,7 @@ class DeepalClient:
             path="/intl-app-gw/intl-app-car-control/api/control/flashing-honking",
             vehicle_id=vehicle_id,
             payload={"command": "flash_bee", "type": action_type},
+            sign_omit_keys={"command", "rcToken"},
         )
 
     async def control_condition_inquiry(self, *, vehicle_id: str) -> str:
