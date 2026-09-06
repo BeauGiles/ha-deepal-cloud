@@ -988,8 +988,21 @@ class DeepalClient:
             raise DeepalApiError("Unexpected serial-no response")
         return data
 
+    async def get_security_code_status(self) -> dict[str, Any]:
+        """Check the control PIN's status (retry count, lockout) before entering it.
+
+        Confirmed from a live capture of the current app: it always calls
+        this immediately before check-code. Unknown whether the server
+        depends on this call happening first or the app just uses it for its
+        own "N attempts remaining" UI, but it's cheap and matches the real
+        flow exactly, so it's called unconditionally here too.
+        """
+        data = await self._post("/intl-app-gw/intl-app-car-control/api/security-code/get-status", {})
+        return data if isinstance(data, dict) else {}
+
     async def check_control_code(self, safe_code: str) -> str:
         """Exchange the remote-control PIN for an rcToken."""
+        await self.get_security_code_status()
         data = await self._post(
             "/intl-app-gw/intl-app-car-control/api/security-code/check-code",
             {"safeCode": self.encrypt_request_value(safe_code)},
@@ -1052,14 +1065,13 @@ class DeepalClient:
             raise DeepalApiError("Control command did not return commandId")
         return str(data["commandId"])
 
-    async def control_doors(self, *, vehicle_id: str, command: str, open_value: bool) -> str:
+    async def control_doors(self, *, vehicle_id: str, open_value: bool) -> str:
         """Send a lock/unlock command; never available unless explicitly enabled."""
         return await self._signed_command(
             path="/intl-app-gw/intl-app-car-control/api/control/doors",
             vehicle_id=vehicle_id,
-            payload={"command": "lock", "open": open_value},
+            payload={"open": open_value},
             require_rc_token=True,
-            sign_omit_keys={"command"},
         )
 
     async def control_air_conditioner(
