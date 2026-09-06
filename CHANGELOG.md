@@ -2,6 +2,58 @@
 
 All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
+## [0.3.4] - 2026-09-06
+
+Fixes from a live debugging session against a real AU-market S07 account,
+where every remote command (lock, charge limit, flash, honk, charge
+schedule) failed outright. Root-caused by diffing live captures of the
+current official app's traffic against what this integration sent for the
+same calls.
+
+### Fixed
+
+- **The actual root cause**: `control_charge_limit`, `control_charge_schedule`,
+  and `control_flashing_honking` were the only signed commands missing
+  `sign_omit_keys={"command", "rcToken"}` - every other signed command already
+  excludes these two fields from the signature correctly. Without that
+  exclusion, the signature was computed over fields the real app's signature
+  never includes for these endpoints, so the server rejected the request
+  before reaching any business logic. This reproduced identically regardless
+  of account, region, or how recently the login/command-signing key had been
+  refreshed.
+- Bumped `DEFAULT_APP_VERSION` from `V1.11.0` to `V1.12.0` and added the
+  `X-Tsp-User-Token`/`X-VCS-User-Token` headers (both set to the existing
+  `cacToken`) on every authenticated request - both confirmed present on the
+  real app's current traffic and previously missing from this integration's
+  requests entirely.
+- `check_control_code` (the control-PIN exchange) now calls
+  `security-code/get-status` first, matching the real app's flow, which
+  always calls it immediately before submitting the code.
+- A cached `rcToken` was reused indefinitely once obtained, with no way to
+  notice it had gone stale (the official app itself re-prompts for the
+  control PIN roughly weekly). Commands that reuse a cached token and get
+  rejected now clear it, re-exchange a fresh one, and retry once before
+  giving up.
+- `control_doors` accepted a `command` parameter from `lock.py` (`"lock"` vs
+  `"unlock"`) but silently discarded it, always hardcoding `"command":
+  "lock"` regardless of which action was requested. Live captures of both a
+  real lock and a real unlock confirmed the payload needs no `command` field
+  at all; removed it along with the now-unused parameter.
+- The options ("Configure") dialog crashed with a 500 error on newer Home
+  Assistant core versions, which turned `OptionsFlow.config_entry` into a
+  framework-managed property - a custom `__init__` assigning it directly
+  (the long-standing recommended pattern) now raises instead of being
+  redundant. Fixed by dropping the custom `__init__` entirely.
+
+### Added
+
+- A "Reauthenticate now" checkbox in the options flow, and a working fix
+  flow for the existing (but previously non-functional, for lack of a
+  `repairs.py`) "Deepal remote commands need reauthentication" repair issue.
+  Both force a fresh login - and therefore a freshly generated and
+  registered command-signing keypair - without needing to delete and re-add
+  the integration.
+
 ## [0.3.3] - 2026-08-23
 
 ### Fixed

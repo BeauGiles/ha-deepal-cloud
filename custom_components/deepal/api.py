@@ -488,6 +488,13 @@ class DeepalClient:
                 if self.cac_token and "|" not in self.tokens.access_token
                 else self.tokens.access_token
             )
+            if self.cac_token:
+                # Newer app builds also echo the cacToken in these two
+                # headers on car-control/security-code requests. Confirmed
+                # from a live capture of the current iOS app (2026-09) - not
+                # present when this integration was first reverse-engineered.
+                headers["X-Tsp-User-Token"] = self.cac_token
+                headers["X-VCS-User-Token"] = self.cac_token
         return headers
 
     async def _post(
@@ -981,8 +988,21 @@ class DeepalClient:
             raise DeepalApiError("Unexpected serial-no response")
         return data
 
+    async def get_security_code_status(self) -> dict[str, Any]:
+        """Check the control PIN's status (retry count, lockout) before entering it.
+
+        Confirmed from a live capture of the current app: it always calls
+        this immediately before check-code. Unknown whether the server
+        depends on this call happening first or the app just uses it for its
+        own "N attempts remaining" UI, but it's cheap and matches the real
+        flow exactly, so it's called unconditionally here too.
+        """
+        data = await self._post("/intl-app-gw/intl-app-car-control/api/security-code/get-status", {})
+        return data if isinstance(data, dict) else {}
+
     async def check_control_code(self, safe_code: str) -> str:
         """Exchange the remote-control PIN for an rcToken."""
+        await self.get_security_code_status()
         data = await self._post(
             "/intl-app-gw/intl-app-car-control/api/security-code/check-code",
             {"safeCode": self.encrypt_request_value(safe_code)},
@@ -1005,10 +1025,14 @@ class DeepalClient:
         """Send one app-style signed command and return its command id."""
         if not self.commands_enabled:
             raise DeepalCommandNotReady("Remote commands are not enabled or command signing is incomplete")
-        if require_rc_token and not self.rc_token:
-            if not self.control_pin:
+        reused_rc_token = False
+        if require_rc_token:
+            if self.rc_token:
+                reused_rc_token = True
+            elif self.control_pin:
+                await self.check_control_code(self.control_pin)
+            else:
                 raise DeepalCommandNotReady("Control PIN or rcToken is required")
-            await self.check_control_code(self.control_pin)
         serial_data = await self.get_serial_data(serial_type)
         seriral_no = self.decrypt_seriral_no(serial_data)
         signed_payload = {
@@ -1018,19 +1042,36 @@ class DeepalClient:
             "vehicleId": vehicle_id,
         }
         signed_payload["sign"] = self.sign_payload(signed_payload, omit_keys=sign_omit_keys)
-        data = await self._post(path, signed_payload)
+        try:
+            data = await self._post(path, signed_payload)
+        except DeepalRateLimitError:
+            raise
+        except DeepalApiError:
+            # A cached rcToken is a session, and sessions expire (the official
+            # app itself asks for the control PIN again roughly weekly). We
+            # only find out it's gone stale when the server rejects a command
+            # that used it. If this request reused a cached token rather than
+            # one we just freshly exchanged, clear it and retry once with a
+            # newly exchanged token before giving up - this only re-prompts
+            # the *server* (via the stored PIN), never the user.
+            if not (require_rc_token and reused_rc_token and self.control_pin):
+                raise
+            self.rc_token = None
+            await self.check_control_code(self.control_pin)
+            signed_payload["rcToken"] = self.rc_token or ""
+            signed_payload["sign"] = self.sign_payload(signed_payload, omit_keys=sign_omit_keys)
+            data = await self._post(path, signed_payload)
         if not isinstance(data, dict) or not data.get("commandId"):
             raise DeepalApiError("Control command did not return commandId")
         return str(data["commandId"])
 
-    async def control_doors(self, *, vehicle_id: str, command: str, open_value: bool) -> str:
+    async def control_doors(self, *, vehicle_id: str, open_value: bool) -> str:
         """Send a lock/unlock command; never available unless explicitly enabled."""
         return await self._signed_command(
             path="/intl-app-gw/intl-app-car-control/api/control/doors",
             vehicle_id=vehicle_id,
-            payload={"command": "lock", "open": open_value},
+            payload={"open": open_value},
             require_rc_token=True,
-            sign_omit_keys={"command"},
         )
 
     async def control_air_conditioner(
@@ -1063,6 +1104,7 @@ class DeepalClient:
             vehicle_id=vehicle_id,
             payload={"chargePercentageMax": int(percentage), "command": "charge_max"},
             serial_type="2",
+            sign_omit_keys={"command", "rcToken"},
         )
 
     async def control_charge_schedule(
@@ -1093,6 +1135,7 @@ class DeepalClient:
                 "timeZone": time_zone,
             },
             serial_type="2",
+            sign_omit_keys={"command", "rcToken"},
         )
 
     async def control_windows(self, *, vehicle_id: str, open_value: bool, open_type: int = 10) -> str:
@@ -1124,6 +1167,7 @@ class DeepalClient:
             path="/intl-app-gw/intl-app-car-control/api/control/flashing-honking",
             vehicle_id=vehicle_id,
             payload={"command": "flash_bee", "type": action_type},
+            sign_omit_keys={"command", "rcToken"},
         )
 
     async def control_condition_inquiry(self, *, vehicle_id: str) -> str:
