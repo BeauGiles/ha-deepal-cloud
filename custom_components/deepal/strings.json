@@ -73,22 +73,35 @@
           "active_refresh_interval": "Vehicle refresh interval",
           "control_pin": "Control PIN",
           "enable_commands": "Enable remote commands",
-          "enable_api_logging": "Enable redacted API logging"
+          "enable_api_logging": "Enable redacted API logging",
+          "reauthenticate": "Reauthenticate now"
         },
         "data_description": {
           "scan_interval": "How often Home Assistant polls the cached cloud status. This is lightweight and does not wake or actively query the car.",
           "active_refresh_interval": "How often Home Assistant sends the signed refresh command that asks the cloud/car for newer vehicle data. Only used when remote commands are enabled.",
           "control_pin": "The same PIN used for remote controls in the official Deepal app. Required when remote commands are enabled.",
           "enable_commands": "Allow Home Assistant to send signed commands such as refresh, lock, climate, charging, windows, boot, lights, and horn.",
-          "enable_api_logging": "Write redacted Deepal API requests and responses to the Home Assistant log for troubleshooting. Tokens, PINs, signatures, keys, and account identifiers are filtered, but vehicle data may still appear. Leave disabled unless debugging."
+          "enable_api_logging": "Write redacted Deepal API requests and responses to the Home Assistant log for troubleshooting. Tokens, PINs, signatures, keys, and account identifiers are filtered, but vehicle data may still appear. Leave disabled unless debugging.",
+          "reauthenticate": "Logs in again to get a fresh command-signing key, without deleting or re-adding the integration. Use this if remote commands (lock, windows, boot, climate, charging, lights, horn) fail outright while vehicle data still updates normally. Any other changes made in this same submission are ignored - reopen this dialog afterward for those."
         }
       }
+    },
+    "abort": {
+      "reauth_triggered": "Starting reauthentication. Home Assistant will show a notification to finish logging in again - complete that to register the fresh command-signing key."
     }
   },
   "issues": {
     "command_reauth": {
       "title": "Deepal remote commands need reauthentication",
-      "description": "Deepal accepted the account session and control PIN, but rejected the remote-command signing key. Reauthenticate the Deepal integration so Home Assistant can register a fresh command key."
+      "description": "Deepal accepted the account session and control PIN, but rejected the remote-command signing key. Reauthenticate the Deepal integration so Home Assistant can register a fresh command key.",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "[%key:component::deepal::issues::command_reauth::title%]",
+            "description": "This logs in again to register a fresh command-signing key. Home Assistant will show a notification to finish logging in again once you confirm."
+          }
+        }
+      }
     }
   },
   "entity": {

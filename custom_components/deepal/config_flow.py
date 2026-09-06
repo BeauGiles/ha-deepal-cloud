@@ -451,6 +451,12 @@ class DeepalOptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(self, user_input: dict[str, Any] | None = None):
         errors: dict[str, str] = {}
         if user_input is not None:
+            if user_input.pop("reauthenticate", False):
+                # Login again to get a fresh command-signing keypair, without
+                # touching any other setting in this same submission - the
+                # user can reopen Configure afterward for anything else.
+                self.config_entry.async_start_reauth(self.hass)
+                return self.async_abort(reason="reauth_triggered")
             if user_input.get(CONF_ENABLE_COMMANDS) and not str(user_input.get(CONF_CONTROL_PIN) or "").strip():
                 errors[CONF_CONTROL_PIN] = "pin_required"
             else:
@@ -480,6 +486,7 @@ class DeepalOptionsFlow(config_entries.OptionsFlow):
                 vol.Optional(CONF_CONTROL_PIN, default=data.get(CONF_CONTROL_PIN, "")): str,
                 vol.Optional(CONF_ENABLE_COMMANDS, default=data.get(CONF_ENABLE_COMMANDS, False)): bool,
                 vol.Optional(CONF_ENABLE_API_LOGGING, default=data.get(CONF_ENABLE_API_LOGGING, False)): bool,
+                vol.Optional("reauthenticate", default=False): bool,
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema, errors=errors)
