@@ -2,6 +2,28 @@
 
 All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
+## [0.3.5] - 2026-09-10
+
+### Fixed
+
+- **Every fresh setup of this integration failed outright** with
+  `ModuleNotFoundError: Platform deepal.image not found`. `const.py` has
+  declared `Platform.IMAGE` since the rebase onto danperks/ha-deepal, but
+  the actual `custom_components/deepal/image.py` implementing it was never
+  committed — it has never existed in this repo's history. Home Assistant
+  hard-fails the entire config entry when any declared platform module is
+  missing, so every new install (and, on some Home Assistant core versions,
+  every reload of an existing one) broke immediately on setup. Reported by
+  a user unable to complete setup even after removing and re-adding the
+  integration.
+- Added the missing `image.py`, rendering the vehicle photo Deepal already
+  supplies via the `vehicle.imgUrl` field (the same field the existing
+  `img_url` diagnostic sensor already uses). Works around the fact that
+  Deepal's CDN doesn't reliably send an `image/*` Content-Type header — which
+  Home Assistant's built-in `ImageEntity.image_url` fetch path requires — by
+  fetching the bytes directly and sniffing the image format from its magic
+  bytes instead.
+
 ## [0.3.4] - 2026-09-06
 
 Fixes from a live debugging session against a real AU-market S07 account,
