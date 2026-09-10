@@ -2,6 +2,15 @@
 
 All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
+## [0.3.6] - 2026-09-10
+
+### Fixed
+
+- The Charge Limit slider allowed setting as low as 50% in steps of 10. On
+  the S07, the vehicle itself enforces a 60% minimum, and the official app
+  lets you set any 1% increment, not just multiples of 10. Corrected the
+  slider to a 60-100% range with a 1% step to match.
+
 ## [0.3.5] - 2026-09-10
 
 ### Fixed
