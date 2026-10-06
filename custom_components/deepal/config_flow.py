@@ -260,14 +260,6 @@ class DeepalConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     if self._reauth_entry is not None:
                         return await self._async_finish_reauth(login, vehicles, info, code_step="email_code")
                     self._login_result = {"login": login, "vehicles": vehicles, "info": info}
-                    if self._vehicle_uses_mqtt(vehicles[0]):
-                        return await self._async_create_login_entry(
-                            login,
-                            vehicles,
-                            info,
-                            enable_commands=False,
-                            control_pin="",
-                        )
                     return await self.async_step_commands()
 
         schema = vol.Schema({vol.Required("auth_code"): str})
@@ -311,14 +303,6 @@ class DeepalConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     if self._reauth_entry is not None:
                         return await self._async_finish_reauth(login, vehicles, info)
                     self._login_result = {"login": login, "vehicles": vehicles, "info": info}
-                    if self._vehicle_uses_mqtt(vehicles[0]):
-                        return await self._async_create_login_entry(
-                            login,
-                            vehicles,
-                            info,
-                            enable_commands=False,
-                            control_pin="",
-                        )
                     return await self.async_step_commands()
 
         schema = vol.Schema({vol.Required("auth_code"): str})
@@ -366,7 +350,6 @@ class DeepalConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         vehicle_id = str(vehicle["carId"])
         await self.async_set_unique_id(vehicle_id)
         self._abort_if_unique_id_configured()
-        is_mqtt = self._vehicle_uses_mqtt(vehicle)
         data = {
             CONF_VEHICLE_ID: vehicle_id,
             CONF_ACCESS_TOKEN: login["token"],
@@ -380,9 +363,9 @@ class DeepalConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             CONF_APP_VERSION: info.get(CONF_APP_VERSION, DEFAULT_APP_VERSION),
             CONF_DEVICE_ID: info[CONF_DEVICE_ID],
             CONF_PRIVATE_KEY: info[CONF_PRIVATE_KEY],
-            CONF_ENABLE_COMMANDS: False if is_mqtt else enable_commands,
+            CONF_ENABLE_COMMANDS: enable_commands,
         }
-        if control_pin and not is_mqtt:
+        if control_pin:
             data[CONF_CONTROL_PIN] = control_pin
         title = vehicle.get("vin") or vehicle.get("modelName") or f"Deepal {vehicle_id}"
         return self.async_create_entry(title=title, data=data)
@@ -422,9 +405,6 @@ class DeepalConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 CONF_PRIVATE_KEY: info[CONF_PRIVATE_KEY],
             }
         )
-        if self._vehicle_uses_mqtt(vehicle):
-            new_data[CONF_ENABLE_COMMANDS] = False
-            new_data.pop(CONF_CONTROL_PIN, None)
         # rcToken is session-derived. A stored control PIN can mint a fresh rcToken later.
         new_data.pop(CONF_RC_TOKEN, None)
         return self.async_update_reload_and_abort(
@@ -432,11 +412,6 @@ class DeepalConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_updates=new_data,
             reason="reauth_successful",
         )
-
-    @staticmethod
-    def _vehicle_uses_mqtt(vehicle: dict[str, Any]) -> bool:
-        """Return whether the app backend declares this vehicle as MQTT-backed."""
-        return str(vehicle.get("protocolType") or "").upper() == "MQTT"
 
     @staticmethod
     @callback

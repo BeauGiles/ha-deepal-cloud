@@ -109,7 +109,7 @@ class DeepalClimate(DeepalEntity, ClimateEntity):
 
     def _raise_if_read_only(self) -> None:
         if self.coordinator.vehicle_uses_mqtt:
-            raise HomeAssistantError("S05 MQTT vehicles are read-only in this version")
+            raise HomeAssistantError("Climate control is not supported for MQTT vehicles in this version")
 
     async def _async_send(self, *, enabled: bool, target_temperature: float) -> None:
         try:

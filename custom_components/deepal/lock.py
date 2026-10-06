@@ -17,8 +17,6 @@ from .entity import DeepalEntity
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     coordinator: DeepalDataUpdateCoordinator = entry.runtime_data
-    if coordinator.vehicle_uses_mqtt:
-        return
     async_add_entities([DeepalDoorLock(coordinator)])
 
 
@@ -53,11 +51,23 @@ class DeepalDoorLock(DeepalEntity, LockEntity):
     async def _async_control(self, *, open_value: bool) -> None:
         client = self.coordinator.client
         try:
+            send_command = (
+                (
+                    lambda: client.mqtt_control_doors(
+                        vehicle_id=self.coordinator.vehicle_id,
+                        open_value=open_value,
+                    )
+                )
+                if self.coordinator.vehicle_uses_mqtt
+                else (
+                    lambda: client.control_doors(
+                        vehicle_id=self.coordinator.vehicle_id,
+                        open_value=open_value,
+                    )
+                )
+            )
             await self.async_execute_command(
-                lambda: client.control_doors(
-                    vehicle_id=self.coordinator.vehicle_id,
-                    open_value=open_value,
-                ),
+                send_command,
                 is_done=lambda: self.is_locked is (not open_value),
             )
         except DeepalCommandAuthError as err:

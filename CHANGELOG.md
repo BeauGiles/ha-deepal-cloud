@@ -2,6 +2,38 @@
 
 All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
+## [Unreleased]
+
+### Added
+
+- **Opt-in remote controls for MQTT-backed vehicles** (door lock/unlock,
+  windows, boot). Vehicles whose `protocolType` is `MQTT` (the Deepal S05, and
+  potentially other models such as the E07) were previously read-only. They
+  can now be given a control PIN and have remote commands enabled, like the
+  S07. Commands wake the vehicle, are published exactly once (never
+  auto-retried), wait for the correlated broker response, and are followed by
+  a fresh telemetry read.
+  - The MQTT command protocol, request envelope, response/error decoding and
+    the lock/window/boot command mappings are ported from
+    [kobizz/ha-deepal](https://github.com/kobizz/ha-deepal) (commits
+    `9de00eb`, `a6ea281`, `f87fa64`, `f82c608`, `b5e6608`). **Credit and thanks
+    to kobizz** for reverse engineering and validating this against an
+    Israel-market S05.
+  - The command mappings (service codes and enum values) have only been
+    validated on an S05. Other MQTT models may use different ones; treat
+    controls on them as untested.
+  - Climate, charging, lights and horn remain unavailable on MQTT vehicles.
+- With "Enable redacted API logging" on, MQTT telemetry now logs each decoded
+  message (redacted) and which service codes were accepted or ignored, to help
+  support new MQTT models.
+
+### Changed
+
+- MQTT code paths are named generically (`mqtt_*` instead of `s05_*`) since
+  they are selected by the vehicle's `protocolType`, not by model.
+- The setup and reauth flows no longer force remote commands off for MQTT
+  vehicles.
+
 ## [0.3.6] - 2026-09-10
 
 ### Fixed

@@ -82,7 +82,7 @@ class DeepalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         vehicles = await self.client.vehicles()
         vehicle = self._vehicle_from_list(vehicles) or {}
         if self._vehicle_uses_mqtt(vehicle):
-            condition = await self.client.s05_mqtt_condition(self.vehicle_id)
+            condition = await self.client.mqtt_condition(self.vehicle_id)
         else:
             await self._async_maybe_active_condition_refresh()
             condition = await self.client.condition(self.vehicle_id)
@@ -143,6 +143,18 @@ class DeepalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         try:
             previous_last_updated = self._condition_last_updated()
             command_id = await send_command()
+            if self.vehicle_uses_mqtt:
+                # MQTT commands are acknowledged by the broker response, so
+                # there is no HTTP command result to poll; just re-read state.
+                try:
+                    await self.async_request_refresh()
+                except (DeepalApiError, UpdateFailed) as err:
+                    _LOGGER.warning(
+                        "MQTT command %s was acknowledged but the follow-up state refresh failed: %s",
+                        command_id,
+                        err,
+                    )
+                return
             await self.async_poll_command_update(
                 command_id,
                 previous_last_updated=previous_last_updated,
