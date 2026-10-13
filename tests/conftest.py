@@ -67,6 +67,8 @@ class _StubModule(types.ModuleType):
             value = _description_class(name)
         elif name == "callback":
             value = lambda function: function  # noqa: E731
+        elif name.endswith(("Error", "Exception", "AuthFailed")):
+            value = type(name, (Exception,), {})  # must be raisable
         else:
             value = type(name, (_Stub,), {})
         setattr(self, name, value)

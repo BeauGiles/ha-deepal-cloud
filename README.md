@@ -65,7 +65,7 @@ Full details are in [CHANGELOG.md](CHANGELOG.md).
 - Cabin climate entity. MQTT vehicles (S05) are state-only in this version.
 - S07 charge limit and charging schedule controls.
 - S07 door lock control.
-- S07 window and boot cover controls.
+- Window and boot controls as explicit buttons: Lower Windows, Raise Windows, Open Boot, Close Boot (open/close state stays available as binary sensors).
 - S07 flash lights and horn buttons.
 - S07 front seat heating/ventilation levels and steering wheel heating (untested on other models).
 

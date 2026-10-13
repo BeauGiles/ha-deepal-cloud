@@ -27,6 +27,18 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
   message (redacted) and which service codes were accepted or ignored, to help
   support new MQTT models.
 
+### Changed (since beta11, unreleased) - BREAKING for automations
+
+- **Windows and Boot are now buttons, not covers.** A cover's up arrow means
+  "open", which for windows means lowering them, and a stray tap is easy.
+  There are now four explicit buttons: **Lower Windows**, **Raise Windows**,
+  **Open Boot**, **Close Boot**. They send the same commands as before. The old
+  `cover` entities are removed automatically on update, so any automation,
+  script or dashboard card using `cover.*windows` or `cover.*boot` must be
+  switched to the buttons (`button.press`). Window and boot open/closed state is
+  still available from the existing binary sensors. For a confirmation prompt,
+  set a confirmation on the dashboard card's tap action.
+
 ### Fixed (since beta11, unreleased)
 
 - S05 (MQTT): the DC gun state is read from the payload's misspelled

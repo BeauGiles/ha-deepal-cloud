@@ -19,6 +19,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     entities: list[ButtonEntity] = [DeepalRefreshButton(coordinator)]
     if not coordinator.vehicle_uses_mqtt:
         entities.extend([DeepalFlashLightsButton(coordinator), DeepalHonkHornButton(coordinator)])
+    # MQTT vehicles only get window/boot controls once commands are enabled.
+    if not coordinator.vehicle_uses_mqtt or (
+        coordinator.mqtt_commands_supported and coordinator.client.commands_enabled
+    ):
+        entities.extend(
+            [
+                DeepalWindowsButton(coordinator, lower=True),
+                DeepalWindowsButton(coordinator, lower=False),
+                DeepalBootButton(coordinator, open_boot=True),
+                DeepalBootButton(coordinator, open_boot=False),
+            ]
+        )
     async_add_entities(entities)
 
 
@@ -92,3 +104,85 @@ class DeepalHonkHornButton(_DeepalFlashHonkButton):
 
     def __init__(self, coordinator: DeepalDataUpdateCoordinator) -> None:
         super().__init__(coordinator, "honk_horn")
+
+
+class _DeepalOpenCloseButton(DeepalEntity, ButtonEntity):
+    """A one-way open or close action.
+
+    Window and boot controls are separate, explicitly named buttons rather than a
+    cover: a cover's up arrow means "open", which for windows means lowering
+    them, and a mis-tap on a cover is easy. Each button does exactly what its
+    name says.
+    """
+
+    _open_value: bool
+    _what: str
+
+    def _is_closed(self) -> bool | None:
+        raise NotImplementedError
+
+    def _send(self):
+        """Return the coroutine factory that sends the command."""
+        raise NotImplementedError
+
+    async def async_press(self) -> None:
+        open_value = self._open_value
+        try:
+            await self.async_execute_command(
+                self._send(),
+                is_done=lambda: self._is_closed() is (not open_value),
+            )
+        except DeepalCommandAuthError as err:
+            self.raise_command_reauth_required(err)
+        except DeepalCommandNotReady as err:
+            raise HomeAssistantError(str(err)) from err
+        except DeepalApiError as err:
+            raise HomeAssistantError(f"Deepal {self._what} command failed: {err}") from err
+
+
+class DeepalWindowsButton(_DeepalOpenCloseButton):
+    """Lower (open) or raise (close) all windows."""
+
+    _what = "windows"
+
+    def __init__(self, coordinator: DeepalDataUpdateCoordinator, *, lower: bool) -> None:
+        key = "windows_lower" if lower else "windows_raise"
+        super().__init__(coordinator, key)
+        self._open_value = lower
+        self._attr_translation_key = key
+        self._attr_name = "Lower Windows" if lower else "Raise Windows"
+        self._attr_icon = "mdi:window-open-variant" if lower else "mdi:window-closed-variant"
+
+    def _is_closed(self) -> bool | None:
+        windows = (self.condition.get("window") or {}).get("windows")
+        if not isinstance(windows, list) or not windows:
+            return None
+        return all(value == 0 for value in windows)
+
+    def _send(self):
+        client = self.coordinator.client
+        control = client.mqtt_control_windows if self.coordinator.vehicle_uses_mqtt else client.control_windows
+        return lambda: control(vehicle_id=self.coordinator.vehicle_id, open_value=self._open_value)
+
+
+class DeepalBootButton(_DeepalOpenCloseButton):
+    """Open or close the boot."""
+
+    _what = "boot"
+
+    def __init__(self, coordinator: DeepalDataUpdateCoordinator, *, open_boot: bool) -> None:
+        key = "boot_open" if open_boot else "boot_close"
+        super().__init__(coordinator, key)
+        self._open_value = open_boot
+        self._attr_translation_key = key
+        self._attr_name = "Open Boot" if open_boot else "Close Boot"
+        self._attr_icon = "mdi:car-back"
+
+    def _is_closed(self) -> bool | None:
+        trunk = (self.condition.get("door") or {}).get("trunk")
+        return (trunk == 0) if trunk is not None else None
+
+    def _send(self):
+        client = self.coordinator.client
+        control = client.mqtt_control_trunk if self.coordinator.vehicle_uses_mqtt else client.control_trunk
+        return lambda: control(vehicle_id=self.coordinator.vehicle_id, open_value=self._open_value)

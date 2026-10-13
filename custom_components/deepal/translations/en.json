@@ -295,14 +295,6 @@
         "name": "Doors"
       }
     },
-    "cover": {
-      "windows": {
-        "name": "Windows"
-      },
-      "boot": {
-        "name": "Boot"
-      }
-    },
     "button": {
       "refresh": {
         "name": "Refresh Vehicle Data"
@@ -312,6 +304,18 @@
       },
       "honk_horn": {
         "name": "Honk Horn"
+      },
+      "windows_lower": {
+        "name": "Lower Windows"
+      },
+      "windows_raise": {
+        "name": "Raise Windows"
+      },
+      "boot_open": {
+        "name": "Open Boot"
+      },
+      "boot_close": {
+        "name": "Close Boot"
       }
     },
     "climate": {
