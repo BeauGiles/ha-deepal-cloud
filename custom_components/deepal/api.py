@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import ast
 import asyncio
 import base64
 import binascii
 from datetime import UTC, datetime
 import gzip
 import hashlib
+import inspect
 import json
 import logging
 import ssl
@@ -91,6 +93,21 @@ _SENSITIVE_EXACT_KEYS = {
     "user_id",
     "vehicleid",
     "vin",
+    # Licence plate and location values (exact match only: "lat" must not catch
+    # keys such as "latestDate").
+    "address",
+    "gps",
+    "lat",
+    "latitude",
+    "licenseplate",
+    "licenceplate",
+    "lng",
+    "location",
+    "lon",
+    "longitude",
+    "plate",
+    "platenumber",
+    "plateno",
 }
 _SENSITIVE_KEY_PARTS = (
     "authorization",
@@ -410,6 +427,12 @@ _SDA_SIGNAL_KEYS = ("BcuSocDisp", "VIUSocDisp", "VcuResiMilg", "CdcTotMilg", "Dr
 _CHARGE_TIME_SENTINEL = 8191
 
 
+def _charge_minutes(value: Any) -> int | None:
+    """Return remaining charge minutes; the app reports 8191 for "no estimate"."""
+    minutes = _as_int(value)
+    return None if minutes == _CHARGE_TIME_SENTINEL else minutes
+
+
 def _sda_params_from_body(body: Any) -> dict[str, Any]:
     """Return the flat SDA signal object from a condition response, if any."""
     if not isinstance(body, dict):
@@ -460,9 +483,7 @@ def _sda_condition_from_params(params: dict[str, Any]) -> dict[str, Any]:
         soc = round(raw_soc) if raw_soc is not None else None
     ac_connected = _as_int(params.get("AcChrgCnctrSts"))
     dc_connected = _as_int(params.get("DcChrgCnctrSts"))
-    charge_minutes = _as_int(params.get("BcuChrgTiDisp"))
-    if charge_minutes == _CHARGE_TIME_SENTINEL:
-        charge_minutes = None
+    charge_minutes = _charge_minutes(params.get("BcuChrgTiDisp"))
     return {
         "lastUpdatedAt": int(time.time() * 1000),
         "vehicleStatus": {
@@ -547,6 +568,34 @@ def _sda_condition_from_params(params: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _signal_keys_used(function: Any) -> frozenset[str]:
+    """Return the raw signal names a *_condition_from_params mapper reads.
+
+    Used by diagnostics to show which signals the vehicle reports but no entity
+    consumes yet.
+    """
+    tree = ast.parse(inspect.getsource(function))
+    keys: set[str] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if isinstance(func, ast.Attribute) and func.attr == "get":
+            args = node.args[:1]
+        elif isinstance(func, ast.Name) and func.id == "_first":
+            args = node.args[1:]
+        else:
+            continue
+        keys.update(a.value for a in args if isinstance(a, ast.Constant) and isinstance(a.value, str))
+    return frozenset(keys)
+
+
+def unmapped_signal_keys(raw: dict[str, Any], *, sda: bool) -> list[str]:
+    """Return raw signal names in ``raw`` that the condition mapper ignores."""
+    mapper = _sda_condition_from_params if sda else _mqtt_condition_from_params
+    return sorted(set(raw) - _signal_keys_used(mapper))
+
+
 def _mqtt_condition_from_params(params: dict[str, Any]) -> dict[str, Any]:
     latest = _first(params, "latestDate", "lastUpdatedAt")
     condition: dict[str, Any] = {
@@ -582,7 +631,7 @@ def _mqtt_condition_from_params(params: dict[str, Any]) -> dict[str, Any]:
             "acChargeCurrent": _as_float(_first(params, "BattACChrgInCurr", "battACChrgInCurr")),
             "dcChargeCurrent": _as_float(_first(params, "BattDCChrgInCurr", "battDCChrgInCurr")),
             "chargeCurrent": _as_float(_first(params, "BattACChrgInCurr", "BattDCChrgInCurr", "battACChrgInCurr", "battDCChrgInCurr")),
-            "remainChargeTime": _as_int(params.get("chargDeltMins")),
+            "remainChargeTime": _charge_minutes(params.get("chargDeltMins")),
             "dcChargeGunConnectStatus": _as_int(params.get("dcChargeGunConnectionState")),
             "chargeCoverStatus": _as_int(params.get("chargeCoverStatus")),
         },
@@ -712,6 +761,7 @@ class DeepalClient:
         self.control_pin = control_pin
         self.cac_token = cac_token
         self.user_id = user_id
+        self.last_mqtt_topics: list[dict[str, Any]] | None = None
         self._private_key = self._load_private_key(private_key_pem) if private_key_pem else None
 
     @property
@@ -1034,7 +1084,9 @@ class DeepalClient:
         mapped into the shared condition shape. Request shape and signal
         mapping follow Sunek0/ha-deepal-alternative (MIT).
         """
-        token = (self.tokens.access_token or "").removeprefix("Bearer ").strip()
+        # The SDA host takes the same composite login token the intl hosts get
+        # in the Authorization header (access|cac), minus the "Bearer " prefix.
+        token = (self._headers().get("authorization") or "").removeprefix("Bearer ").strip()
         overrides = {"Accept-Encoding": "identity"}
         if token:
             overrides["X-Tsp-User-Token"] = token
@@ -1074,6 +1126,21 @@ class DeepalClient:
         if not condition:
             raise DeepalApiError("MQTT telemetry did not return vehicle condition")
         return condition
+
+    async def mqtt_wake(self, vehicle_id: str) -> str:
+        """Wake an MQTT vehicle so it publishes a fresh report.
+
+        Uses the same TxWakeup request that precedes MQTT commands (validated on
+        an S05). It moves nothing on the car but can drain the 12 V battery if
+        overused, so callers must throttle it.
+        """
+        return await self._mqtt_command(
+            vehicle_id,
+            service_code="TxWakeup",
+            method="Cnr_ReWakeup",
+            params={},
+            wake_only=True,
+        )
 
     async def mqtt_control_doors(self, *, vehicle_id: str, open_value: bool) -> str:
         """Lock or unlock an MQTT-backed vehicle."""
@@ -1140,19 +1207,23 @@ class DeepalClient:
         service_code: str,
         method: str,
         params: dict[str, Any],
+        wake_only: bool = False,
     ) -> str:
         """Wake the vehicle, publish one command, and wait for its broker response.
 
         The wake-up request does not move any vehicle component. The requested
         physical command is deliberately published exactly once: a lost
-        acknowledgement must not cause a second physical action.
+        acknowledgement must not cause a second physical action. With
+        ``wake_only`` the exchange stops after the wake request is answered and
+        no command (and no control PIN) is involved.
         """
-        if not self.commands_available:
-            raise DeepalCommandNotReady(
-                "Remote commands require explicit enablement and a control PIN"
-            )
-        if self.control_pin:
-            await self.check_control_code(self.control_pin)
+        if not wake_only:
+            if not self.commands_available:
+                raise DeepalCommandNotReady(
+                    "Remote commands require explicit enablement and a control PIN"
+                )
+            if self.control_pin:
+                await self.check_control_code(self.control_pin)
 
         config = await self._mqtt_config(vehicle_id)
         token = await self._mqtt_token()
@@ -1273,6 +1344,8 @@ class DeepalClient:
                     # A car that is already awake may reject the redundant wake
                     # request. Either response proves the wake request was
                     # processed, so proceed with the user's command once.
+                    if wake_only:
+                        return wake_req_id
                     await asyncio.sleep(_MQTT_WAKE_SETTLE_SECONDS)
                     command_req_id = self._mqtt_req_id(device_did)
                     request = self._mqtt_command_request_payload(
@@ -1352,13 +1425,14 @@ class DeepalClient:
                 if device_did is None and "/properties/" in topic:
                     device_did = self._mqtt_topic_did(topic)
 
+        self.last_mqtt_topics = self._mqtt_topic_summary(info)
         if self.enable_api_logging or not (
             host and login_pub_topic and login_did and properties_get_topic and device_did
         ):
             _LOGGER.warning(
                 "Deepal MQTT debug config port=%s topics=%s",
                 port,
-                self._mqtt_topic_summary(info),
+                self.last_mqtt_topics,
             )
         if not host or not login_pub_topic or not login_did or not properties_get_topic or not device_did:
             raise DeepalApiError("MQTT config did not include required topics")

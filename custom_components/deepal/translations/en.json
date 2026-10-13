@@ -140,6 +140,9 @@
       "remain_charge_time": {
         "name": "Remaining Charge Time"
       },
+      "remain_charge_time_hhmm": {
+        "name": "Remaining Charge Time (H:MM)"
+      },
       "max_soc_percent": {
         "name": "Max Charge Limit"
       },

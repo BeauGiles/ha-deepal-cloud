@@ -58,7 +58,10 @@ Full details are in [CHANGELOG.md](CHANGELOG.md).
 - Vehicle telemetry sensors and binary sensors, with entity keys matching the real Deepal API fields and friendly display names.
 - Vehicle image entity showing the car's photo, plus VIN as the device serial number.
 - OTA firmware update status sensor.
-- Manual refresh button.
+- Remaining charge time as minutes and as an `H:MM` sensor for dashboards.
+- Diagnostics download (device page) with protocol detection and redacted raw signals, for troubleshooting new models.
+- Vehicle image falls back to a bundled picture when the API image is unavailable.
+- Manual refresh button. On MQTT vehicles (S05) it wakes a stale car, throttled to once per 5 minutes.
 - Cabin climate entity. MQTT vehicles (S05) are state-only in this version.
 - S07 charge limit and charging schedule controls.
 - S07 door lock control.

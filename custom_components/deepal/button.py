@@ -46,7 +46,7 @@ class DeepalRefreshButton(DeepalEntity, ButtonEntity):
                 await self.coordinator.async_request_refresh()
                 return
             return
-        await self.coordinator.async_request_refresh()
+        await self.coordinator.async_refresh_vehicle()
 
 
 class _DeepalFlashHonkButton(DeepalEntity, ButtonEntity):

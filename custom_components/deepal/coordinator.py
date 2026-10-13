@@ -6,6 +6,7 @@ import asyncio
 from collections.abc import Awaitable, Callable
 from datetime import timedelta
 import logging
+import time
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -22,6 +23,10 @@ from .const import (
     DEFAULT_ACTIVE_REFRESH_INTERVAL,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
+    WAKE_COOLDOWN,
+    WAKE_POLL_INTERVAL,
+    WAKE_REPORT_TIMEOUT,
+    WAKE_STALE_AFTER,
     vehicle_supports_mqtt_commands,
     vehicle_uses_mqtt,
     vehicle_uses_sda,
@@ -47,6 +52,8 @@ class DeepalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.last_refresh_failure: str | None = None
         self._command_in_progress = False
         self._next_active_refresh_at = 0.0
+        self._last_wake_at: float | None = None
+        self._wake_lock = asyncio.Lock()
 
     async def _async_update_data(self) -> dict[str, Any]:
         try:
@@ -106,6 +113,68 @@ class DeepalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def mqtt_commands_supported(self) -> bool:
         """Return whether MQTT remote commands are available for this vehicle."""
         return vehicle_supports_mqtt_commands((self.data or {}).get("vehicle") or {})
+
+    def _should_wake(self, report_ts: int | None) -> bool:
+        """Return whether a manual refresh should wake the car.
+
+        Throttled: never within the cooldown of the last wake, and only when the
+        last report is older than the stale threshold. A report with no real
+        timestamp never triggers a wake.
+        """
+        if self._last_wake_at is not None and time.monotonic() - self._last_wake_at < WAKE_COOLDOWN:
+            return False
+        if report_ts is None:
+            return False
+        return time.time() - report_ts / 1000 > WAKE_STALE_AFTER
+
+    async def async_refresh_vehicle(self) -> None:
+        """Refresh vehicle data, waking an MQTT car first when its report is stale.
+
+        Only for MQTT telemetry vehicles (S05). SDA (E07) telemetry is REST and
+        needs no wake. The periodic poll never wakes the car; only this explicit
+        refresh does, and at most once per cooldown.
+        """
+        if not self.vehicle_uses_mqtt or vehicle_uses_sda((self.data or {}).get("vehicle") or {}):
+            await self.async_request_refresh()
+            return
+
+        previous = ((self.data or {}).get("condition") or {}).get("lastUpdatedAt")
+        if not self._should_wake(previous):
+            await self.async_request_refresh()
+            return
+
+        async with self._wake_lock:
+            if not self._should_wake(previous):
+                await self.async_request_refresh()
+                return
+            try:
+                await self.client.mqtt_wake(self.vehicle_id)
+            except (DeepalApiError, DeepalAuthError) as err:
+                _LOGGER.warning("Deepal wake request failed: %s", err)
+                await self.async_request_refresh()
+                return
+            # Record the wake as soon as it is accepted, whether or not a
+            # report arrives, so a silent car is not woken repeatedly.
+            self._last_wake_at = time.monotonic()
+
+            loop = asyncio.get_running_loop()
+            deadline = loop.time() + WAKE_REPORT_TIMEOUT
+            while loop.time() < deadline:
+                await asyncio.sleep(WAKE_POLL_INTERVAL)
+                try:
+                    condition = await self.client.mqtt_condition(self.vehicle_id)
+                except (DeepalApiError, DeepalAuthError) as err:
+                    _LOGGER.debug("Deepal wake poll failed: %s", err)
+                    continue
+                report_ts = condition.get("lastUpdatedAt")
+                if previous is None or (report_ts is not None and report_ts > previous):
+                    self._async_set_condition(condition)
+                    return
+            await self.async_request_refresh()
+            raise HomeAssistantError(
+                "The vehicle did not report fresh data after the wake request; "
+                "it may be offline or asleep"
+            )
 
     async def _async_maybe_active_condition_refresh(self) -> None:
         """Periodically ask the car/cloud for fresh condition data."""

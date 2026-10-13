@@ -16,7 +16,9 @@ image_url, this entity fetches the bytes itself and sniffs the format directly.
 from __future__ import annotations
 
 import logging
+import time
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 import aiohttp
@@ -30,6 +32,17 @@ from .coordinator import DeepalDataUpdateCoordinator
 from .entity import DeepalEntity
 
 _LOGGER = logging.getLogger(__name__)
+
+# Bundled picture served when the API image is missing, slow or not an image, so
+# the device page always has one (idea from Sunek0/ha-deepal-alternative, MIT).
+GENERIC_ASSET = Path(__file__).parent / "assets" / "vehicle_generic.svg"
+SVG_CONTENT_TYPE = "image/svg+xml"
+
+# Home Assistant's image proxy gives up after 10 s, so the API fetch must finish
+# well inside that or the fallback never gets a chance to be served.
+API_IMAGE_TIMEOUT = 5
+# After a failed fetch, serve the fallback without retrying for this long.
+API_IMAGE_RETRY_AFTER = 600
 
 # Magic-byte signatures for the image formats Deepal is known to serve.
 _SIGNATURES: tuple[tuple[bytes, str], ...] = (
@@ -65,6 +78,8 @@ class DeepalVehicleImage(DeepalEntity, ImageEntity):
         self._session = async_get_clientsession(hass)
         self._last_url: str | None = None
         self._image_bytes: bytes | None = None
+        self._fallback_bytes: bytes | None = None
+        self._failed_at: float | None = None
         self._attr_image_last_updated = datetime.now(timezone.utc)
         # Deliberately NOT setting image_url: HA's own fetch path enforces a strict
         # image/* Content-Type header that this CDN doesn't reliably send. We fetch
@@ -87,32 +102,53 @@ class DeepalVehicleImage(DeepalEntity, ImageEntity):
         if current_url and current_url != self._last_url:
             self._last_url = current_url
             self._image_bytes = None  # force a re-fetch on next async_image()
+            self._failed_at = None
             self._attr_image_last_updated = datetime.now(timezone.utc)
         super()._handle_coordinator_update()
 
+    async def _async_fallback(self) -> bytes | None:
+        """Return the bundled fallback picture, reading it once."""
+        if self._fallback_bytes is None:
+            try:
+                self._fallback_bytes = await self.hass.async_add_executor_job(GENERIC_ASSET.read_bytes)
+            except OSError as err:
+                _LOGGER.error("Deepal: bundled vehicle image %s is missing: %s", GENERIC_ASSET, err)
+                return None
+        if self._attr_content_type != SVG_CONTENT_TYPE:
+            self._attr_content_type = SVG_CONTENT_TYPE
+            self._attr_image_last_updated = datetime.now(timezone.utc)
+        return self._fallback_bytes
+
     async def async_image(self) -> bytes | None:
+        """Return the API image, or the bundled fallback if it is unavailable."""
         if self._image_bytes is not None:
             return self._image_bytes
         url = self._source_url
         if not url:
-            return None
+            return await self._async_fallback()
+        if self._failed_at is not None and time.monotonic() - self._failed_at < API_IMAGE_RETRY_AFTER:
+            return await self._async_fallback()
         try:
             async with self._session.get(
-                url, timeout=aiohttp.ClientTimeout(total=10)
+                url, timeout=aiohttp.ClientTimeout(total=API_IMAGE_TIMEOUT)
             ) as response:
                 response.raise_for_status()
                 data = await response.read()
-        except Exception as err:  # noqa: BLE001 - log and surface as "no image" rather than crash
-            _LOGGER.warning("Deepal: failed to fetch vehicle image from %s: %s", url, err)
-            return None
+        except Exception as err:  # noqa: BLE001 - any failure falls back to the bundled picture
+            _LOGGER.debug("Deepal: failed to fetch vehicle image from %s: %s", url, err)
+            self._failed_at = time.monotonic()
+            return await self._async_fallback()
         content_type = _sniff_content_type(data)
         if content_type is None:
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "Deepal: vehicle image from %s did not match a known image format (got %d bytes)",
                 url,
                 len(data),
             )
-            return None
+            self._failed_at = time.monotonic()
+            return await self._async_fallback()
         self._attr_content_type = content_type
+        self._attr_image_last_updated = datetime.now(timezone.utc)
         self._image_bytes = data
+        self._failed_at = None
         return data

@@ -27,8 +27,31 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
   message (redacted) and which service codes were accepted or ignored, to help
   support new MQTT models.
 
+### Added (from Sunek0/ha-deepal-alternative, MIT; ideas and values credited, code written for this fork)
+
+- **Diagnostics download** (device page → Download diagnostics): protocol
+  detection, mapped telemetry, the raw SDA/MQTT signals, which signals no
+  entity consumes yet (`unmapped_signal_keys`), the MQTT topic structure and
+  refresh state. Tokens, VIN, licence plate and location are redacted.
+- **Vehicle image fallback**: the API picture is fetched with a 5 s timeout
+  (inside Home Assistant's 10 s image-proxy limit); if it is missing, slow or
+  not a real image, a bundled generic vehicle picture is shown instead, and a
+  failed fetch is not retried for 10 minutes.
+- **Throttled MQTT wake (S05)**: pressing *Refresh Vehicle Data* on an MQTT
+  vehicle whose last report is older than 2 minutes wakes it (the same
+  `TxWakeup` request used before MQTT commands) and waits up to 60 s for a
+  fresh report. Wakes are at most once per 5 minutes and the periodic poll
+  never wakes the car, to avoid draining the 12 V battery. Needs no control
+  PIN. Not used for E07/SDA (REST) vehicles.
+- **Remaining Charge Time (H:MM)** sensor for dashboards. "No estimate" (8191)
+  is now reported as unknown for MQTT and SDA vehicles instead of 8191.
+
 ### Fixed
 
+- SDA (E07) requests send the same composite login token as the other
+  requests (minus `Bearer `), as the official app does.
+- API logging now redacts licence plate and location (`Lat`/`Lng`, `location`,
+  `gps`, `address`) as well as the other identifiers.
 - **Deepal E07 (`SDA-MQTT`) telemetry now reads the SDA REST condition**
   (`getCarConditionByCarId` on the regional SDA gateway) instead of the S05
   MQTT path, which that platform does not serve. The flat SDA signals are

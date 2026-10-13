@@ -71,6 +71,14 @@ DEFAULT_APP_VERSION = "V1.12.0"
 DEFAULT_SCAN_INTERVAL = 60
 DEFAULT_ACTIVE_REFRESH_INTERVAL = 300
 
+# MQTT vehicle wake (manual refresh only; the periodic poll never wakes the
+# car). Waking drains the 12 V battery, so it is throttled. Values follow
+# Sunek0/ha-deepal-alternative (MIT).
+WAKE_STALE_AFTER = 120  # seconds since the last report before a refresh wakes the car
+WAKE_COOLDOWN = 300  # minimum seconds between wakes
+WAKE_REPORT_TIMEOUT = 60  # seconds to wait for a fresh report after a wake
+WAKE_POLL_INTERVAL = 5  # seconds between report reads while waiting
+
 BASE_URL = "https://m.iov.changanauto.com.de"
 CA_BASE_URL = "https://ca-m.iov.changanauto.com.de"
 SDA_BASE_URL = "https://sda-m.iov.changanauto.com.de"

@@ -52,6 +52,19 @@ def _charge_schedule(data: dict[str, Any]) -> dict[str, Any]:
     return first_plan if isinstance(first_plan, dict) else {}
 
 
+def _format_hours_minutes(minutes: Any) -> str | None:
+    """Format remaining charge minutes as H:MM, or None when there is no estimate.
+
+    The duration-style sensor shows seconds in the frontend; this text form is
+    meant for dashboards. 8191 is the app's "no estimate" value. Idea and format
+    follow Sunek0/ha-deepal-alternative (MIT).
+    """
+    if not isinstance(minutes, int | float) or minutes < 0 or minutes == 8191:
+        return None
+    total = int(minutes)
+    return f"{total // 60}:{total % 60:02d}"
+
+
 def _format_hhmm(value: Any) -> str | None:
     if value is None:
         return None
@@ -87,6 +100,7 @@ SENSOR_NAMES = {
     "ac_charge_current": "AC Charge Current",
     "dc_charge_current": "DC Charge Current",
     "remain_charge_time": "Remaining Charge Time",
+    "remain_charge_time_hhmm": "Remaining Charge Time (H:MM)",
     "max_soc_percent": "Max Charge Limit",
     "charge_plan_start_time": "Charge Schedule Start Time",
     "charge_plan_end_time": "Charge Schedule End Time",
@@ -239,6 +253,12 @@ SENSORS: tuple[DeepalSensorDescription, ...] = (
         path=("charge", "remainChargeTime"),
     ),
     DeepalSensorDescription(
+        key="remain_charge_time_hhmm",
+        translation_key="remain_charge_time_hhmm",
+        icon="mdi:timer-outline",
+        path=("charge", "remainChargeTime"),
+    ),
+    DeepalSensorDescription(
         key="max_soc_percent",
         translation_key="max_soc_percent",
         native_unit_of_measurement=PERCENTAGE,
@@ -384,6 +404,8 @@ class DeepalSensor(DeepalEntity, SensorEntity):
     def native_value(self) -> Any:
         if self.entity_description.key == "ac_status":
             return _cabin_climate_mode_state(self.condition)
+        if self.entity_description.key == "remain_charge_time_hhmm":
+            return _format_hours_minutes(_path_value(self.condition, self.entity_description.path))
         if self.entity_description.key == "charge_plan_start_time":
             return _format_hhmm(_charge_schedule(self.condition).get("startTime"))
         if self.entity_description.key == "charge_plan_end_time":
