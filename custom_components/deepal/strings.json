@@ -93,7 +93,6 @@
   "issues": {
     "command_reauth": {
       "title": "Deepal remote commands need reauthentication",
-      "description": "Deepal accepted the account session and control PIN, but rejected the remote-command signing key. Reauthenticate the Deepal integration so Home Assistant can register a fresh command key.",
       "fix_flow": {
         "step": {
           "confirm": {
