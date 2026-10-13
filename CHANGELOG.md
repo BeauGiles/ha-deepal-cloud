@@ -2,211 +2,116 @@
 
 All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
-## [Unreleased]
+## [0.4.0] - unreleased
+
+Adds **Deepal E07 support (telemetry)**, **opt-in remote controls for MQTT
+vehicles (S05)**, new **S07 seat and steering-wheel controls**, a **diagnostics
+download**, and many mapping and reliability fixes. **Read the upgrade notes
+first: some changes break automations.**
+
+### Upgrade notes
+
+- **Windows and Boot are now buttons, not covers (breaking).** A cover's up arrow
+  means "open", which for windows means lowering them, and a stray tap is easy.
+  There are now four explicit buttons: **Lower Windows**, **Raise Windows**,
+  **Open Boot** and **Close Boot**, sending the same commands as before. The old
+  `cover` entities are removed automatically, so any automation, script or card
+  using `cover.*windows` or `cover.*boot` must switch to `button.press`. Their
+  open/closed state is still available from the existing binary sensors. There is
+  no confirmation prompt at integration level; use a dashboard card's tap-action
+  confirmation if you want one.
+- **Fewer entities on new installs.** Sensors and binary sensors are now only
+  created for data the vehicle actually reports, and added later if the data first
+  appears. Existing installs keep every entity already in their registry; delete
+  ones you do not want (they will not return unless the car starts reporting them).
+- **Left-hand-drive cars: driver and passenger seat values swap.** Front doors,
+  windows and seats are now placed using the vehicle's `RHD`/`LHD` setting.
+  Right-hand-drive cars (including the AU S07) are unchanged.
+- **MQTT (S05) setups can now enable remote commands.** They stay off until you
+  enable them with the control PIN; lock and the window/boot buttons only appear
+  once commands are enabled.
 
 ### Added
 
-- **Opt-in remote controls for MQTT-backed vehicles** (door lock/unlock,
-  windows, boot). Vehicles whose `protocolType` is `MQTT` (the Deepal S05, and
-  potentially other models such as the E07) were previously read-only. They
-  can now be given a control PIN and have remote commands enabled, like the
-  S07. Commands wake the vehicle, are published exactly once (never
-  auto-retried), wait for the correlated broker response, and are followed by
-  a fresh telemetry read.
-  - The MQTT command protocol, request envelope, response/error decoding and
-    the lock/window/boot command mappings are ported from
-    [kobizz/ha-deepal](https://github.com/kobizz/ha-deepal) (commits
-    `9de00eb`, `a6ea281`, `f87fa64`, `f82c608`, `b5e6608`). **Credit and thanks
-    to kobizz** for reverse engineering and validating this against an
-    Israel-market S05.
-  - The command mappings (service codes and enum values) have only been
-    validated on an S05. Other MQTT models may use different ones; treat
-    controls on them as untested.
-  - Climate, charging, lights and horn remain unavailable on MQTT vehicles.
-- With "Enable redacted API logging" on, MQTT telemetry now logs each decoded
-  message (redacted) and which service codes were accepted or ignored, to help
-  support new MQTT models.
-
-### Changed (since beta11, unreleased) - BREAKING for automations
-
-- **Windows and Boot are now buttons, not covers.** A cover's up arrow means
-  "open", which for windows means lowering them, and a stray tap is easy.
-  There are now four explicit buttons: **Lower Windows**, **Raise Windows**,
-  **Open Boot**, **Close Boot**. They send the same commands as before. The old
-  `cover` entities are removed automatically on update, so any automation,
-  script or dashboard card using `cover.*windows` or `cover.*boot` must be
-  switched to the buttons (`button.press`). Window and boot open/closed state is
-  still available from the existing binary sensors. For a confirmation prompt,
-  set a confirmation on the dashboard card's tap action.
-
-### Fixed (since beta11, unreleased)
-
-- **Commands queue instead of failing.** Sending a second command while one is
-  running no longer errors with "A Deepal command is already in progress"; it
-  waits its turn and runs in order (up to 4 running + waiting, then a clear
-  error). The periodic background refresh still skips while a command runs.
-- **Commands stop waiting once the cloud says success.** Previously every
-  command held everything up for up to 30 seconds until the vehicle data matched
-  the request. If the data does not change (seen when turning a seat heater off:
-  the cloud answered `resultCode 0 / success` but the seat data stayed on), the
-  command now stops waiting after a short grace period, asks the car for fresh
-  data once, and logs a warning that the change was accepted but not reflected.
-  Whether such a command is physically applied is separate from this.
-
-- S05 (MQTT): the DC gun state is read from the payload's misspelled
-  `dcDhargeGunConnectionState` key as well as the correct spelling, so the DC
-  Charge Gun entity is no longer always unknown; `hood` is accepted as well as
-  `hoodStatus`; the report timestamp now also looks at `lastUpdatedTime` and
-  accepts epoch seconds/milliseconds as well as ISO strings (a missing timestamp
-  fell back to "now", which would also stop the S05 wake from ever triggering).
-  Keys from Sunek0/ha-deepal-alternative's S05 mapper (MIT). Untested on a live
-  S05.
-
-### Added (since beta11, unreleased)
-
-- A unit-test suite (`tests/`, run with `pytest`, no Home Assistant needed) for
-  the S05/E07 mappings, drive-side placement, E07 charging translation,
-  sensor gating, redaction, command results and manifest checks, plus a CI
-  workflow to run it.
-
-### Fixed (beta11)
-
-- **E07 charging state** (reported by @timalpipo on a live AU E07 charging at
-  7 kW): Charge Status showed "Not Charging", Charging and Charging Cable were
-  off. The E07's `BcuChrgSts` uses a different enum from the S07's, so it is now
-  translated into the shared codes, using the reported currents to confirm a
-  session; the cable counts as connected while charging. "Reported Charge
-  Current" is now positive while charging (the battery current is negative into
-  the pack). The enum is inferred from one car's report; diagnostics from a
-  charging E07 would confirm it.
-- Removed the unused `bluetooth` matcher and `bluetooth_adapters` dependency
-  from the manifest (merged in from main, where it had no use).
-
-### Added (beta10, from danperks/ha-deepal)
-
-- **Seat and steering-wheel controls for REST vehicles (S07):** Driver and
-  Front Passenger Seat Heating / Ventilation levels (0-3 sliders) and a
-  Steering Wheel Heating switch. Request shapes from
-  [danperks/ha-deepal](https://github.com/danperks/ha-deepal) (commit
-  `00a3902`); the seat entities read the drive-side-aware `seat.driver` /
-  `seat.passenger` data. Not created for MQTT/SDA vehicles. Untested on a live
-  car; these send real commands.
-- Spain, Italy and the Netherlands login regions (default European cluster,
-  also from danperks `6018bd6`; not verified by this fork).
-
-### Fixed (beta10)
-
-- MQTT command responses with result code `"000000"` are treated as success
-  (it is the broker's success code), so an accepted command is no longer
-  reported as failed.
-- The MQTT telemetry read no longer loads the system trust store on the event
-  loop (Home Assistant's "blocking call" warning).
-
-### Changed (beta9)
-
-- **Sensors and binary sensors are only created for data the vehicle reports.**
-  An entity is added once its value has been seen, and added later if the data
-  first appears later (for example after a car wakes from an empty first
-  report). On an AU S07 this hides 12 entities that never have a value (speed,
-  gear, parking brake, engine on, outside temperature, PM2.5, air quality,
-  reported charge current, charge-plan start/end, rear seat heater levels).
-  The same applies automatically to S05 and E07 gaps.
-- Existing installs are not changed: entities already in the entity registry are
-  always kept, and a seen-set is stored so an entity is not hidden again after a
-  restart. Unwanted existing entities can be deleted from the entity list; they
-  will not come back unless the car starts reporting them.
-
-### Fixed (beta8)
-
-- **Drive side (`driveSeatPosition`)**: S05 (MQTT) and E07 (SDA) report the
-  front doors, windows and seats by role (driver/passenger), but the entities
-  are positional. They are now placed using the vehicle's `RHD`/`LHD` setting,
-  so on a right-hand-drive E07 the driver's door and window are Front Right.
-  Before, the E07 front doors/windows and seats were swapped on RHD cars.
-- The Driver / Front Passenger seat heater and ventilation entities now follow
-  the drive side too (driver is front-right on RHD, front-left on LHD).
-  **Behaviour change for LHD cars (e.g. LHD S05/S07):** driver and passenger
-  seat values swap compared with earlier versions. RHD cars (including the AU
-  S07) are unchanged. If the drive side is not reported, the previous
-  arrangement is kept.
-
-### Fixed (beta7)
-
-- Diagnostics: the unmapped-signals list was always shown as `[redacted]`
-  because its key name contained "key"; it is now `unmapped_signals`. Raw
-  SDA/MQTT signal dumps only redact exactly-sensitive names (VIN, plate,
-  location, ids), so signals whose names merely contain `key`/`pin`/`token` are
-  no longer hidden. `authId` is redacted.
-
-### Changed (beta6)
-
-- Added the Deepal icon and logo in `custom_components/deepal/brand/`.
-- The vehicle image fallback is now the Deepal logo instead of a generic car
-  drawing.
-
-### Fixed (beta5)
-
-- Vehicle image: the API picture is now fetched in the background with a 20 s
-  timeout (requests wait at most 7 s before showing the fallback), retried
-  after 60 s, and a failure is logged once at warning level with the reason.
-  beta4's 5 s limit made slow CDN responses fall back to the generic picture
-  on an S07.
-- The Remaining Charge Time (minutes) sensor now shows unknown instead of 8191
-  on all vehicles; the S07's REST data uses the same "no estimate" value.
-
-### Added (from Sunek0/ha-deepal-alternative, MIT; ideas and values credited, code written for this fork)
-
-- **Diagnostics download** (device page → Download diagnostics): protocol
-  detection, mapped telemetry, the raw SDA/MQTT signals, which signals no
-  entity consumes yet (`unmapped_signal_keys`), the MQTT topic structure and
-  refresh state. Tokens, VIN, licence plate and location are redacted.
-- **Vehicle image fallback**: the API picture is fetched with a 5 s timeout
-  (inside Home Assistant's 10 s image-proxy limit); if it is missing, slow or
-  not a real image, a bundled generic vehicle picture is shown instead, and a
-  failed fetch is not retried for 10 minutes.
-- **Throttled MQTT wake (S05)**: pressing *Refresh Vehicle Data* on an MQTT
-  vehicle whose last report is older than 2 minutes wakes it (the same
-  `TxWakeup` request used before MQTT commands) and waits up to 60 s for a
-  fresh report. Wakes are at most once per 5 minutes and the periodic poll
-  never wakes the car, to avoid draining the 12 V battery. Needs no control
-  PIN. Not used for E07/SDA (REST) vehicles.
-- **Remaining Charge Time (H:MM)** sensor for dashboards. "No estimate" (8191)
-  is now reported as unknown for MQTT and SDA vehicles instead of 8191.
-
-### Fixed
-
-- SDA (E07) requests send the same composite login token as the other
-  requests (minus `Bearer `), as the official app does.
-- API logging now redacts licence plate and location (`Lat`/`Lng`, `location`,
-  `gps`, `address`) as well as the other identifiers.
-- **Deepal E07 (`SDA-MQTT`) telemetry now reads the SDA REST condition**
-  (`getCarConditionByCarId` on the regional SDA gateway) instead of the S05
-  MQTT path, which that platform does not serve. The flat SDA signals are
-  mapped into the standard condition (battery, range, charging, doors,
-  locks, windows, climate, seats, lamps). The request shape, SDA host names
-  and signal mapping come from
-  [Sunek0/ha-deepal-alternative](https://github.com/Sunek0/ha-deepal-alternative)
-  (MIT); thanks to Sunek0. Untested on a live AU account.
-- Regions now carry their own SDA host for E07 telemetry (the ASEAN host is
-  unconfirmed for AU). The CA host used by S05 MQTT is unchanged.
-- Vehicles reporting `protocolType: "SDA-MQTT"` (the Deepal E07) were treated
-  as HTTP vehicles and showed almost every sensor as unknown, because MQTT
-  detection required an exact `MQTT` match. Any protocol type containing
-  `MQTT` now uses MQTT telemetry. Remote commands stay limited to the exact
-  `MQTT` type (S05); `SDA-MQTT` vehicles are telemetry-only until their
-  command protocol is confirmed. Reported by @timalpipo.
-- With API logging enabled, the MQTT topic structure (device IDs hidden) is
-  logged, and is always logged when required topics are missing.
+- **Deepal E07 support (telemetry only).** E07s report `protocolType: SDA-MQTT`
+  and read their condition from the regional SDA REST endpoint
+  (`getCarConditionByCarId`), not the S05 MQTT path. Battery, range, odometer,
+  charging, doors, locks, windows, climate, seats and lamps are mapped. Confirmed
+  on a live AU E07; remote commands are **not** available. Tyre pressures,
+  outside temperature and humidity are not mapped yet.
+- **Opt-in remote controls for MQTT vehicles (S05):** door lock/unlock, windows
+  and boot. Commands wake the vehicle, are published exactly once (never
+  auto-retried), wait for the broker's response, and are followed by a fresh read.
+  Validated by upstream only on an Israel-market S05; untested in this fork.
+- **S07 seat and steering-wheel controls:** Driver and Front Passenger Seat
+  Heating and Ventilation levels (0-3) and a Steering Wheel Heating switch. Not
+  created for MQTT or SDA vehicles. These send real commands.
+- **Diagnostics download** (device page): protocol detection, mapped telemetry,
+  raw SDA/MQTT signals, signals no entity reads yet (`unmapped_signals`), MQTT
+  topic structure and refresh state. VIN, plate, location and tokens are redacted.
+- **Throttled wake for MQTT vehicles:** pressing *Refresh Vehicle Data* on an MQTT
+  vehicle whose last report is over 2 minutes old wakes it and waits up to 60 s
+  for fresh data, at most once per 5 minutes. The periodic poll never wakes the
+  car. Not used for E07 (REST).
+- **Remaining Charge Time (H:MM)** sensor for dashboards.
+- **Vehicle image fallback:** the picture is fetched in the background, and if it
+  is missing, slow or not an image the Deepal logo is shown instead.
+- **Spain, Italy and the Netherlands** login regions (default European cluster;
+  not verified by this fork).
+- Deepal icon and logo in `custom_components/deepal/brand/`.
+- A unit-test suite (`tests/`, `pytest`, no Home Assistant needed) and a CI
+  workflow that runs it.
+- With "Enable redacted API logging" on, MQTT telemetry logs each decoded message
+  (redacted) and the topic structure, to help support new models.
 
 ### Changed
 
-- Lock, window and boot entities on MQTT vehicles are only created once
-  remote commands are enabled with a control PIN, so existing S05 setups gain
-  no new entities on upgrade.
-- MQTT code paths are named generically (`mqtt_*` instead of `s05_*`) since
-  they are selected by the vehicle's `protocolType`, not by model.
-- The setup and reauth flows no longer force remote commands off for MQTT
-  vehicles.
+- Commands now **queue** instead of failing with "already in progress": they run
+  one at a time in order (up to 4 running or waiting, then a clear error). The
+  periodic background refresh still skips while a command runs.
+- Commands **stop waiting once the cloud reports success.** They used to hold
+  everything for up to 30 s until the vehicle data matched. After a short grace
+  period the integration asks the car for fresh data once and stops waiting,
+  logging a warning if the data still shows the old state.
+- MQTT code is named generically (`mqtt_*` rather than `s05_*`): it is chosen by
+  the vehicle's `protocolType`, not its model.
+- Setup and reauthentication no longer force remote commands off for MQTT vehicles.
+
+### Fixed
+
+- **E07 charging state:** Charge Status, Charging and Charging Cable were wrong
+  while charging, because the E07's charge status enum differs from the S07's.
+  They are now translated using the reported currents, and "Reported Charge
+  Current" is positive while charging. The mapping is inferred from one car's
+  report.
+- **Remaining Charge Time** showed 8191 ("no estimate") on the S07 and on MQTT/SDA
+  cars; it now shows unknown.
+- **S05 (MQTT) payload keys:** the DC gun state is read from the payload's
+  misspelled `dcDhargeGunConnectionState` as well as the correct spelling, `hood`
+  is accepted as well as `hoodStatus`, and the report timestamp also looks at
+  `lastUpdatedTime` and accepts epoch seconds/milliseconds. Untested on a live S05.
+- MQTT command responses with result code `"000000"` count as success.
+- The MQTT telemetry read no longer loads the SSL trust store on the event loop
+  (Home Assistant's blocking-call warning).
+- API logging also redacts licence plate and location (`Lat`/`Lng`, `location`,
+  `gps`, `address`); raw signal dumps in diagnostics only redact exactly-sensitive
+  names so ordinary signals are not hidden.
+- Removed an unused `bluetooth` matcher and `bluetooth_adapters` dependency from
+  the manifest.
+
+### Credits
+
+- [danperks/ha-deepal](https://github.com/danperks/ha-deepal): the base
+  integration; seat/steering control requests and the ES/IT/NL regions.
+- [kobizz/ha-deepal](https://github.com/kobizz/ha-deepal): the S05 MQTT command
+  protocol (lock, windows, boot), validated on an Israel-market S05.
+- [Sunek0/ha-deepal-alternative](https://github.com/Sunek0/ha-deepal-alternative)
+  (MIT): the E07 SDA REST request shape and signal mapping, S05 payload key names,
+  and the ideas behind diagnostics, the wake, the image fallback and the H:MM
+  sensor. See [NOTICE.md](NOTICE.md).
+- [DylanTusler/ha-deepal](https://github.com/DylanTusler/ha-deepal): Australia
+  region support.
+- @timalpipo: testing and detailed reports on a live AU E07.
 
 ## [0.3.6] - 2026-09-10
 

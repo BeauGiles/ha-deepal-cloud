@@ -8,7 +8,9 @@
 
 Custom Home Assistant integration for the Changan Deepal cloud API.
 
-This integration was built against a UK-market Deepal S07 and a Portugal-market Deepal S05. S07 support includes telemetry and remote controls when enabled. S05 telemetry uses the app's MQTT path, with opt-in lock, window and boot controls.
+It supports the **Deepal S07** (telemetry and remote controls), the **Deepal S05** (MQTT telemetry, with opt-in lock, window and boot controls) and the **Deepal E07** (telemetry only). See [Supported Vehicles](#supported-vehicles) for what has actually been tested on each.
+
+> **Upgrading from 0.3.x?** Windows and Boot are now buttons instead of covers, and sensors are only created for data your car reports. See the [0.4.0 upgrade notes](CHANGELOG.md#040---unreleased) before updating.
 
 ## About This Fork
 
@@ -35,41 +37,56 @@ Full details are in [CHANGELOG.md](CHANGELOG.md).
 - Logging in through this integration can log you out of the official Deepal app or other devices. Likewise, logging back into the official app may invalidate the Home Assistant session. Consider creating a separate Deepal user/account for Home Assistant and then 'sharing' car access from your main account in the Deepal app.
 
 ## Supported Vehicles
-* **Deepal S07:** Telemetry and optional remote controls.
-* **Deepal S05 (MQTT):** Telemetry, plus optional door lock, window and boot controls (disabled by default; requires the control PIN).
-* Other models reporting `protocolType: MQTT` (e.g. E07) use the same code path but are **untested**.
+
+| Vehicle | Telemetry | Remote controls | Tested |
+| --- | --- | --- | --- |
+| **Deepal S07** | REST cloud API | Lock, windows, boot, climate, charging, lights, horn, seat and steering-wheel heating | UK and AU S07 |
+| **Deepal S05** | MQTT | Lock, windows and boot only; off until you enable commands with the control PIN | Telemetry by upstream authors (Portugal, Israel). The MQTT commands, wake and changes in this fork have **not** been tested on an S05 |
+| **Deepal E07** | SDA REST endpoint (`protocolType: SDA-MQTT`) | **None** | Telemetry confirmed on an AU E07 |
+
+The integration chooses its behaviour from the `protocolType` the cloud reports for your car, not from its model name, so other models may work if they report one of these types. They are untested.
 
 ## Supported Regions
 * **Confirmed working:** United Kingdom, Israel, Portugal, and Australia.
-* **Untested support:** New Zealand, Singapore, Malaysia, Thailand, Vietnam, Hong Kong, Macau, Indonesia, Philippines, and Mongolia (added alongside Australia to `REGION_GATEWAYS`).
+* **Added but unverified:** Spain, Italy and the Netherlands (default European cluster), plus New Zealand, Singapore, Malaysia, Thailand, Vietnam, Hong Kong, Macau, Indonesia, Philippines, and Mongolia (assumed to share Australia's Singapore cluster).
 
 ### Note on Regional Support
-> **Only United Kingdom, Israel, Portugal, and Australia are confirmed working.** 
+> **Only United Kingdom, Israel, Portugal, and Australia are confirmed working.**
 > 
-> The other nine countries assume they're homed on the same Singapore cluster/gateway (`m.iov.changanauto.sg`, `/appgw`) as Australia, on the basis that the original (pre-rebase) `BeauGiles/ha-deepal` integration worked for all of them against a single shared endpoint. 
+> The other Asia-Pacific countries assume they're homed on the same Singapore cluster/gateway (`m.iov.changanauto.sg`, `/appgw`) as Australia, on the basis that the original (pre-rebase) `BeauGiles/ha-deepal` integration worked for all of them against a single shared endpoint. 
 > 
 > That integration used a different, simpler auth model (manually captured bearer tokens) that didn't distinguish between regional clusters the way this one does, so the assumption hasn't been independently verified per-country here. If login fails for one of these regions, it likely means that account is actually homed on a different cluster—flag it with the failing country and, if possible, a packet capture of the login request/response.
 
 
 ## Current Features
 
-- Email-code and phone/SMS login flows through Home Assistant.
-- Native Home Assistant reauthentication/repair flow when the cloud session is invalidated.
-- Vehicle telemetry sensors and binary sensors, with entity keys matching the real Deepal API fields and friendly display names.
-- Vehicle image entity showing the car's photo, plus VIN as the device serial number.
-- OTA firmware update status sensor.
+**All vehicles**
+- Email-code and phone/SMS login through Home Assistant, with native reauthentication/repair when the cloud session is invalidated.
+- Telemetry sensors and binary sensors with friendly names. Entities are only created for data your car actually reports, and added later if it first appears later.
+- Vehicle image (falls back to the Deepal logo when the picture is unavailable), VIN as the device serial number, and an OTA status sensor where the car provides one.
 - Remaining charge time as minutes and as an `H:MM` sensor for dashboards.
-- Diagnostics download (device page) with protocol detection and redacted raw signals, for troubleshooting new models.
-- Vehicle image falls back to a bundled picture when the API image is unavailable.
-- Manual refresh button. On MQTT vehicles (S05) it wakes a stale car, throttled to once per 5 minutes.
-- Cabin climate entity. MQTT vehicles (S05) are state-only in this version.
-- S07 charge limit and charging schedule controls.
-- S07 door lock control.
-- Window and boot controls as explicit buttons: Lower Windows, Raise Windows, Open Boot, Close Boot (open/close state stays available as binary sensors).
-- S07 flash lights and horn buttons.
-- S07 front seat heating/ventilation levels and steering wheel heating (untested on other models).
+- **Download diagnostics** on the device page: protocol detection, mapped and raw signals, and which signals no entity reads yet. VIN, plate, location and tokens are redacted.
+- Manual *Refresh Vehicle Data* button. On MQTT vehicles it wakes a car whose last report is stale, at most once per 5 minutes; the periodic poll never wakes the car.
 
-MQTT vehicles support door lock, windows and boot only. Their command protocol and mappings are ported from [kobizz/ha-deepal](https://github.com/kobizz/ha-deepal) and validated on an S05 only; climate, charging, lights and horn are not available on MQTT vehicles.
+**S07 controls**
+- Door lock, charge limit and charging schedule, cabin climate, flash lights and horn.
+- Seat heating and ventilation levels (driver and front passenger) and steering-wheel heating.
+- Window and boot **buttons**: Lower Windows, Raise Windows, Open Boot, Close Boot. Their open/closed state is available as binary sensors.
+
+**S05 controls (opt-in)**
+- Door lock, plus the same window and boot buttons, once remote commands are enabled with the control PIN. Climate, charging, lights and horn are not available on MQTT vehicles.
+
+**E07**
+- Telemetry only: battery, range, charging, doors, locks, windows, climate, seats and lamps.
+
+Commands run one at a time in order (up to four queued). Open/closed buttons have no confirmation prompt at integration level; if you want one, set a confirmation on the dashboard card's tap action.
+
+## Known Limitations
+
+- **E07:** No remote controls. The app sends them over a separate MQTT broker that is not implemented. Tyre pressures, outside temperature and humidity are not mapped yet, and the charging-state mapping is inferred from one car's report.
+- **S05:** The MQTT telemetry changes, the wake and the lock/window/boot commands in this fork have not been tested on a real S05. The command protocol comes from [kobizz/ha-deepal](https://github.com/kobizz/ha-deepal), validated there on an Israel-market S05.
+- **Other regions and models** are unverified (see above).
+- Only the data the cloud provides is available; some cars report only while awake.
 
 ## Installation
 
@@ -97,11 +114,26 @@ You can also configure it manually from **Settings -> Devices & services -> Add 
 
 During setup, choose the same login method you use in the official Deepal app. If phone/SMS login says the account is not registered, try email-code login instead. You can choose whether to enable remote commands; they require the same control PIN used by the official Deepal app.
 
+## Troubleshooting
+
+- **A sensor is missing:** entities are only created once your car reports the data. Download the diagnostics from the device page and check `unmapped_signals` for data no entity reads yet.
+- **Logging:** under **Configure**, tick *Enable redacted API logging*, reproduce the problem, then find the `Deepal` lines in **Settings -> System -> Logs**. Tokens, PINs, keys, VIN, plate and location are filtered, but check before sharing.
+- **Commands fail while data still updates:** use *Reauthenticate now* under **Configure** to register a fresh command-signing key.
+- **Reporting a new model or region:** please attach the diagnostics file (while the car is charging if it is a charging problem) to a GitHub issue.
+
 ## Notes
 
 - The integration polls cached cloud status every minute. S07 can also ask for refreshed vehicle data every 5 minutes when remote commands are enabled. MQTT vehicles read refreshed MQTT telemetry and do a fresh read after an acknowledged command.
-- After a command is accepted, the integration briefly polls for command result and refreshed vehicle state so Home Assistant updates faster than the normal polling interval.
+- After a command is accepted, the integration polls for the command result and refreshed vehicle state. It stops waiting once the cloud reports success, asking the car for fresh data once.
 - If the account is used elsewhere, Home Assistant may need reauthentication.
+
+## Credits
+
+- [danperks/ha-deepal](https://github.com/danperks/ha-deepal) for the base integration, and for the seat and steering-wheel control requests and the Spain, Italy and Netherlands regions.
+- [kobizz/ha-deepal](https://github.com/kobizz/ha-deepal) for the S05 MQTT command protocol.
+- [Sunek0/ha-deepal-alternative](https://github.com/Sunek0/ha-deepal-alternative) (MIT) for the E07 SDA request shape and signal mapping, S05 payload key names, and the ideas behind diagnostics, the wake, the image fallback and the `H:MM` sensor. See [NOTICE.md](NOTICE.md).
+- [DylanTusler/ha-deepal](https://github.com/DylanTusler/ha-deepal) for Australia region support.
+- @timalpipo for testing on a live AU E07.
 
 ## Development Status
 
