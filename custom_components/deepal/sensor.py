@@ -404,6 +404,9 @@ class DeepalSensor(DeepalEntity, SensorEntity):
     def native_value(self) -> Any:
         if self.entity_description.key == "ac_status":
             return _cabin_climate_mode_state(self.condition)
+        if self.entity_description.key == "remain_charge_time":
+            minutes = _path_value(self.condition, self.entity_description.path)
+            return None if minutes == 8191 else minutes
         if self.entity_description.key == "remain_charge_time_hhmm":
             return _format_hours_minutes(_path_value(self.condition, self.entity_description.path))
         if self.entity_description.key == "charge_plan_start_time":

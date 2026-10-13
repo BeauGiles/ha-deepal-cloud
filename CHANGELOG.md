@@ -27,6 +27,16 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
   message (redacted) and which service codes were accepted or ignored, to help
   support new MQTT models.
 
+### Fixed (beta5)
+
+- Vehicle image: the API picture is now fetched in the background with a 20 s
+  timeout (requests wait at most 7 s before showing the fallback), retried
+  after 60 s, and a failure is logged once at warning level with the reason.
+  beta4's 5 s limit made slow CDN responses fall back to the generic picture
+  on an S07.
+- The Remaining Charge Time (minutes) sensor now shows unknown instead of 8191
+  on all vehicles; the S07's REST data uses the same "no estimate" value.
+
 ### Added (from Sunek0/ha-deepal-alternative, MIT; ideas and values credited, code written for this fork)
 
 - **Diagnostics download** (device page → Download diagnostics): protocol
