@@ -90,12 +90,13 @@ DEFAULT_GATEWAY = "/intl-app-gw"
 # Singapore cluster/gateway as AU, since that integration worked for them
 # against a single shared endpoint. This is UNTESTED for anything other than
 # AU — flag issues per-country if login fails.
-# Hosts are the ASEAN ("release_ase") environment of the app. The CA and SDA
-# hosts are taken from the app's environment table as documented by
+# Hosts are the ASEAN ("release_ase") environment of the app. The SDA host is
+# taken from the app's environment table as documented by
 # Sunek0/ha-deepal-alternative (MIT); only the main host is confirmed for AU.
+# The CA host is deliberately not overridden: MQTT (S05) behaviour in APAC is
+# left exactly as it was.
 _APAC_REGION = {
     "base_url": "https://m.iov.changanauto.sg",
-    "ca_base_url": "https://ca-m.iov.changanauto.sg",
     "sda_base_url": "https://prod-m.sda.changanauto.sg",
     "gateway": "/appgw",
 }

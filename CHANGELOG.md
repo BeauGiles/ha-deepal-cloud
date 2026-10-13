@@ -37,9 +37,8 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
   and signal mapping come from
   [Sunek0/ha-deepal-alternative](https://github.com/Sunek0/ha-deepal-alternative)
   (MIT); thanks to Sunek0. Untested on a live AU account.
-- Regions now carry their own CA and SDA hosts (previously the CA host was
-  always the European one, which would break MQTT/SDA calls for APAC
-  accounts). The APAC CA/SDA hosts are unconfirmed for AU.
+- Regions now carry their own SDA host for E07 telemetry (the ASEAN host is
+  unconfirmed for AU). The CA host used by S05 MQTT is unchanged.
 - Vehicles reporting `protocolType: "SDA-MQTT"` (the Deepal E07) were treated
   as HTTP vehicles and showed almost every sensor as unknown, because MQTT
   detection required an exact `MQTT` match. Any protocol type containing
@@ -51,6 +50,9 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
 ### Changed
 
+- Lock, window and boot entities on MQTT vehicles are only created once
+  remote commands are enabled with a control PIN, so existing S05 setups gain
+  no new entities on upgrade.
 - MQTT code paths are named generically (`mqtt_*` instead of `s05_*`) since
   they are selected by the vehicle's `protocolType`, not by model.
 - The setup and reauth flows no longer force remote commands off for MQTT

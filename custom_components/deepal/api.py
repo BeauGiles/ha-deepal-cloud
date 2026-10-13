@@ -701,7 +701,6 @@ class DeepalClient:
         # regions (e.g. AU -> Singapore) also use a different gateway prefix.
         region = REGION_GATEWAYS.get((country or "").upper())
         self.base_url = region["base_url"] if region else BASE_URL
-        self.ca_base_url = region["ca_base_url"] if region else CA_BASE_URL
         self.sda_base_url = region["sda_base_url"] if region else SDA_BASE_URL
         self.gateway_prefix = region["gateway"] if region else DEFAULT_GATEWAY
         self.language = language
@@ -906,7 +905,7 @@ class DeepalClient:
 
     async def _post_ca(self, path: str, payload: dict[str, Any] | None = None) -> Any:
         """POST to the CA gateway used by MQTT setup endpoints."""
-        return await self._post(path, payload, base_url=self.ca_base_url)
+        return await self._post(path, payload, base_url=CA_BASE_URL)
 
     async def refresh_tokens(self) -> DeepalTokens:
         """Refresh the bearer token using the captured app endpoint."""

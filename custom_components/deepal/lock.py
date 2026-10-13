@@ -17,7 +17,9 @@ from .entity import DeepalEntity
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     coordinator: DeepalDataUpdateCoordinator = entry.runtime_data
-    if coordinator.vehicle_uses_mqtt and not coordinator.mqtt_commands_supported:
+    if coordinator.vehicle_uses_mqtt and not (
+        coordinator.mqtt_commands_supported and coordinator.client.commands_enabled
+    ):
         return
     async_add_entities([DeepalDoorLock(coordinator)])
 
