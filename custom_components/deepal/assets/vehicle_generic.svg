@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" width="400" height="200" role="img" aria-label="Deepal vehicle">
-  <rect width="400" height="200" rx="12" fill="#eef1f4"/>
-  <ellipse cx="200" cy="158" rx="150" ry="9" fill="#000" opacity=".12"/>
-  <path d="M52 140c-4-1-6-4-6-8v-14c0-6 4-11 10-13l52-12c9-9 22-24 40-30 14-5 40-7 66-2 22 4 40 12 55 24l28 8c14 3 24 7 31 14 5 5 7 10 7 17v14c0 4-3 7-7 8z" fill="#5d7aa8"/>
-  <path d="M118 94c8-8 18-19 32-24 12-4 33-6 54-2l-4 26z" fill="#dbe7f5"/>
-  <path d="M214 68c16 3 31 10 44 21l-48 5z" fill="#dbe7f5"/>
-  <circle cx="108" cy="140" r="22" fill="#2b2f36"/><circle cx="108" cy="140" r="10" fill="#aeb6c2"/>
-  <circle cx="296" cy="140" r="22" fill="#2b2f36"/><circle cx="296" cy="140" r="10" fill="#aeb6c2"/>
-</svg>

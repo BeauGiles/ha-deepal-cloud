@@ -34,10 +34,10 @@ from .entity import DeepalEntity
 
 _LOGGER = logging.getLogger(__name__)
 
-# Bundled picture served when the API image is missing, slow or not an image, so
+# Bundled picture (the Deepal logo) served when the API image is missing, slow or not an image, so
 # the device page always has one (idea from Sunek0/ha-deepal-alternative, MIT).
-GENERIC_ASSET = Path(__file__).parent / "assets" / "vehicle_generic.svg"
-SVG_CONTENT_TYPE = "image/svg+xml"
+GENERIC_ASSET = Path(__file__).parent / "assets" / "vehicle_generic.png"
+FALLBACK_CONTENT_TYPE = "image/png"
 
 # The API image is fetched in the background with a generous timeout, so a slow
 # CDN does not matter; a request only waits a short time for it, well inside
@@ -127,8 +127,8 @@ class DeepalVehicleImage(DeepalEntity, ImageEntity):
             except OSError as err:
                 _LOGGER.error("Deepal: bundled vehicle image %s is missing: %s", GENERIC_ASSET, err)
                 return None
-        if self._attr_content_type != SVG_CONTENT_TYPE:
-            self._attr_content_type = SVG_CONTENT_TYPE
+        if self._attr_content_type != FALLBACK_CONTENT_TYPE:
+            self._attr_content_type = FALLBACK_CONTENT_TYPE
             self._attr_image_last_updated = datetime.now(timezone.utc)
         return self._fallback_bytes
 

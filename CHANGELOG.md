@@ -27,6 +27,11 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
   message (redacted) and which service codes were accepted or ignored, to help
   support new MQTT models.
 
+### Changed
+
+- The vehicle image fallback is now the Deepal logo instead of a generic car
+  drawing.
+
 ### Fixed (beta5)
 
 - Vehicle image: the API picture is now fetched in the background with a 20 s
