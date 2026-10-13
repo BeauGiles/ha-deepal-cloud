@@ -15,6 +15,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .coordinator import DeepalDataUpdateCoordinator
 from .entity import DeepalEntity
+from .gating import async_add_supported
 
 
 def _path_value(data: dict[str, Any], path: tuple[str | int, ...]) -> Any:
@@ -381,10 +382,42 @@ SENSORS: tuple[DeepalSensorDescription, ...] = (
 )
 
 
+# Sensors that are always created: they do not come from the vehicle's condition.
+ALWAYS_SENSORS = frozenset({"refresh_failure_count", "img_url"})
+
+
+def _condition(data: dict[str, Any]) -> dict[str, Any]:
+    return data.get("condition") or {}
+
+
+def _sensor_supported(description: "DeepalSensorDescription"):
+    """Return a predicate telling whether the vehicle reports this sensor's data."""
+    key = description.key
+    if key in ALWAYS_SENSORS:
+        return lambda data: True
+    if key == "ota_status":
+        return lambda data: bool(data.get("ota"))
+    if key in ("charge_plan_start_time", "charge_plan_end_time"):
+        field = "startTime" if key == "charge_plan_start_time" else "endTime"
+        return lambda data: _charge_schedule(_condition(data)).get(field) is not None
+    if key == "ac_status":
+        return lambda data: _path_value(_condition(data), ("hvac", "acStatus")) is not None
+    if key == "steering_wheel_heater":
+        return lambda data: _path_value(_condition(data), ("vehicleStatus", "steeringWheelHeater")) is not None
+    path = description.path
+    return lambda data: _path_value(_condition(data), path) is not None
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     coordinator: DeepalDataUpdateCoordinator = entry.runtime_data
-    async_add_entities(
-        [*(DeepalSensor(coordinator, description) for description in SENSORS), DeepalRawConditionSensor(coordinator)]
+    async_add_entities([DeepalRawConditionSensor(coordinator)])
+    await async_add_supported(
+        hass,
+        entry,
+        coordinator,
+        async_add_entities,
+        [(DeepalSensor(coordinator, description), _sensor_supported(description)) for description in SENSORS],
+        "sensor",
     )
 
 

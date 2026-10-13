@@ -27,6 +27,20 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
   message (redacted) and which service codes were accepted or ignored, to help
   support new MQTT models.
 
+### Changed (beta9)
+
+- **Sensors and binary sensors are only created for data the vehicle reports.**
+  An entity is added once its value has been seen, and added later if the data
+  first appears later (for example after a car wakes from an empty first
+  report). On an AU S07 this hides 12 entities that never have a value (speed,
+  gear, parking brake, engine on, outside temperature, PM2.5, air quality,
+  reported charge current, charge-plan start/end, rear seat heater levels).
+  The same applies automatically to S05 and E07 gaps.
+- Existing installs are not changed: entities already in the entity registry are
+  always kept, and a seen-set is stored so an entity is not hidden again after a
+  restart. Unwanted existing entities can be deleted from the entity list; they
+  will not come back unless the car starts reporting them.
+
 ### Fixed (beta8)
 
 - **Drive side (`driveSeatPosition`)**: S05 (MQTT) and E07 (SDA) report the

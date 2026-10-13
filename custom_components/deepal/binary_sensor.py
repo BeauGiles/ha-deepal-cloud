@@ -13,6 +13,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .coordinator import DeepalDataUpdateCoordinator
 from .entity import DeepalEntity
+from .gating import async_add_supported
 
 
 def _path_value(data: dict[str, Any], path: tuple[str | int, ...]) -> Any:
@@ -288,9 +289,24 @@ BINARY_SENSORS: tuple[DeepalBinarySensorDescription, ...] = (
 )
 
 
+def _binary_supported(description: "DeepalBinarySensorDescription"):
+    """Return a predicate telling whether the vehicle reports this sensor's data."""
+    if description.key == "any_door_open":
+        # The value is False (not None) even without door data, so check the data itself.
+        return lambda data: bool(_door(data.get("condition") or {}).get("doors"))
+    return lambda data: description.value_fn(data.get("condition") or {}) is not None
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     coordinator: DeepalDataUpdateCoordinator = entry.runtime_data
-    async_add_entities(DeepalBinarySensor(coordinator, description) for description in BINARY_SENSORS)
+    await async_add_supported(
+        hass,
+        entry,
+        coordinator,
+        async_add_entities,
+        [(DeepalBinarySensor(coordinator, description), _binary_supported(description)) for description in BINARY_SENSORS],
+        "binary_sensor",
+    )
 
 
 class DeepalBinarySensor(DeepalEntity, BinarySensorEntity):
