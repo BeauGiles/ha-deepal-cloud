@@ -53,6 +53,7 @@ first: some changes break automations.**
   vehicle whose last report is over 2 minutes old wakes it and waits up to 60 s
   for fresh data, at most once per 5 minutes. The periodic poll never wakes the
   car. Not used for E07 (REST).
+- **Any Window** binary sensor (on if any window is open), alongside Any Door.
 - **Remaining Charge Time (H:MM)** sensor for dashboards.
 - **Vehicle image fallback:** the picture is fetched in the background, and if it
   is missing, slow or not an image the Deepal logo is shown instead.
@@ -84,6 +85,8 @@ first: some changes break automations.**
   They are now translated using the reported currents, and "Reported Charge
   Current" is positive while charging. The mapping is inferred from one car's
   report.
+- **Any Door** counted a door value the car did not report as "open"; unreported
+  values are now unknown, as in the new Any Window sensor.
 - **Remaining Charge Time** showed 8191 ("no estimate") on the S07 and on MQTT/SDA
   cars; it now shows unknown.
 - **S05 (MQTT) payload keys:** the DC gun state is read from the payload's

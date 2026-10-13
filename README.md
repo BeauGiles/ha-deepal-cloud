@@ -62,7 +62,7 @@ The integration chooses its behaviour from the `protocolType` the cloud reports 
 
 **All vehicles**
 - Email-code and phone/SMS login through Home Assistant, with native reauthentication/repair when the cloud session is invalidated.
-- Telemetry sensors and binary sensors with friendly names. Entities are only created for data your car actually reports, and added later if it first appears later.
+- Telemetry sensors and binary sensors with friendly names, including **Any Door** and **Any Window** (on if any door or window is open). Entities are only created for data your car actually reports, and added later if it first appears later.
 - Vehicle image (falls back to the Deepal logo when the picture is unavailable), VIN as the device serial number, and an OTA status sensor where the car provides one.
 - Remaining charge time as minutes and as an `H:MM` sensor for dashboards.
 - **Download diagnostics** on the device page: protocol detection, mapped and raw signals, and which signals no entity reads yet. VIN, plate, location and tokens are redacted.

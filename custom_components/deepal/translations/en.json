@@ -208,6 +208,9 @@
       "any_door_open": {
         "name": "Any Door"
       },
+      "any_window_open": {
+        "name": "Any Window"
+      },
       "front_left_door_open": {
         "name": "Front Left Door"
       },

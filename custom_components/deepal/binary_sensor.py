@@ -34,6 +34,17 @@ def _door(data: dict[str, Any]) -> dict[str, Any]:
     return data.get("door") or {}
 
 
+def _any_open(values: list[Any]) -> bool | None:
+    """Return whether any known value is non-zero (open); None if none is known.
+
+    A value the vehicle did not report counts as unknown, not as open.
+    """
+    known = [value for value in values if value is not None]
+    if not known:
+        return None
+    return any(value != 0 for value in known)
+
+
 def _charge(data: dict[str, Any]) -> dict[str, Any]:
     return data.get("charge") or {}
 
@@ -77,6 +88,7 @@ BINARY_SENSOR_NAMES = {
     "front_right_door_open": "Front Right Door",
     "rear_left_door_open": "Rear Left Door",
     "rear_right_door_open": "Rear Right Door",
+    "any_window_open": "Any Window",
     "trunk": "Boot",
     "driver_lock": "Driver Door Locked",
     "passenger_lock": "Passenger Door Locked",
@@ -108,7 +120,13 @@ BINARY_SENSORS: tuple[DeepalBinarySensorDescription, ...] = (
         key="any_door_open",
         translation_key="any_door_open",
         device_class=BinarySensorDeviceClass.DOOR,
-        value_fn=lambda data: any(value != 0 for value in (_door(data).get("doors") or [])),
+        value_fn=lambda data: _any_open(_door(data).get("doors") or []),
+    ),
+    DeepalBinarySensorDescription(
+        key="any_window_open",
+        translation_key="any_window_open",
+        device_class=BinarySensorDeviceClass.WINDOW,
+        value_fn=lambda data: _any_open((data.get("window") or {}).get("windows") or []),
     ),
     DeepalBinarySensorDescription(
         key="front_left_door_open",
@@ -291,9 +309,6 @@ BINARY_SENSORS: tuple[DeepalBinarySensorDescription, ...] = (
 
 def _binary_supported(description: "DeepalBinarySensorDescription"):
     """Return a predicate telling whether the vehicle reports this sensor's data."""
-    if description.key == "any_door_open":
-        # The value is False (not None) even without door data, so check the data itself.
-        return lambda data: bool(_door(data.get("condition") or {}).get("doors"))
     return lambda data: description.value_fn(data.get("condition") or {}) is not None
 
 
