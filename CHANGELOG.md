@@ -27,8 +27,9 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
   message (redacted) and which service codes were accepted or ignored, to help
   support new MQTT models.
 
-### Changed
+### Changed (beta6)
 
+- Added the Deepal icon and logo in `custom_components/deepal/brand/`.
 - The vehicle image fallback is now the Deepal logo instead of a generic car
   drawing.
 
