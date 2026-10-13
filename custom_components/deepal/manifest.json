@@ -1,20 +1,12 @@
 {
   "domain": "deepal",
   "name": "Changan Deepal Cloud",
-  "bluetooth": [
-    {
-      "service_uuid": "0000cbba-0000-1000-8000-00805f9b34fb"
-    }
-  ],
   "codeowners": ["@BeauGiles"],
   "config_flow": true,
-  "dependencies": [
-    "bluetooth_adapters"
-  ],
   "documentation": "https://github.com/BeauGiles/ha-deepal-cloud",
   "integration_type": "device",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/BeauGiles/ha-deepal-cloud/issues",
   "requirements": [],
-  "version": "0.4.0-beta10"
+  "version": "0.4.0-beta11"
 }

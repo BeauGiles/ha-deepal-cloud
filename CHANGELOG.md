@@ -27,6 +27,19 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
   message (redacted) and which service codes were accepted or ignored, to help
   support new MQTT models.
 
+### Fixed (beta11)
+
+- **E07 charging state** (reported by @timalpipo on a live AU E07 charging at
+  7 kW): Charge Status showed "Not Charging", Charging and Charging Cable were
+  off. The E07's `BcuChrgSts` uses a different enum from the S07's, so it is now
+  translated into the shared codes, using the reported currents to confirm a
+  session; the cable counts as connected while charging. "Reported Charge
+  Current" is now positive while charging (the battery current is negative into
+  the pack). The enum is inferred from one car's report; diagnostics from a
+  charging E07 would confirm it.
+- Removed the unused `bluetooth` matcher and `bluetooth_adapters` dependency
+  from the manifest (merged in from main, where it had no use).
+
 ### Added (beta10, from danperks/ha-deepal)
 
 - **Seat and steering-wheel controls for REST vehicles (S07):** Driver and

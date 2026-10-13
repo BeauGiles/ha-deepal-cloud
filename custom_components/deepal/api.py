@@ -486,6 +486,33 @@ def _charge_minutes(value: Any) -> int | None:
     return None if minutes == _CHARGE_TIME_SENTINEL else minutes
 
 
+def _sda_charge_status(
+    raw: int | None, ac_amps: float | None, dc_amps: float | None, battery_amps: float | None
+) -> int | None:
+    """Translate the E07's BcuChrgSts into the shared charge status codes.
+
+    The shared condition uses the S07 REST codes (1 = not charging, 6 = charging,
+    0 = charge complete). The E07 reports a different enum: on an AU E07 a car
+    charging at 7 kW reported 1, and 0 is idle. So any non-zero value means a
+    charge session, which is confirmed by current when currents are reported
+    (battery current is negative while charging into the pack). A session
+    without any current is treated as complete. This enum is inferred from one
+    car's report plus Sunek0/ha-deepal-alternative's rule that non-zero means
+    charging.
+    """
+    if raw is None:
+        return None
+    if raw == 0:
+        return 1
+    currents = (ac_amps, dc_amps, battery_amps)
+    if all(value is None for value in currents):
+        return 6
+    drawing = (
+        (ac_amps or 0) > 1 or (dc_amps or 0) > 1 or (battery_amps is not None and battery_amps < -1)
+    )
+    return 6 if drawing else 0
+
+
 def _sda_params_from_body(body: Any) -> dict[str, Any]:
     """Return the flat SDA signal object from a condition response, if any."""
     if not isinstance(body, dict):
@@ -536,6 +563,13 @@ def _sda_condition_from_params(params: dict[str, Any], drive_side: str | None = 
         soc = round(raw_soc) if raw_soc is not None else None
     ac_connected = _as_int(params.get("AcChrgCnctrSts"))
     dc_connected = _as_int(params.get("DcChrgCnctrSts"))
+    battery_amps = _as_float(params.get("BcuBattI"))
+    ac_amps = _as_float(params.get("ObcChrgInpAcIL1"))
+    dc_amps = _as_float(params.get("ObcChrgDcI"))
+    charge_status = _sda_charge_status(_as_int(params.get("BcuChrgSts")), ac_amps, dc_amps, battery_amps)
+    # The plug entities expect 3 for "connected". Like the S07, 0 and 1 mean not
+    # connected; a charging car is connected whatever the connector signal says.
+    gun_connected = charge_status == 6 or ac_connected not in (None, 0, 1)
     charge_minutes = _charge_minutes(params.get("BcuChrgTiDisp"))
     door_left, door_right = _front_pair(
         _sda_status(params.get("DrvrDoorSts")),
@@ -568,14 +602,13 @@ def _sda_condition_from_params(params: dict[str, Any], drive_side: str | None = 
             "steeringWheelHeater": _as_int(params.get("SteeringHeat")),
         },
         "charge": {
-            "chargeStatus": _as_int(params.get("BcuChrgSts")),
-            "chargeConStatus": 1
-            if (ac_connected not in (None, 0) or dc_connected not in (None, 0))
-            else 0,
+            "chargeStatus": charge_status,
+            "chargeConStatus": 3 if gun_connected else 0,
             "dcChargeGunConnectStatus": dc_connected,
-            "chargeCurrent": _as_float(params.get("BcuBattI")),
-            "acChargeCurrent": _as_float(params.get("ObcChrgInpAcIL1")),
-            "dcChargeCurrent": _as_float(params.get("ObcChrgDcI")),
+            # Battery current is negative while charging into the pack.
+            "chargeCurrent": max(0.0, -battery_amps) if battery_amps is not None else None,
+            "acChargeCurrent": ac_amps,
+            "dcChargeCurrent": dc_amps,
             "remainChargeTime": charge_minutes,
             "maxSocPercent": _as_int(params.get("TboxSocChrgTarSet")),
         },
