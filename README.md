@@ -1,7 +1,7 @@
 # Changan Deepal Cloud for Home Assistant
 
 <p align="center">
-  <img src="icon.png" alt="Deepal logo" width="160">
+  <img src="https://raw.githubusercontent.com/BeauGiles/ha-deepal-cloud/main/icon.png" alt="Deepal logo" width="160">
 </p>
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz)
