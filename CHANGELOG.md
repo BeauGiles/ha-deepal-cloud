@@ -27,6 +27,26 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
   message (redacted) and which service codes were accepted or ignored, to help
   support new MQTT models.
 
+### Added (beta10, from danperks/ha-deepal)
+
+- **Seat and steering-wheel controls for REST vehicles (S07):** Driver and
+  Front Passenger Seat Heating / Ventilation levels (0-3 sliders) and a
+  Steering Wheel Heating switch. Request shapes from
+  [danperks/ha-deepal](https://github.com/danperks/ha-deepal) (commit
+  `00a3902`); the seat entities read the drive-side-aware `seat.driver` /
+  `seat.passenger` data. Not created for MQTT/SDA vehicles. Untested on a live
+  car; these send real commands.
+- Spain, Italy and the Netherlands login regions (default European cluster,
+  also from danperks `6018bd6`; not verified by this fork).
+
+### Fixed (beta10)
+
+- MQTT command responses with result code `"000000"` are treated as success
+  (it is the broker's success code), so an accepted command is no longer
+  reported as failed.
+- The MQTT telemetry read no longer loads the system trust store on the event
+  loop (Home Assistant's "blocking call" warning).
+
 ### Changed (beta9)
 
 - **Sensors and binary sensors are only created for data the vehicle reports.**

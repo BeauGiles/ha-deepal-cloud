@@ -323,6 +323,7 @@ def _mqtt_command_result_error(
                 "0",
                 200,
                 "200",
+                "000000",
                 "OK",
                 "SUCCESS",
                 "success",
@@ -1521,7 +1522,8 @@ class DeepalClient:
         if not host or not login_pub_topic or not login_did or not properties_get_topic or not device_did:
             raise DeepalApiError("MQTT config did not include required topics")
 
-        context = ssl.create_default_context()
+        # Loading the system trust store is blocking I/O; keep it off the event loop.
+        context = await asyncio.to_thread(ssl.create_default_context)
         reader: asyncio.StreamReader
         writer: asyncio.StreamWriter
         reader, writer = await asyncio.wait_for(
@@ -1860,6 +1862,43 @@ class DeepalClient:
             vehicle_id=vehicle_id,
             payload={"open": open_value},
             require_rc_token=True,
+        )
+
+    async def control_seats_heat(self, *, vehicle_id: str, driver: bool, level: int) -> str:
+        """Set the driver or front-passenger seat heating level (0 turns it off)."""
+        return await self._signed_command(
+            path="/intl-app-gw/intl-app-car-control/api/control/seats/heat",
+            vehicle_id=vehicle_id,
+            payload=self._seat_payload("seats_heat", driver=driver, level=level),
+            sign_omit_keys={"command", "rcToken"},
+        )
+
+    async def control_seats_wind(self, *, vehicle_id: str, driver: bool, level: int) -> str:
+        """Set the driver or front-passenger seat ventilation level (0 turns it off)."""
+        return await self._signed_command(
+            path="/intl-app-gw/intl-app-car-control/api/control/seats/wind",
+            vehicle_id=vehicle_id,
+            payload=self._seat_payload("seats_wind", driver=driver, level=level),
+            sign_omit_keys={"command", "rcToken"},
+        )
+
+    @staticmethod
+    def _seat_payload(command: str, *, driver: bool, level: int) -> dict[str, Any]:
+        # The endpoint rejects explicit nulls and a zero level, so only the
+        # requested seat is sent and "off" is a zero switch without a level.
+        prefix = "master" if driver else "copilot"
+        payload: dict[str, Any] = {"command": command, f"{prefix}Switch": 1 if level > 0 else 0}
+        if level > 0:
+            payload[f"{prefix}Level"] = level
+        return payload
+
+    async def control_steering_wheel_heat(self, *, vehicle_id: str, open_value: bool) -> str:
+        """Turn the steering wheel heating on or off."""
+        return await self._signed_command(
+            path="/intl-app-gw/intl-app-car-control/api/control/steering-wheel/heat",
+            vehicle_id=vehicle_id,
+            payload={"command": "steering_wheel_heating", "open": open_value},
+            sign_omit_keys={"command", "rcToken"},
         )
 
     async def control_air_conditioner(

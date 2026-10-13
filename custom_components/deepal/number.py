@@ -20,7 +20,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     coordinator: DeepalDataUpdateCoordinator = entry.runtime_data
     if coordinator.vehicle_uses_mqtt:
         return
-    async_add_entities([DeepalChargeLimitNumber(coordinator)])
+    async_add_entities(
+        [
+            DeepalChargeLimitNumber(coordinator),
+            DeepalSeatLevelNumber(coordinator, driver=True, function="heat"),
+            DeepalSeatLevelNumber(coordinator, driver=False, function="heat"),
+            DeepalSeatLevelNumber(coordinator, driver=True, function="vent"),
+            DeepalSeatLevelNumber(coordinator, driver=False, function="vent"),
+        ]
+    )
 
 
 class DeepalChargeLimitNumber(DeepalEntity, NumberEntity):
@@ -54,3 +62,49 @@ class DeepalChargeLimitNumber(DeepalEntity, NumberEntity):
             self.raise_command_reauth_required(err)
         except (DeepalApiError, DeepalCommandNotReady) as err:
             raise HomeAssistantError(f"Deepal charge limit command failed: {err}") from err
+
+
+class DeepalSeatLevelNumber(DeepalEntity, NumberEntity):
+    """Front seat heating or ventilation level (0 is off).
+
+    Seat control request shape from danperks/ha-deepal.
+    """
+
+    _attr_native_min_value = 0
+    _attr_native_max_value = 3
+    _attr_native_step = 1
+    _attr_mode = NumberMode.SLIDER
+
+    def __init__(self, coordinator: DeepalDataUpdateCoordinator, *, driver: bool, function: str) -> None:
+        seat = "driver" if driver else "front_passenger"
+        noun = "heating" if function == "heat" else "ventilation"
+        key = f"{seat}_seat_{noun}_control"
+        super().__init__(coordinator, key)
+        self._attr_translation_key = key
+        self._attr_name = f"{'Driver' if driver else 'Front Passenger'} Seat {noun.title()}"
+        self._attr_icon = "mdi:car-seat-heater" if function == "heat" else "mdi:car-seat-cooler"
+        self._driver = driver
+        self._function = function
+        self._status_key = "heatStatus" if function == "heat" else "ventStatus"
+
+    @property
+    def native_value(self) -> int | None:
+        # seat.driver / seat.passenger are role aliases added by the coordinator,
+        # so this follows the vehicle's drive side.
+        seat: dict[str, Any] = (self.condition.get("seat") or {}).get("driver" if self._driver else "passenger") or {}
+        level = seat.get(self._status_key)
+        return int(level) if isinstance(level, int | float) and 0 <= level <= 3 else None
+
+    async def async_set_native_value(self, value: float) -> None:
+        client = self.coordinator.client
+        control = client.control_seats_heat if self._function == "heat" else client.control_seats_wind
+        level = max(0, min(3, int(value)))
+        try:
+            await self.async_execute_command(
+                lambda: control(vehicle_id=self.coordinator.vehicle_id, driver=self._driver, level=level),
+                is_done=lambda: self.native_value == level,
+            )
+        except DeepalCommandAuthError as err:
+            self.raise_command_reauth_required(err)
+        except (DeepalApiError, DeepalCommandNotReady) as err:
+            raise HomeAssistantError(f"Deepal seat command failed: {err}") from err

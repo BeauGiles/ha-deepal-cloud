@@ -67,6 +67,7 @@ Full details are in [CHANGELOG.md](CHANGELOG.md).
 - S07 door lock control.
 - S07 window and boot cover controls.
 - S07 flash lights and horn buttons.
+- S07 front seat heating/ventilation levels and steering wheel heating (untested on other models).
 
 MQTT vehicles support door lock, windows and boot only. Their command protocol and mappings are ported from [kobizz/ha-deepal](https://github.com/kobizz/ha-deepal) and validated on an S05 only; climate, charging, lights and horn are not available on MQTT vehicles.
 

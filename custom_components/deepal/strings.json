@@ -80,7 +80,7 @@
           "scan_interval": "How often Home Assistant polls the cached cloud status. This is lightweight and does not wake or actively query the car.",
           "active_refresh_interval": "How often Home Assistant sends the signed refresh command that asks the cloud/car for newer vehicle data. Only used when remote commands are enabled.",
           "control_pin": "The same PIN used for remote controls in the official Deepal app. Required when remote commands are enabled.",
-          "enable_commands": "Allow Home Assistant to send signed commands such as refresh, lock, climate, charging, windows, boot, lights, and horn. MQTT vehicles (e.g. S05) support lock, windows and boot only.",
+          "enable_commands": "Allow Home Assistant to send signed commands such as refresh, lock, climate, charging, windows, boot, seat and steering wheel heating, lights, and horn. MQTT vehicles (e.g. S05) support lock, windows and boot only.",
           "enable_api_logging": "Write redacted Deepal API requests and responses to the Home Assistant log for troubleshooting. Tokens, PINs, signatures, keys, and account identifiers are filtered, but vehicle data may still appear. Leave disabled unless debugging.",
           "reauthenticate": "Logs in again to get a fresh command-signing key, without deleting or re-adding the integration. Use this if remote commands (lock, windows, boot, climate, charging, lights, horn) fail outright while vehicle data still updates normally. Any other changes made in this same submission are ignored - reopen this dialog afterward for those."
         }
@@ -336,11 +336,26 @@
     "number": {
       "charge_limit_control": {
         "name": "Charge Limit"
+      },
+      "driver_seat_heating_control": {
+        "name": "Driver Seat Heating"
+      },
+      "front_passenger_seat_heating_control": {
+        "name": "Front Passenger Seat Heating"
+      },
+      "driver_seat_ventilation_control": {
+        "name": "Driver Seat Ventilation"
+      },
+      "front_passenger_seat_ventilation_control": {
+        "name": "Front Passenger Seat Ventilation"
       }
     },
     "switch": {
       "charge_schedule_control": {
         "name": "Charge Schedule"
+      },
+      "steering_wheel_heating_control": {
+        "name": "Steering Wheel Heating"
       }
     },
     "time": {
