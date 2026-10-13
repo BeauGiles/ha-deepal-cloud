@@ -22,6 +22,8 @@ from .const import (
     DEFAULT_ACTIVE_REFRESH_INTERVAL,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
+    vehicle_supports_mqtt_commands,
+    vehicle_uses_mqtt,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -67,7 +69,7 @@ class DeepalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.last_refresh_failure = None
         vehicle = self._vehicle_from_list(vehicles)
         ota = None
-        if not self._vehicle_uses_mqtt(vehicle or {}):
+        if not vehicle_uses_mqtt(vehicle or {}):
             try:
                 ota = await self.client.ota_status(self.vehicle_id)
             except DeepalApiError as err:
@@ -81,7 +83,7 @@ class DeepalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Fetch vehicle metadata and condition."""
         vehicles = await self.client.vehicles()
         vehicle = self._vehicle_from_list(vehicles) or {}
-        if self._vehicle_uses_mqtt(vehicle):
+        if vehicle_uses_mqtt(vehicle):
             condition = await self.client.mqtt_condition(self.vehicle_id)
         else:
             await self._async_maybe_active_condition_refresh()
@@ -92,16 +94,15 @@ class DeepalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Return the configured vehicle metadata from a vehicle list response."""
         return next((item for item in vehicles if str(item.get("carId")) == self.vehicle_id), None)
 
-    @staticmethod
-    def _vehicle_uses_mqtt(vehicle: dict[str, Any]) -> bool:
-        """Return whether the app backend declares this vehicle as MQTT-backed."""
-        return str(vehicle.get("protocolType") or "").upper() == "MQTT"
-
     @property
     def vehicle_uses_mqtt(self) -> bool:
         """Return whether the configured vehicle uses MQTT telemetry."""
-        vehicle = (self.data or {}).get("vehicle") or {}
-        return self._vehicle_uses_mqtt(vehicle)
+        return vehicle_uses_mqtt((self.data or {}).get("vehicle") or {})
+
+    @property
+    def mqtt_commands_supported(self) -> bool:
+        """Return whether MQTT remote commands are available for this vehicle."""
+        return vehicle_supports_mqtt_commands((self.data or {}).get("vehicle") or {})
 
     async def _async_maybe_active_condition_refresh(self) -> None:
         """Periodically ask the car/cloud for fresh condition data."""

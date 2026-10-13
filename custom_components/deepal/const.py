@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from homeassistant.const import Platform
 
 DOMAIN = "deepal"
@@ -17,6 +19,26 @@ PLATFORMS: list[Platform] = [
     Platform.TIME,
     Platform.IMAGE,
 ]
+
+
+
+def vehicle_uses_mqtt(vehicle: dict[str, Any]) -> bool:
+    """Return whether the cloud declares this vehicle as MQTT-backed.
+
+    Matches variants such as the E07's "SDA-MQTT" as well as plain "MQTT".
+    """
+    return "MQTT" in str(vehicle.get("protocolType") or "").upper()
+
+
+def vehicle_supports_mqtt_commands(vehicle: dict[str, Any]) -> bool:
+    """Return whether MQTT remote commands are available for this vehicle.
+
+    The command mappings are only validated on vehicles reporting exactly
+    "MQTT" (the S05). Variants such as "SDA-MQTT" are telemetry-only until
+    their command protocol has been confirmed.
+    """
+    return str(vehicle.get("protocolType") or "").upper() == "MQTT"
+
 
 CONF_ACCESS_TOKEN = "access_token"
 CONF_REFRESH_TOKEN = "refresh_token"

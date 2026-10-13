@@ -123,6 +123,14 @@ def _is_sensitive_log_key(key: Any) -> bool:
     )
 
 
+def _redact_topic(topic: str) -> str:
+    """Replace the device-id segment of a $vdp/<did>/... topic for logging."""
+    parts = str(topic).split("/")
+    if len(parts) > 2 and parts[0] == "$vdp":
+        parts[1] = _REDACTED
+    return "/".join(parts)
+
+
 def _redact_for_log(value: Any) -> Any:
     """Return a redacted, log-safe copy of an API payload."""
     if isinstance(value, dict):
@@ -1155,6 +1163,14 @@ class DeepalClient:
                 if device_did is None and "/properties/" in topic:
                     device_did = self._mqtt_topic_did(topic)
 
+        if self.enable_api_logging or not (
+            host and login_pub_topic and login_did and properties_get_topic and device_did
+        ):
+            _LOGGER.warning(
+                "Deepal MQTT debug config port=%s topics=%s",
+                port,
+                self._mqtt_topic_summary(info),
+            )
         if not host or not login_pub_topic or not login_did or not properties_get_topic or not device_did:
             raise DeepalApiError("MQTT config did not include required topics")
 
@@ -1247,6 +1263,20 @@ class DeepalClient:
     def _mqtt_topic_did(topic: str) -> str | None:
         parts = topic.split("/")
         return parts[1] if len(parts) > 2 and parts[0] == "$vdp" else None
+
+    @staticmethod
+    def _mqtt_topic_summary(info: dict[str, Any]) -> list[dict[str, Any]]:
+        """Summarise MQTT topics by message type, hiding device identifiers."""
+        summary = []
+        for topic_info in info.get("topicInfos") or []:
+            summary.append(
+                {
+                    "msgType": topic_info.get("msgType"),
+                    "pub": [_redact_topic(t) for t in topic_info.get("pubTopics") or []],
+                    "sub": [_redact_topic(t) for t in topic_info.get("subTopics") or []],
+                }
+            )
+        return summary
 
     @staticmethod
     def _mqtt_req_id(device_id: str) -> str:

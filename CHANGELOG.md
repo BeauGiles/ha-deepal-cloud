@@ -27,6 +27,17 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
   message (redacted) and which service codes were accepted or ignored, to help
   support new MQTT models.
 
+### Fixed
+
+- Vehicles reporting `protocolType: "SDA-MQTT"` (the Deepal E07) were treated
+  as HTTP vehicles and showed almost every sensor as unknown, because MQTT
+  detection required an exact `MQTT` match. Any protocol type containing
+  `MQTT` now uses MQTT telemetry. Remote commands stay limited to the exact
+  `MQTT` type (S05); `SDA-MQTT` vehicles are telemetry-only until their
+  command protocol is confirmed. Reported by @timalpipo.
+- With API logging enabled, the MQTT topic structure (device IDs hidden) is
+  logged, and is always logged when required topics are missing.
+
 ### Changed
 
 - MQTT code paths are named generically (`mqtt_*` instead of `s05_*`) since

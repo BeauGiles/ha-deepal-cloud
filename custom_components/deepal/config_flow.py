@@ -16,6 +16,8 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import DeepalApiError, DeepalClient, DeepalRateLimitError
 from .const import (
+    vehicle_supports_mqtt_commands,
+    vehicle_uses_mqtt,
     CONF_ACCESS_TOKEN,
     CONF_ACTIVE_REFRESH_INTERVAL,
     CONF_APP_VERSION,
@@ -260,6 +262,14 @@ class DeepalConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     if self._reauth_entry is not None:
                         return await self._async_finish_reauth(login, vehicles, info, code_step="email_code")
                     self._login_result = {"login": login, "vehicles": vehicles, "info": info}
+                    if vehicle_uses_mqtt(vehicles[0]) and not vehicle_supports_mqtt_commands(vehicles[0]):
+                        return await self._async_create_login_entry(
+                            login,
+                            vehicles,
+                            info,
+                            enable_commands=False,
+                            control_pin="",
+                        )
                     return await self.async_step_commands()
 
         schema = vol.Schema({vol.Required("auth_code"): str})
@@ -303,6 +313,14 @@ class DeepalConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     if self._reauth_entry is not None:
                         return await self._async_finish_reauth(login, vehicles, info)
                     self._login_result = {"login": login, "vehicles": vehicles, "info": info}
+                    if vehicle_uses_mqtt(vehicles[0]) and not vehicle_supports_mqtt_commands(vehicles[0]):
+                        return await self._async_create_login_entry(
+                            login,
+                            vehicles,
+                            info,
+                            enable_commands=False,
+                            control_pin="",
+                        )
                     return await self.async_step_commands()
 
         schema = vol.Schema({vol.Required("auth_code"): str})
@@ -350,6 +368,7 @@ class DeepalConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         vehicle_id = str(vehicle["carId"])
         await self.async_set_unique_id(vehicle_id)
         self._abort_if_unique_id_configured()
+        commands_ok = not vehicle_uses_mqtt(vehicle) or vehicle_supports_mqtt_commands(vehicle)
         data = {
             CONF_VEHICLE_ID: vehicle_id,
             CONF_ACCESS_TOKEN: login["token"],
@@ -363,9 +382,9 @@ class DeepalConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             CONF_APP_VERSION: info.get(CONF_APP_VERSION, DEFAULT_APP_VERSION),
             CONF_DEVICE_ID: info[CONF_DEVICE_ID],
             CONF_PRIVATE_KEY: info[CONF_PRIVATE_KEY],
-            CONF_ENABLE_COMMANDS: enable_commands,
+            CONF_ENABLE_COMMANDS: enable_commands and commands_ok,
         }
-        if control_pin:
+        if control_pin and commands_ok:
             data[CONF_CONTROL_PIN] = control_pin
         title = vehicle.get("vin") or vehicle.get("modelName") or f"Deepal {vehicle_id}"
         return self.async_create_entry(title=title, data=data)
@@ -405,6 +424,9 @@ class DeepalConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 CONF_PRIVATE_KEY: info[CONF_PRIVATE_KEY],
             }
         )
+        if vehicle_uses_mqtt(vehicle) and not vehicle_supports_mqtt_commands(vehicle):
+            new_data[CONF_ENABLE_COMMANDS] = False
+            new_data.pop(CONF_CONTROL_PIN, None)
         # rcToken is session-derived. A stored control PIN can mint a fresh rcToken later.
         new_data.pop(CONF_RC_TOKEN, None)
         return self.async_update_reload_and_abort(
