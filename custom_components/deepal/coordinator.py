@@ -15,7 +15,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .api import DeepalApiError, DeepalAuthError, DeepalClient
+from .api import DeepalApiError, DeepalAuthError, DeepalClient, add_seat_roles
 from .const import (
     CONF_ACCESS_TOKEN,
     CONF_ACTIVE_REFRESH_INTERVAL,
@@ -85,12 +85,14 @@ class DeepalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 # whole update (ported from the original repo's same approach).
                 _LOGGER.debug("Deepal: failed to fetch OTA status: %s", err)
                 ota = None
+        condition = add_seat_roles(condition, (vehicle or {}).get("driveSeatPosition"))
         return {"vehicles": vehicles, "vehicle": vehicle or {}, "condition": condition, "ota": ota}
 
     async def _async_fetch(self) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         """Fetch vehicle metadata and condition."""
         vehicles = await self.client.vehicles()
         vehicle = self._vehicle_from_list(vehicles) or {}
+        self.client.drive_side = vehicle.get("driveSeatPosition")
         if vehicle_uses_sda(vehicle):
             condition = await self.client.sda_condition(self.vehicle_id)
         elif vehicle_uses_mqtt(vehicle):
@@ -281,7 +283,8 @@ class DeepalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def _async_set_condition(self, condition: dict[str, Any]) -> None:
         """Update coordinator data with a freshly fetched condition payload."""
         data = dict(self.data or {})
-        data["condition"] = condition
+        side = (data.get("vehicle") or {}).get("driveSeatPosition")
+        data["condition"] = add_seat_roles(condition, side)
         self.async_set_updated_data(data)
 
     def _condition_last_updated(self, condition: dict[str, Any] | None = None) -> str | None:

@@ -27,6 +27,20 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
   message (redacted) and which service codes were accepted or ignored, to help
   support new MQTT models.
 
+### Fixed (beta8)
+
+- **Drive side (`driveSeatPosition`)**: S05 (MQTT) and E07 (SDA) report the
+  front doors, windows and seats by role (driver/passenger), but the entities
+  are positional. They are now placed using the vehicle's `RHD`/`LHD` setting,
+  so on a right-hand-drive E07 the driver's door and window are Front Right.
+  Before, the E07 front doors/windows and seats were swapped on RHD cars.
+- The Driver / Front Passenger seat heater and ventilation entities now follow
+  the drive side too (driver is front-right on RHD, front-left on LHD).
+  **Behaviour change for LHD cars (e.g. LHD S05/S07):** driver and passenger
+  seat values swap compared with earlier versions. RHD cars (including the AU
+  S07) are unchanged. If the drive side is not reported, the previous
+  arrangement is kept.
+
 ### Fixed (beta7)
 
 - Diagnostics: the unmapped-signals list was always shown as `[redacted]`

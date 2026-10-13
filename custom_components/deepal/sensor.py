@@ -310,12 +310,12 @@ SENSORS: tuple[DeepalSensorDescription, ...] = (
     DeepalSensorDescription(
         key="driver_seat_heater_level",
         translation_key="driver_seat_heater_level",
-        path=("seat", "rightFront", "heatStatus"),
+        path=("seat", "driver", "heatStatus"),
     ),
     DeepalSensorDescription(
         key="front_passenger_seat_heater_level",
         translation_key="front_passenger_seat_heater_level",
-        path=("seat", "leftFront", "heatStatus"),
+        path=("seat", "passenger", "heatStatus"),
     ),
     DeepalSensorDescription(
         key="rear_left_seat_heater_level",

@@ -446,6 +446,39 @@ _SDA_SIGNAL_KEYS = ("BcuSocDisp", "VIUSocDisp", "VcuResiMilg", "CdcTotMilg", "Dr
 _CHARGE_TIME_SENTINEL = 8191
 
 
+def _front_pair(driver: Any, passenger: Any, drive_side: str | None, *, legacy_driver_left: bool) -> tuple[Any, Any]:
+    """Return (front-left, front-right) for a driver/passenger pair.
+
+    The vehicle reports front items by role (driver/passenger) but the shared
+    condition is positional. A right-hand-drive car has the driver on the right.
+    When the drive side is unknown, keep the arrangement this mapper used before
+    drive-side support existed.
+    """
+    side = (drive_side or "").upper()
+    if side == "RHD":
+        return passenger, driver
+    if side == "LHD":
+        return driver, passenger
+    return (driver, passenger) if legacy_driver_left else (passenger, driver)
+
+
+def add_seat_roles(condition: dict[str, Any], drive_side: str | None) -> dict[str, Any]:
+    """Add seat.driver / seat.passenger aliases to a positional condition.
+
+    The driver's seat is front-right on RHD cars and front-left on LHD cars.
+    Defaults to RHD, which is what the seat entities assumed before.
+    """
+    seat = condition.get("seat")
+    if not isinstance(seat, dict):
+        return condition
+    right_hand_drive = (drive_side or "RHD").upper() != "LHD"
+    driver_key, passenger_key = ("rightFront", "leftFront") if right_hand_drive else ("leftFront", "rightFront")
+    seat = dict(seat)
+    seat["driver"] = seat.get(driver_key) or {}
+    seat["passenger"] = seat.get(passenger_key) or {}
+    return {**condition, "seat": seat}
+
+
 def _charge_minutes(value: Any) -> int | None:
     """Return remaining charge minutes; the app reports 8191 for "no estimate"."""
     minutes = _as_int(value)
@@ -489,7 +522,7 @@ def _sda_tenths(value: Any) -> float | None:
     return parsed * 10 if parsed is not None else None
 
 
-def _sda_condition_from_params(params: dict[str, Any]) -> dict[str, Any]:
+def _sda_condition_from_params(params: dict[str, Any], drive_side: str | None = None) -> dict[str, Any]:
     """Map flat SDA condition signals into the shared nested condition shape.
 
     Signal names and value conventions come from an app trace of a real E07, as
@@ -503,6 +536,24 @@ def _sda_condition_from_params(params: dict[str, Any]) -> dict[str, Any]:
     ac_connected = _as_int(params.get("AcChrgCnctrSts"))
     dc_connected = _as_int(params.get("DcChrgCnctrSts"))
     charge_minutes = _charge_minutes(params.get("BcuChrgTiDisp"))
+    door_left, door_right = _front_pair(
+        _sda_status(params.get("DrvrDoorSts")),
+        _sda_status(params.get("PassDoorSts")),
+        drive_side,
+        legacy_driver_left=True,
+    )
+    window_left, window_right = _front_pair(
+        _as_int(params.get("DrvrWinPos")),
+        _as_int(params.get("PassWinPos")),
+        drive_side,
+        legacy_driver_left=True,
+    )
+    seat_left, seat_right = _front_pair(
+        {"heatStatus": _as_int(params.get("DrHeatGear")), "ventStatus": _as_int(params.get("DrVentGear"))},
+        {"heatStatus": _as_int(params.get("PsgHeatGear")), "ventStatus": _as_int(params.get("PsgVentGear"))},
+        drive_side,
+        legacy_driver_left=True,
+    )
     return {
         "lastUpdatedAt": int(time.time() * 1000),
         "vehicleStatus": {
@@ -529,8 +580,8 @@ def _sda_condition_from_params(params: dict[str, Any]) -> dict[str, Any]:
         },
         "door": {
             "doors": [
-                _sda_status(params.get("DrvrDoorSts")),
-                _sda_status(params.get("PassDoorSts")),
+                door_left,
+                door_right,
                 _sda_status(params.get("LeReDoorSts")),
                 _sda_status(params.get("RiReDoorSts")),
             ],
@@ -541,8 +592,8 @@ def _sda_condition_from_params(params: dict[str, Any]) -> dict[str, Any]:
         },
         "window": {
             "windows": [
-                _as_int(params.get("DrvrWinPos")),
-                _as_int(params.get("PassWinPos")),
+                window_left,
+                window_right,
                 _as_int(params.get("LeReWinPos")),
                 _as_int(params.get("RiReWinPos")),
             ],
@@ -556,14 +607,8 @@ def _sda_condition_from_params(params: dict[str, Any]) -> dict[str, Any]:
             "defrostStatus": _as_int(params.get("ITMSFrntDefroster")),
         },
         "seat": {
-            "leftFront": {
-                "heatStatus": _as_int(params.get("DrHeatGear")),
-                "ventStatus": _as_int(params.get("DrVentGear")),
-            },
-            "rightFront": {
-                "heatStatus": _as_int(params.get("PsgHeatGear")),
-                "ventStatus": _as_int(params.get("PsgVentGear")),
-            },
+            "leftFront": seat_left,
+            "rightFront": seat_right,
             "leftBack": {
                 "heatStatus": _as_int(params.get("RearLeHeatGear")),
                 "ventStatus": _as_int(params.get("RearLeVentGear")),
@@ -615,7 +660,33 @@ def unmapped_signal_keys(raw: dict[str, Any], *, sda: bool) -> list[str]:
     return sorted(set(raw) - _signal_keys_used(mapper))
 
 
-def _mqtt_condition_from_params(params: dict[str, Any]) -> dict[str, Any]:
+def _mqtt_condition_from_params(params: dict[str, Any], drive_side: str | None = None) -> dict[str, Any]:
+    door_left, door_right = _front_pair(
+        _as_int(params.get("driverDoor")),
+        _as_int(params.get("passengerDoor")),
+        drive_side,
+        legacy_driver_left=True,
+    )
+    window_left, window_right = _front_pair(
+        _as_int(params.get("diverWindow")),
+        _as_int(params.get("passengerWindow")),
+        drive_side,
+        legacy_driver_left=True,
+    )
+    seat_left, seat_right = _front_pair(
+        {
+            "level": _as_int(params.get("driverSeatHeatStatus")),
+            "heatStatus": _as_int(params.get("driverSeatHeatStatus")),
+            "ventStatus": _as_int(params.get("driverSeatAirStatus")),
+        },
+        {
+            "level": _as_int(params.get("passengerSeatHeatStatus")),
+            "heatStatus": _as_int(params.get("passengerSeatHeatStatus")),
+            "ventStatus": _as_int(params.get("passengerSeatAirStatus")),
+        },
+        drive_side,
+        legacy_driver_left=False,
+    )
     latest = _first(params, "latestDate", "lastUpdatedAt")
     condition: dict[str, Any] = {
         "lastUpdatedAt": _iso_to_millis(latest) or int(time.time() * 1000),
@@ -656,8 +727,8 @@ def _mqtt_condition_from_params(params: dict[str, Any]) -> dict[str, Any]:
         },
         "door": {
             "doors": [
-                _as_int(params.get("driverDoor")),
-                _as_int(params.get("passengerDoor")),
+                door_left,
+                door_right,
                 _as_int(params.get("leftRearDoor")),
                 _as_int(params.get("rightRearDoor")),
             ],
@@ -668,8 +739,8 @@ def _mqtt_condition_from_params(params: dict[str, Any]) -> dict[str, Any]:
         },
         "window": {
             "windows": [
-                _as_int(params.get("diverWindow")),
-                _as_int(params.get("passengerWindow")),
+                window_left,
+                window_right,
                 _as_int(params.get("leftRearWindow")),
                 _as_int(params.get("rightRearWindow")),
             ],
@@ -697,16 +768,8 @@ def _mqtt_condition_from_params(params: dict[str, Any]) -> dict[str, Any]:
             "rightBack": {"pressure": _as_float(params.get("rrTyrePressure")), "warning": _as_int(params.get("rrPressureWarning"))},
         },
         "seat": {
-            "rightFront": {
-                "level": _as_int(params.get("driverSeatHeatStatus")),
-                "heatStatus": _as_int(params.get("driverSeatHeatStatus")),
-                "ventStatus": _as_int(params.get("driverSeatAirStatus")),
-            },
-            "leftFront": {
-                "level": _as_int(params.get("passengerSeatHeatStatus")),
-                "heatStatus": _as_int(params.get("passengerSeatHeatStatus")),
-                "ventStatus": _as_int(params.get("passengerSeatAirStatus")),
-            },
+            "leftFront": seat_left,
+            "rightFront": seat_right,
         },
         "rawMqtt": params,
     }
@@ -781,6 +844,8 @@ class DeepalClient:
         self.cac_token = cac_token
         self.user_id = user_id
         self.last_mqtt_topics: list[dict[str, Any]] | None = None
+        # "RHD"/"LHD" from the vehicle list; set by the coordinator.
+        self.drive_side: str | None = None
         self._private_key = self._load_private_key(private_key_pem) if private_key_pem else None
 
     @property
@@ -1127,7 +1192,7 @@ class DeepalClient:
                 continue
             params = _sda_params_from_body(body)
             if params:
-                return _sda_condition_from_params(params)
+                return _sda_condition_from_params(params, self.drive_side)
             last_error = DeepalApiError(
                 "SDA condition response had no recognised signals; "
                 f"top-level keys: {sorted(body) if isinstance(body, dict) else type(body).__name__}"
@@ -1528,12 +1593,12 @@ class DeepalClient:
                 if not params:
                     continue
                 if topic.endswith("/properties/get/res") and len(params) > 10:
-                    return _mqtt_condition_from_params(params)
+                    return _mqtt_condition_from_params(params, self.drive_side)
                 partial_params.update(params)
                 if requested_condition and len(partial_params) > 30:
-                    return _mqtt_condition_from_params(partial_params)
+                    return _mqtt_condition_from_params(partial_params, self.drive_side)
 
-            return _mqtt_condition_from_params(partial_params) if partial_params else {}
+            return _mqtt_condition_from_params(partial_params, self.drive_side) if partial_params else {}
         finally:
             writer.close()
             try:

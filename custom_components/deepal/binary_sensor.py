@@ -268,22 +268,22 @@ BINARY_SENSORS: tuple[DeepalBinarySensorDescription, ...] = (
     DeepalBinarySensorDescription(
         key="driver_seat_heater_on",
         translation_key="driver_seat_heater_on",
-        value_fn=lambda data: _path_value(data, ("seat", "rightFront", "heatStatus")) != 0 if _path_value(data, ("seat", "rightFront", "heatStatus")) is not None else None,
+        value_fn=lambda data: _path_value(data, ("seat", "driver", "heatStatus")) != 0 if _path_value(data, ("seat", "driver", "heatStatus")) is not None else None,
     ),
     DeepalBinarySensorDescription(
         key="front_passenger_seat_heater_on",
         translation_key="front_passenger_seat_heater_on",
-        value_fn=lambda data: _path_value(data, ("seat", "leftFront", "heatStatus")) != 0 if _path_value(data, ("seat", "leftFront", "heatStatus")) is not None else None,
+        value_fn=lambda data: _path_value(data, ("seat", "passenger", "heatStatus")) != 0 if _path_value(data, ("seat", "passenger", "heatStatus")) is not None else None,
     ),
     DeepalBinarySensorDescription(
         key="driver_seat_ventilation_on",
         translation_key="driver_seat_ventilation_on",
-        value_fn=lambda data: _path_value(data, ("seat", "rightFront", "ventStatus")) != 0 if _path_value(data, ("seat", "rightFront", "ventStatus")) is not None else None,
+        value_fn=lambda data: _path_value(data, ("seat", "driver", "ventStatus")) != 0 if _path_value(data, ("seat", "driver", "ventStatus")) is not None else None,
     ),
     DeepalBinarySensorDescription(
         key="front_passenger_seat_ventilation_on",
         translation_key="front_passenger_seat_ventilation_on",
-        value_fn=lambda data: _path_value(data, ("seat", "leftFront", "ventStatus")) != 0 if _path_value(data, ("seat", "leftFront", "ventStatus")) is not None else None,
+        value_fn=lambda data: _path_value(data, ("seat", "passenger", "ventStatus")) != 0 if _path_value(data, ("seat", "passenger", "ventStatus")) is not None else None,
     ),
 )
 
