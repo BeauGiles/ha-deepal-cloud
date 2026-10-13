@@ -74,6 +74,13 @@ DEFAULT_ACTIVE_REFRESH_INTERVAL = 300
 # MQTT vehicle wake (manual refresh only; the periodic poll never wakes the
 # car). Waking drains the 12 V battery, so it is throttled. Values follow
 # Sunek0/ha-deepal-alternative (MIT).
+# Command handling. Commands are queued (one runs at a time); a command whose
+# cloud result says "success" stops waiting for the vehicle data after a short
+# grace period, because the cloud snapshot can lag behind or omit the change.
+MAX_QUEUED_COMMANDS = 4  # running + waiting
+COMMAND_SUCCESS_GRACE = 8  # seconds to wait for the data after a success result
+COMMAND_INQUIRY_WAIT = 6  # seconds to wait after the final condition inquiry
+
 WAKE_STALE_AFTER = 120  # seconds since the last report before a refresh wakes the car
 WAKE_COOLDOWN = 300  # minimum seconds between wakes
 WAKE_REPORT_TIMEOUT = 60  # seconds to wait for a fresh report after a wake

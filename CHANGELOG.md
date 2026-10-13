@@ -41,6 +41,18 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
 ### Fixed (since beta11, unreleased)
 
+- **Commands queue instead of failing.** Sending a second command while one is
+  running no longer errors with "A Deepal command is already in progress"; it
+  waits its turn and runs in order (up to 4 running + waiting, then a clear
+  error). The periodic background refresh still skips while a command runs.
+- **Commands stop waiting once the cloud says success.** Previously every
+  command held everything up for up to 30 seconds until the vehicle data matched
+  the request. If the data does not change (seen when turning a seat heater off:
+  the cloud answered `resultCode 0 / success` but the seat data stayed on), the
+  command now stops waiting after a short grace period, asks the car for fresh
+  data once, and logs a warning that the change was accepted but not reflected.
+  Whether such a command is physically applied is separate from this.
+
 - S05 (MQTT): the DC gun state is read from the payload's misspelled
   `dcDhargeGunConnectionState` key as well as the correct spelling, so the DC
   Charge Gun entity is no longer always unknown; `hood` is accepted as well as

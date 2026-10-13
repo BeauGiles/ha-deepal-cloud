@@ -21,8 +21,11 @@ from .const import (
     CONF_ACTIVE_REFRESH_INTERVAL,
     CONF_REFRESH_TOKEN,
     DEFAULT_ACTIVE_REFRESH_INTERVAL,
+    COMMAND_INQUIRY_WAIT,
+    COMMAND_SUCCESS_GRACE,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
+    MAX_QUEUED_COMMANDS,
     WAKE_COOLDOWN,
     WAKE_POLL_INTERVAL,
     WAKE_REPORT_TIMEOUT,
@@ -50,7 +53,8 @@ class DeepalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.vehicle_id = vehicle_id
         self.refresh_failure_count = 0
         self.last_refresh_failure: str | None = None
-        self._command_in_progress = False
+        self._command_lock = asyncio.Lock()
+        self._queued_commands = 0  # running + waiting
         self._next_active_refresh_at = 0.0
         self._last_wake_at: float | None = None
         self._wake_lock = asyncio.Lock()
@@ -208,37 +212,56 @@ class DeepalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         timeout: float = 30,
         interval: float = 2,
     ) -> None:
-        """Run one command, blocking duplicate commands until fresh condition data arrives."""
-        if self._command_in_progress:
-            if raise_if_busy:
-                raise HomeAssistantError("A Deepal command is already in progress; wait for vehicle data to refresh")
-            return
+        """Run one command. Commands queue and run one at a time.
 
-        self._command_in_progress = True
-        try:
-            previous_last_updated = self._condition_last_updated()
-            command_id = await send_command()
-            if self.vehicle_uses_mqtt:
-                # MQTT commands are acknowledged by the broker response, so
-                # there is no HTTP command result to poll; just re-read state.
-                try:
-                    await self.async_request_refresh()
-                except (DeepalApiError, UpdateFailed) as err:
-                    _LOGGER.warning(
-                        "MQTT command %s was acknowledged but the follow-up state refresh failed: %s",
-                        command_id,
-                        err,
-                    )
-                return
-            await self.async_poll_command_update(
-                command_id,
-                previous_last_updated=previous_last_updated,
-                is_done=is_done,
-                timeout=timeout,
-                interval=interval,
+        A background caller (``raise_if_busy=False``, the periodic condition
+        refresh) skips instead of waiting when a command is running. User
+        commands wait their turn; the queue is capped so a stuck car cannot pile
+        up physical commands.
+        """
+        if not raise_if_busy and self._command_lock.locked():
+            return
+        if self._queued_commands >= MAX_QUEUED_COMMANDS:
+            raise HomeAssistantError(
+                "Too many Deepal commands are waiting for the vehicle; try again in a moment"
             )
+        self._queued_commands += 1
+        try:
+            async with self._command_lock:
+                await self._async_run_command(send_command, is_done=is_done, timeout=timeout, interval=interval)
         finally:
-            self._command_in_progress = False
+            self._queued_commands -= 1
+
+    async def _async_run_command(
+        self,
+        send_command: Callable[[], Awaitable[str]],
+        *,
+        is_done: Callable[[], bool] | None,
+        timeout: float,
+        interval: float,
+    ) -> None:
+        """Send one command and wait for its result and the resulting vehicle data."""
+        previous_last_updated = self._condition_last_updated()
+        command_id = await send_command()
+        if self.vehicle_uses_mqtt:
+            # MQTT commands are acknowledged by the broker response, so
+            # there is no HTTP command result to poll; just re-read state.
+            try:
+                await self.async_request_refresh()
+            except (DeepalApiError, UpdateFailed) as err:
+                _LOGGER.warning(
+                    "MQTT command %s was acknowledged but the follow-up state refresh failed: %s",
+                    command_id,
+                    err,
+                )
+            return
+        await self.async_poll_command_update(
+            command_id,
+            previous_last_updated=previous_last_updated,
+            is_done=is_done,
+            timeout=timeout,
+            interval=interval,
+        )
 
     async def async_poll_command_update(
         self,
@@ -253,6 +276,7 @@ class DeepalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         loop = asyncio.get_running_loop()
         deadline = loop.time() + timeout
         condition_changed = False
+        success_at: float | None = None
 
         while True:
             result = await self.client.control_result(vehicle_id=self.vehicle_id, command_id=command_id)
@@ -269,6 +293,12 @@ class DeepalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if result_code not in (None, -100, 0, 1015):
                 raise HomeAssistantError(f"Deepal command failed with result code {result_code}: {result.get('errorMsg')}")
 
+            if result_code == 0 and success_at is None:
+                success_at = loop.time()
+            if success_at is not None and loop.time() - success_at >= COMMAND_SUCCESS_GRACE:
+                await self._async_settle_after_success(command_id, is_done)
+                return
+
             if loop.time() >= deadline:
                 if not condition_changed:
                     _LOGGER.warning(
@@ -279,6 +309,28 @@ class DeepalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 return
 
             await asyncio.sleep(interval)
+
+    async def _async_settle_after_success(
+        self, command_id: str, is_done: Callable[[], bool] | None
+    ) -> None:
+        """The cloud reported success but the vehicle data has not caught up.
+
+        Ask the car for fresh data once and read it. If the data still shows the
+        old state, say so (a stale cloud snapshot or a command the car ignored
+        both look like this) and stop waiting, so the next command is not held up.
+        """
+        try:
+            await self.client.control_condition_inquiry(vehicle_id=self.vehicle_id)
+            await asyncio.sleep(COMMAND_INQUIRY_WAIT)
+            self._async_set_condition(await self.client.condition(self.vehicle_id))
+        except (DeepalApiError, DeepalAuthError, HomeAssistantError) as err:
+            _LOGGER.debug("Deepal condition inquiry after command %s failed: %s", command_id, err)
+        if is_done is not None and not is_done():
+            _LOGGER.warning(
+                "Deepal command %s was accepted (result: success) but the vehicle data still shows the "
+                "previous state; the change may not have been applied or the cloud data is stale",
+                command_id,
+            )
 
     def _async_set_condition(self, condition: dict[str, Any]) -> None:
         """Update coordinator data with a freshly fetched condition payload."""
