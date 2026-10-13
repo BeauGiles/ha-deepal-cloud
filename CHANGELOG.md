@@ -27,6 +27,24 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
   message (redacted) and which service codes were accepted or ignored, to help
   support new MQTT models.
 
+### Fixed (since beta11, unreleased)
+
+- S05 (MQTT): the DC gun state is read from the payload's misspelled
+  `dcDhargeGunConnectionState` key as well as the correct spelling, so the DC
+  Charge Gun entity is no longer always unknown; `hood` is accepted as well as
+  `hoodStatus`; the report timestamp now also looks at `lastUpdatedTime` and
+  accepts epoch seconds/milliseconds as well as ISO strings (a missing timestamp
+  fell back to "now", which would also stop the S05 wake from ever triggering).
+  Keys from Sunek0/ha-deepal-alternative's S05 mapper (MIT). Untested on a live
+  S05.
+
+### Added (since beta11, unreleased)
+
+- A unit-test suite (`tests/`, run with `pytest`, no Home Assistant needed) for
+  the S05/E07 mappings, drive-side placement, E07 charging translation,
+  sensor gating, redaction, command results and manifest checks, plus a CI
+  workflow to run it.
+
 ### Fixed (beta11)
 
 - **E07 charging state** (reported by @timalpipo on a live AU E07 charging at

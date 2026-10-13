@@ -423,6 +423,12 @@ def _as_float(value: Any) -> float | None:
 
 
 def _iso_to_millis(value: Any) -> int | None:
+    """Return epoch milliseconds from an ISO-8601 string or epoch seconds/milliseconds."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int | float) or (isinstance(value, str) and value.strip().lstrip("-").replace(".", "", 1).isdigit()):
+        number = int(float(value))
+        return number if abs(number) >= 100_000_000_000 else number * 1000
     if not isinstance(value, str) or not value:
         return None
     try:
@@ -721,7 +727,7 @@ def _mqtt_condition_from_params(params: dict[str, Any], drive_side: str | None =
         drive_side,
         legacy_driver_left=False,
     )
-    latest = _first(params, "latestDate", "lastUpdatedAt")
+    latest = _first(params, "lastUpdatedTime", "lastUpdatedAt", "latestDate")
     condition: dict[str, Any] = {
         "lastUpdatedAt": _iso_to_millis(latest) or int(time.time() * 1000),
         "vehicleStatus": {
@@ -751,12 +757,17 @@ def _mqtt_condition_from_params(params: dict[str, Any], drive_side: str | None =
         },
         "charge": {
             "chargeStatus": _as_int(params.get("ChrgSts")),
-            "chargeConStatus": _as_int(_first(params, "acChargeGunConnectionState", "dcChargeGunConnectionState")),
+            "chargeConStatus": _as_int(
+                _first(params, "acChargeGunConnectionState", "dcDhargeGunConnectionState", "dcChargeGunConnectionState")
+            ),
             "acChargeCurrent": _as_float(_first(params, "BattACChrgInCurr", "battACChrgInCurr")),
             "dcChargeCurrent": _as_float(_first(params, "BattDCChrgInCurr", "battDCChrgInCurr")),
             "chargeCurrent": _as_float(_first(params, "BattACChrgInCurr", "BattDCChrgInCurr", "battACChrgInCurr", "battDCChrgInCurr")),
             "remainChargeTime": _charge_minutes(params.get("chargDeltMins")),
-            "dcChargeGunConnectStatus": _as_int(params.get("dcChargeGunConnectionState")),
+            # The real payload misspells the DC gun key as "dcDharge...".
+            "dcChargeGunConnectStatus": _as_int(
+                _first(params, "dcDhargeGunConnectionState", "dcChargeGunConnectionState")
+            ),
             "chargeCoverStatus": _as_int(params.get("chargeCoverStatus")),
         },
         "door": {
@@ -767,7 +778,7 @@ def _mqtt_condition_from_params(params: dict[str, Any], drive_side: str | None =
                 _as_int(params.get("rightRearDoor")),
             ],
             "trunk": _as_int(params.get("trunk")),
-            "hood": _as_int(params.get("hoodStatus")),
+            "hood": _as_int(_first(params, "hood", "hoodStatus")),
             "driverLock": _as_int(params.get("driverDoorLock")),
             "passengerLock": _as_int(params.get("passengerDoorLock")),
         },
