@@ -27,6 +27,14 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
   message (redacted) and which service codes were accepted or ignored, to help
   support new MQTT models.
 
+### Fixed (beta7)
+
+- Diagnostics: the unmapped-signals list was always shown as `[redacted]`
+  because its key name contained "key"; it is now `unmapped_signals`. Raw
+  SDA/MQTT signal dumps only redact exactly-sensitive names (VIN, plate,
+  location, ids), so signals whose names merely contain `key`/`pin`/`token` are
+  no longer hidden. `authId` is redacted.
+
 ### Changed (beta6)
 
 - Added the Deepal icon and logo in `custom_components/deepal/brand/`.

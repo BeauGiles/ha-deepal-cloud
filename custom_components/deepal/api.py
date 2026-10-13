@@ -149,6 +149,25 @@ def _redact_topic(topic: str) -> str:
     return "/".join(parts)
 
 
+def _redact_signals(value: Any) -> Any:
+    """Redact only exactly-sensitive keys (VIN, plate, location, ids) in raw signals.
+
+    Raw vehicle signal names are arbitrary, so the substring rules of
+    ``_redact_for_log`` (``key``, ``pin``, ...) would hide legitimate signals.
+    """
+    if isinstance(value, dict):
+        return {
+            key: _REDACTED
+            if str(key).lower().replace("-", "_") in _SENSITIVE_EXACT_KEYS
+            or str(key).lower().replace("-", "_").replace("_", "") in _SENSITIVE_EXACT_KEYS
+            else _redact_signals(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_redact_signals(item) for item in value]
+    return value
+
+
 def _redact_for_log(value: Any) -> Any:
     """Return a redacted, log-safe copy of an API payload."""
     if isinstance(value, dict):

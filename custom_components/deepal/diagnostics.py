@@ -16,7 +16,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.loader import async_get_integration
 
-from .api import _redact_for_log, unmapped_signal_keys
+from .api import _redact_for_log, _redact_signals, unmapped_signal_keys
 from .const import (
     CONF_ACCESS_TOKEN,
     CONF_CAC_TOKEN,
@@ -51,6 +51,7 @@ TO_REDACT = {
     "vin",
     "plateNumber",
     "imgUrl",
+    "authId",
 }
 
 # Large raw blobs are reported separately, not duplicated in the mapped view.
@@ -101,9 +102,10 @@ async def async_get_config_entry_diagnostics(
         "config_entry_data": dict(entry.data),
         "config_entry_options": dict(entry.options),
         "mapped_telemetry": {k: v for k, v in condition.items() if k not in _RAW_KEYS},
-        "raw_sda": raw_sda,
-        "raw_mqtt": raw_mqtt,
-        "unmapped_signal_keys": (
+        "raw_sda": _redact_signals(raw_sda),
+        "raw_mqtt": _redact_signals(raw_mqtt),
+        # Named without "key": the generic log redaction hides keys containing it.
+        "unmapped_signals": (
             unmapped_signal_keys(raw_sda, sda=True)
             if isinstance(raw_sda, dict)
             else unmapped_signal_keys(raw_mqtt, sda=False)
@@ -113,6 +115,9 @@ async def async_get_config_entry_diagnostics(
         "mqtt_topics": client.last_mqtt_topics,
         "ota": data.get("ota"),
     }
-    # Key-based log redaction first (tokens, PINs, location, plate), then the
-    # explicit config/identifier keys.
-    return async_redact_data(_redact_for_log(report), TO_REDACT)
+    # Key-based log redaction for everything except the raw signal dumps (which
+    # get exact-key redaction only, above), then the explicit config keys.
+    raw = {name: report.pop(name) for name in ("raw_sda", "raw_mqtt")}
+    redacted = async_redact_data(_redact_for_log(report), TO_REDACT)
+    redacted.update(raw)
+    return redacted
