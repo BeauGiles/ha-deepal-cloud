@@ -30,6 +30,11 @@ def vehicle_uses_mqtt(vehicle: dict[str, Any]) -> bool:
     return "MQTT" in str(vehicle.get("protocolType") or "").upper()
 
 
+def vehicle_uses_sda(vehicle: dict[str, Any]) -> bool:
+    """Return whether telemetry comes from the SDA REST condition (Deepal E07)."""
+    return str(vehicle.get("protocolType") or "").upper() == "SDA-MQTT"
+
+
 def vehicle_supports_mqtt_commands(vehicle: dict[str, Any]) -> bool:
     """Return whether MQTT remote commands are available for this vehicle.
 
@@ -68,6 +73,7 @@ DEFAULT_ACTIVE_REFRESH_INTERVAL = 300
 
 BASE_URL = "https://m.iov.changanauto.com.de"
 CA_BASE_URL = "https://ca-m.iov.changanauto.com.de"
+SDA_BASE_URL = "https://sda-m.iov.changanauto.com.de"
 
 # Default (European) cluster gateway prefix baked into the endpoint paths.
 DEFAULT_GATEWAY = "/intl-app-gw"
@@ -84,18 +90,28 @@ DEFAULT_GATEWAY = "/intl-app-gw"
 # Singapore cluster/gateway as AU, since that integration worked for them
 # against a single shared endpoint. This is UNTESTED for anything other than
 # AU — flag issues per-country if login fails.
+# Hosts are the ASEAN ("release_ase") environment of the app. The CA and SDA
+# hosts are taken from the app's environment table as documented by
+# Sunek0/ha-deepal-alternative (MIT); only the main host is confirmed for AU.
+_APAC_REGION = {
+    "base_url": "https://m.iov.changanauto.sg",
+    "ca_base_url": "https://ca-m.iov.changanauto.sg",
+    "sda_base_url": "https://prod-m.sda.changanauto.sg",
+    "gateway": "/appgw",
+}
+
 REGION_GATEWAYS = {
-    "AU": {"base_url": "https://m.iov.changanauto.sg", "gateway": "/appgw"},
-    "NZ": {"base_url": "https://m.iov.changanauto.sg", "gateway": "/appgw"},
-    "SG": {"base_url": "https://m.iov.changanauto.sg", "gateway": "/appgw"},
-    "MY": {"base_url": "https://m.iov.changanauto.sg", "gateway": "/appgw"},
-    "TH": {"base_url": "https://m.iov.changanauto.sg", "gateway": "/appgw"},
-    "VN": {"base_url": "https://m.iov.changanauto.sg", "gateway": "/appgw"},
-    "HK": {"base_url": "https://m.iov.changanauto.sg", "gateway": "/appgw"},
-    "MO": {"base_url": "https://m.iov.changanauto.sg", "gateway": "/appgw"},
-    "ID": {"base_url": "https://m.iov.changanauto.sg", "gateway": "/appgw"},
-    "PH": {"base_url": "https://m.iov.changanauto.sg", "gateway": "/appgw"},
-    "MN": {"base_url": "https://m.iov.changanauto.sg", "gateway": "/appgw"},
+    "AU": _APAC_REGION,
+    "NZ": _APAC_REGION,
+    "SG": _APAC_REGION,
+    "MY": _APAC_REGION,
+    "TH": _APAC_REGION,
+    "VN": _APAC_REGION,
+    "HK": _APAC_REGION,
+    "MO": _APAC_REGION,
+    "ID": _APAC_REGION,
+    "PH": _APAC_REGION,
+    "MN": _APAC_REGION,
 }
 
 # 2048-bit RSA public key used by the app to encrypt mobile/password/control PIN fields.

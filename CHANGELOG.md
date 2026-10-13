@@ -29,6 +29,17 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
 ### Fixed
 
+- **Deepal E07 (`SDA-MQTT`) telemetry now reads the SDA REST condition**
+  (`getCarConditionByCarId` on the regional SDA gateway) instead of the S05
+  MQTT path, which that platform does not serve. The flat SDA signals are
+  mapped into the standard condition (battery, range, charging, doors,
+  locks, windows, climate, seats, lamps). The request shape, SDA host names
+  and signal mapping come from
+  [Sunek0/ha-deepal-alternative](https://github.com/Sunek0/ha-deepal-alternative)
+  (MIT); thanks to Sunek0. Untested on a live AU account.
+- Regions now carry their own CA and SDA hosts (previously the CA host was
+  always the European one, which would break MQTT/SDA calls for APAC
+  accounts). The APAC CA/SDA hosts are unconfirmed for AU.
 - Vehicles reporting `protocolType: "SDA-MQTT"` (the Deepal E07) were treated
   as HTTP vehicles and showed almost every sensor as unknown, because MQTT
   detection required an exact `MQTT` match. Any protocol type containing

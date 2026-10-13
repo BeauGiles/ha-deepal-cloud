@@ -26,6 +26,7 @@ from .const import (
     CA_BASE_URL,
     DEFAULT_GATEWAY,
     REGION_GATEWAYS,
+    SDA_BASE_URL,
     REQUEST_ENCRYPTION_PUBLIC_KEY,
 )
 
@@ -404,6 +405,148 @@ def _first(params: dict[str, Any], *keys: str) -> Any:
     return None
 
 
+SDA_CONDITION_PATH = "/app-apigw/sda-app-control/api/v1/sda-app/car-ctrl/getCarConditionByCarId"
+_SDA_SIGNAL_KEYS = ("BcuSocDisp", "VIUSocDisp", "VcuResiMilg", "CdcTotMilg", "DrvrDoorSts")
+_CHARGE_TIME_SENTINEL = 8191
+
+
+def _sda_params_from_body(body: Any) -> dict[str, Any]:
+    """Return the flat SDA signal object from a condition response, if any."""
+    if not isinstance(body, dict):
+        return {}
+    candidates = [body]
+    for key in ("data", "params"):
+        value = body.get(key)
+        if isinstance(value, dict):
+            candidates.append(value)
+    for candidate in reversed(candidates):
+        if any(key in candidate for key in _SDA_SIGNAL_KEYS):
+            return candidate
+    return {}
+
+
+def _sda_status(value: Any, closed_value: int = 2) -> int:
+    """Map an SDA status signal to 1 (open) or 0 (closed); unknown counts as closed."""
+    parsed = _as_int(value)
+    return 0 if parsed is None or parsed == closed_value else 1
+
+
+def _sda_lock(value: Any) -> int | None:
+    """Map an SDA lock signal to the REST convention (0 = locked).
+
+    The E07 reports 2 while locked. Missing values stay unknown.
+    """
+    parsed = _as_int(value)
+    if parsed is None:
+        return None
+    return 0 if parsed == 2 else 1
+
+
+def _sda_tenths(value: Any) -> float | None:
+    parsed = _as_float(value)
+    return parsed * 10 if parsed is not None else None
+
+
+def _sda_condition_from_params(params: dict[str, Any]) -> dict[str, Any]:
+    """Map flat SDA condition signals into the shared nested condition shape.
+
+    Signal names and value conventions come from an app trace of a real E07, as
+    documented in Sunek0/ha-deepal-alternative (MIT): status 2 means closed,
+    lock 2 means locked, window positions are percentages with 0 closed.
+    """
+    soc = _as_int(params.get("VIUSocDisp"))
+    if soc is None:
+        raw_soc = _as_float(params.get("BcuSocDisp"))
+        soc = round(raw_soc) if raw_soc is not None else None
+    ac_connected = _as_int(params.get("AcChrgCnctrSts"))
+    dc_connected = _as_int(params.get("DcChrgCnctrSts"))
+    charge_minutes = _as_int(params.get("BcuChrgTiDisp"))
+    if charge_minutes == _CHARGE_TIME_SENTINEL:
+        charge_minutes = None
+    return {
+        "lastUpdatedAt": int(time.time() * 1000),
+        "vehicleStatus": {
+            "soc": soc,
+            "drvMileage": _as_int(params.get("VcuResiMilg")),
+            "totalMileage": _as_float(params.get("CdcTotMilg")),
+            "speed": _as_float(params.get("EspVehSpd")),
+            "engineSts": _as_int(params.get("VcuRdySts")),
+            "connectStatus": 1,
+            "powerStatus": _as_int(params.get("BcmPwrStsFb")),
+            "steeringWheelHeater": _as_int(params.get("SteeringHeat")),
+        },
+        "charge": {
+            "chargeStatus": _as_int(params.get("BcuChrgSts")),
+            "chargeConStatus": 1
+            if (ac_connected not in (None, 0) or dc_connected not in (None, 0))
+            else 0,
+            "dcChargeGunConnectStatus": dc_connected,
+            "chargeCurrent": _as_float(params.get("BcuBattI")),
+            "acChargeCurrent": _as_float(params.get("ObcChrgInpAcIL1")),
+            "dcChargeCurrent": _as_float(params.get("ObcChrgDcI")),
+            "remainChargeTime": charge_minutes,
+            "maxSocPercent": _as_int(params.get("TboxSocChrgTarSet")),
+        },
+        "door": {
+            "doors": [
+                _sda_status(params.get("DrvrDoorSts")),
+                _sda_status(params.get("PassDoorSts")),
+                _sda_status(params.get("LeReDoorSts")),
+                _sda_status(params.get("RiReDoorSts")),
+            ],
+            "trunk": _sda_status(params.get("ObjStTypePLGDoorSt")),
+            "hood": _sda_status(params.get("FrtGateSts")),
+            "driverLock": _sda_lock(params.get("DrvrDoorLockLogicSts")),
+            "passengerLock": _sda_lock(params.get("PassDoorLockLogicSts")),
+        },
+        "window": {
+            "windows": [
+                _as_int(params.get("DrvrWinPos")),
+                _as_int(params.get("PassWinPos")),
+                _as_int(params.get("LeReWinPos")),
+                _as_int(params.get("RiReWinPos")),
+            ],
+        },
+        "hvac": {
+            "insideTemp": _sda_tenths(params.get("ITMSAcIntT")),
+            "remoteTemp": _sda_tenths(params.get("ITMSDrvrAutT")),
+            "acStatus": _as_int(params.get("ITMSACOnOff")),
+            "insidePm25": _as_float(params.get("ITMSPm25InCarDens")),
+            "insideAirQualityLevel": _as_int(params.get("ITMSAirQlyInCarLvl")),
+            "defrostStatus": _as_int(params.get("ITMSFrntDefroster")),
+        },
+        "seat": {
+            "leftFront": {
+                "heatStatus": _as_int(params.get("DrHeatGear")),
+                "ventStatus": _as_int(params.get("DrVentGear")),
+            },
+            "rightFront": {
+                "heatStatus": _as_int(params.get("PsgHeatGear")),
+                "ventStatus": _as_int(params.get("PsgVentGear")),
+            },
+            "leftBack": {
+                "heatStatus": _as_int(params.get("RearLeHeatGear")),
+                "ventStatus": _as_int(params.get("RearLeVentGear")),
+            },
+            "rightBack": {
+                "heatStatus": _as_int(params.get("RearRiHeatGear")),
+                "ventStatus": _as_int(params.get("RearRiVentGear")),
+            },
+        },
+        "lamp": {
+            "highBeam": max(
+                _as_int(params.get("HCM_LeHiBeSt")) or 0,
+                _as_int(params.get("HCM_RiHiBeSt")) or 0,
+            ),
+            "lowBeam": max(
+                _as_int(params.get("HCM_LeLoBeSt")) or 0,
+                _as_int(params.get("HCM_RiLoBeSt")) or 0,
+            ),
+        },
+        "rawSda": params,
+    }
+
+
 def _mqtt_condition_from_params(params: dict[str, Any]) -> dict[str, Any]:
     latest = _first(params, "latestDate", "lastUpdatedAt")
     condition: dict[str, Any] = {
@@ -558,6 +701,8 @@ class DeepalClient:
         # regions (e.g. AU -> Singapore) also use a different gateway prefix.
         region = REGION_GATEWAYS.get((country or "").upper())
         self.base_url = region["base_url"] if region else BASE_URL
+        self.ca_base_url = region["ca_base_url"] if region else CA_BASE_URL
+        self.sda_base_url = region["sda_base_url"] if region else SDA_BASE_URL
         self.gateway_prefix = region["gateway"] if region else DEFAULT_GATEWAY
         self.language = language
         self.app_version = app_version
@@ -646,6 +791,10 @@ class DeepalClient:
         *,
         include_auth: bool = True,
         base_url: str | None = None,
+        method: str = "POST",
+        query: dict[str, Any] | None = None,
+        header_overrides: dict[str, str] | None = None,
+        return_body: bool = False,
     ) -> Any:
         if base_url is None:
             base_url = self.base_url
@@ -655,6 +804,8 @@ class DeepalClient:
             path = self.gateway_prefix + path[len(DEFAULT_GATEWAY):]
         url = f"{base_url}{path}"
         headers = self._headers(include_auth=include_auth)
+        if header_overrides:
+            headers.update(header_overrides)
         started_at = time.monotonic()
         request_payload = payload or {}
         if self.enable_api_logging:
@@ -674,9 +825,11 @@ class DeepalClient:
         last_transient_err: Exception | None = None
         for attempt in range(3):
             try:
-                async with self._session.post(
+                async with self._session.request(
+                    method,
                     url,
-                    data=request_body,
+                    data=request_body if method == "POST" else None,
+                    params=query,
                     headers=headers,
                     timeout=30,
                 ) as resp:
@@ -749,11 +902,11 @@ class DeepalClient:
             ):
                 raise DeepalAuthError(f"Deepal auth failed: {code} {msg}")
             raise DeepalApiError(f"Deepal API error for {path}: {code} {msg}")
-        return body.get("data")
+        return body if return_body else body.get("data")
 
     async def _post_ca(self, path: str, payload: dict[str, Any] | None = None) -> Any:
         """POST to the CA gateway used by MQTT setup endpoints."""
-        return await self._post(path, payload, base_url=CA_BASE_URL)
+        return await self._post(path, payload, base_url=self.ca_base_url)
 
     async def refresh_tokens(self) -> DeepalTokens:
         """Refresh the bearer token using the captured app endpoint."""
@@ -873,6 +1026,43 @@ class DeepalClient:
             {"vehicleId": int(vehicle_id)},
         )
         return data if isinstance(data, dict) else {}
+
+    async def sda_condition(self, vehicle_id: str) -> dict[str, Any]:
+        """Fetch the condition of an SDA-MQTT vehicle (Deepal E07) over REST.
+
+        The official app reads it with a GET on the SDA gateway, passing the
+        login token without the "Bearer " prefix. The flat SDA signal object is
+        mapped into the shared condition shape. Request shape and signal
+        mapping follow Sunek0/ha-deepal-alternative (MIT).
+        """
+        token = (self.tokens.access_token or "").removeprefix("Bearer ").strip()
+        overrides = {"Accept-Encoding": "identity"}
+        if token:
+            overrides["X-Tsp-User-Token"] = token
+        last_error: DeepalApiError | None = None
+        for key in ("car_id", "carId", "vehicleId"):
+            try:
+                body = await self._post(
+                    SDA_CONDITION_PATH,
+                    base_url=self.sda_base_url,
+                    method="GET",
+                    query={key: vehicle_id},
+                    header_overrides=overrides,
+                    return_body=True,
+                )
+            except DeepalAuthError:
+                raise
+            except DeepalApiError as err:
+                last_error = err
+                continue
+            params = _sda_params_from_body(body)
+            if params:
+                return _sda_condition_from_params(params)
+            last_error = DeepalApiError(
+                "SDA condition response had no recognised signals; "
+                f"top-level keys: {sorted(body) if isinstance(body, dict) else type(body).__name__}"
+            )
+        raise last_error or DeepalApiError("SDA condition did not return vehicle condition")
 
     async def mqtt_condition(self, vehicle_id: str) -> dict[str, Any]:
         """Fetch and decrypt condition data from the MQTT telemetry path."""

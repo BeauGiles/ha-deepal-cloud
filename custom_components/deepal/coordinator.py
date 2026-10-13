@@ -24,6 +24,7 @@ from .const import (
     DOMAIN,
     vehicle_supports_mqtt_commands,
     vehicle_uses_mqtt,
+    vehicle_uses_sda,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -83,7 +84,9 @@ class DeepalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Fetch vehicle metadata and condition."""
         vehicles = await self.client.vehicles()
         vehicle = self._vehicle_from_list(vehicles) or {}
-        if vehicle_uses_mqtt(vehicle):
+        if vehicle_uses_sda(vehicle):
+            condition = await self.client.sda_condition(self.vehicle_id)
+        elif vehicle_uses_mqtt(vehicle):
             condition = await self.client.mqtt_condition(self.vehicle_id)
         else:
             await self._async_maybe_active_condition_refresh()
