@@ -118,6 +118,8 @@ During setup, choose the same login method you use in the official Deepal app. I
 
 - **A sensor is missing:** entities are only created once your car reports the data. Download the diagnostics from the device page and check `unmapped_signals` for data no entity reads yet.
 - **Logging:** under **Configure**, tick *Enable redacted API logging*, reproduce the problem, then find the `Deepal` lines in **Settings -> System -> Logs**. Tokens, PINs, keys, VIN, plate and location are filtered, but check before sharing.
+- **`APIGW_-1_7_01_004 invalided token` on an S05:** the cloud rejected the token for the MQTT setup. The integration tries the other token it knows about, then falls back to the REST condition (which may show less data) and retries MQTT every few minutes. If it persists, download the diagnostics (they show `mqtt_last_error`) and open an issue.
+- **`APP_1_1_02_005 ... logged in on another device`:** the official app or another client signed in with the same account. Use a separate Deepal account for Home Assistant, shared from your main account, and avoid repeated login attempts, which can trigger a rate limit.
 - **Commands fail while data still updates:** use *Reauthenticate now* under **Configure** to register a fresh command-signing key.
 - **Reporting a new model or region:** please attach the diagnostics file (while the car is charging if it is a charging problem) to a GitHub issue.
 

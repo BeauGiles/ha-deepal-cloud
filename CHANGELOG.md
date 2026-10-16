@@ -89,6 +89,16 @@ first: some changes break automations.**
   values are now unknown, as in the new Any Window sensor.
 - **Remaining Charge Time** showed 8191 ("no estimate") on the S07 and on MQTT/SDA
   cars; it now shows unknown.
+- **S05 accounts the CA gateway rejects** (danperks/ha-deepal issue #11: login
+  works but `getConnConf` answers `APIGW_-1_7_01_004 invalided token`): the
+  gateway accepts a different token as the user token depending on the account.
+  The CA calls now try the cacToken first (as before) and, on an `APIGW_`
+  rejection, the access-token half once, remembering whichever works. If MQTT
+  telemetry still fails, the integration falls back to the REST condition (it may
+  be partial) and retries MQTT with a growing delay (1, 2, 4, 8, then every
+  10 minutes) instead of sending a rejected request every minute. Authentication
+  errors are not hidden. Idea from danperks/ha-deepal; untested on an affected
+  account.
 - **S05 charging state, plug and current** (values observed on a live S05 and
   documented by Sunek0/ha-deepal-alternative): the S05's `ChrgSts` is a 0-4 enum
   (0 not charging, 1 AC plugged, 2 DC plugged, 3 AC charging, 4 DC charging), not

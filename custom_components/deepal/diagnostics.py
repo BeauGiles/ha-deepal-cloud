@@ -74,7 +74,7 @@ async def async_get_config_entry_diagnostics(
     if vehicle_uses_sda(vehicle):
         source = "sda-rest"
     elif vehicle_uses_mqtt(vehicle):
-        source = "mqtt"
+        source = "rest (mqtt fallback)" if coordinator.mqtt_fallback_active else "mqtt"
     else:
         source = "rest"
 
@@ -98,6 +98,9 @@ async def async_get_config_entry_diagnostics(
             "failure_count": coordinator.refresh_failure_count,
             "last_failure": coordinator.last_refresh_failure,
             "update_interval": str(coordinator.update_interval),
+            "mqtt_fallback_active": coordinator.mqtt_fallback_active,
+            "mqtt_failures": coordinator._mqtt_failures,
+            "mqtt_last_error": str(coordinator._mqtt_last_error) if coordinator._mqtt_last_error else None,
         },
         "config_entry_data": dict(entry.data),
         "config_entry_options": dict(entry.options),

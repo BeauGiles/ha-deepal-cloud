@@ -26,6 +26,8 @@ from .const import (
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     MAX_QUEUED_COMMANDS,
+    MQTT_BACKOFF_BASE,
+    MQTT_BACKOFF_MAX,
     WAKE_COOLDOWN,
     WAKE_POLL_INTERVAL,
     WAKE_REPORT_TIMEOUT,
@@ -57,6 +59,10 @@ class DeepalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._queued_commands = 0  # running + waiting
         self._next_active_refresh_at = 0.0
         self._last_wake_at: float | None = None
+        self._mqtt_failures = 0
+        self._mqtt_next_attempt = 0.0
+        self._mqtt_last_error: DeepalApiError | None = None
+        self.mqtt_fallback_active = False
         self._wake_lock = asyncio.Lock()
 
     async def _async_update_data(self) -> dict[str, Any]:
@@ -100,11 +106,63 @@ class DeepalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if vehicle_uses_sda(vehicle):
             condition = await self.client.sda_condition(self.vehicle_id)
         elif vehicle_uses_mqtt(vehicle):
-            condition = await self.client.mqtt_condition(self.vehicle_id)
+            condition = await self._async_mqtt_condition_with_fallback()
         else:
             await self._async_maybe_active_condition_refresh()
             condition = await self.client.condition(self.vehicle_id)
         return vehicles, condition
+
+    async def _async_mqtt_condition_with_fallback(self) -> dict[str, Any]:
+        """Read MQTT telemetry; if it fails, use the REST condition and back off.
+
+        An account whose token the CA gateway rejects would otherwise get nothing
+        and a rejected request every poll. Authentication errors are not swallowed.
+        """
+        now = time.monotonic()
+        if now >= self._mqtt_next_attempt:
+            try:
+                condition = await self.client.mqtt_condition(self.vehicle_id)
+            except DeepalAuthError:
+                raise
+            except DeepalApiError as err:
+                self._mqtt_failures += 1
+                self._mqtt_last_error = err
+                delay = min(MQTT_BACKOFF_MAX, MQTT_BACKOFF_BASE * 2 ** (self._mqtt_failures - 1))
+                self._mqtt_next_attempt = now + delay
+                if self._mqtt_failures == 1:
+                    _LOGGER.warning(
+                        "MQTT telemetry unavailable (%s); using the REST condition and retrying MQTT in %s s",
+                        err,
+                        delay,
+                    )
+            else:
+                if self.mqtt_fallback_active:
+                    _LOGGER.info("MQTT telemetry is working again")
+                self._mqtt_failures = 0
+                self._mqtt_next_attempt = 0.0
+                self._mqtt_last_error = None
+                self.mqtt_fallback_active = False
+                return condition
+
+        rest = await self._async_usable_rest_condition()
+        if rest is not None:
+            self.mqtt_fallback_active = True
+            return rest
+        raise self._mqtt_last_error or DeepalApiError("MQTT telemetry is unavailable")
+
+    async def _async_usable_rest_condition(self) -> dict[str, Any] | None:
+        """Return the REST condition if it carries data (it may be partial), else None."""
+        try:
+            condition = await self.client.condition(self.vehicle_id)
+        except DeepalAuthError:
+            raise
+        except DeepalApiError as err:
+            _LOGGER.debug("REST condition fallback failed: %s", err)
+            return None
+        status = condition.get("vehicleStatus") if isinstance(condition, dict) else None
+        if isinstance(status, dict) and any(value is not None for value in status.values()):
+            return condition
+        return None
 
     def _vehicle_from_list(self, vehicles: list[dict[str, Any]]) -> dict[str, Any] | None:
         """Return the configured vehicle metadata from a vehicle list response."""
@@ -140,7 +198,11 @@ class DeepalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         needs no wake. The periodic poll never wakes the car; only this explicit
         refresh does, and at most once per cooldown.
         """
-        if not self.vehicle_uses_mqtt or vehicle_uses_sda((self.data or {}).get("vehicle") or {}):
+        if (
+            not self.vehicle_uses_mqtt
+            or self.mqtt_fallback_active
+            or vehicle_uses_sda((self.data or {}).get("vehicle") or {})
+        ):
             await self.async_request_refresh()
             return
 

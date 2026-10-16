@@ -86,6 +86,12 @@ COMMAND_INQUIRY_WAIT = 6  # seconds to wait after the final condition inquiry
 AC_MIN_TEMP_C = 18.0
 AC_MAX_TEMP_C = 32.0
 
+# When MQTT telemetry fails (for example the CA gateway rejects the token for an
+# account), fall back to the REST condition and retry MQTT with a growing delay
+# instead of hammering the gateway every poll.
+MQTT_BACKOFF_BASE = 60  # seconds after the first failure; doubles each time
+MQTT_BACKOFF_MAX = 600  # seconds
+
 WAKE_STALE_AFTER = 120  # seconds since the last report before a refresh wakes the car
 WAKE_COOLDOWN = 300  # minimum seconds between wakes
 WAKE_REPORT_TIMEOUT = 60  # seconds to wait for a fresh report after a wake

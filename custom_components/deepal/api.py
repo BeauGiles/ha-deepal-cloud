@@ -996,6 +996,7 @@ class DeepalClient:
         self.cac_token = cac_token
         self.user_id = user_id
         self.last_mqtt_topics: list[dict[str, Any]] | None = None
+        self._ca_tsp_token: str | None = None  # token the CA gateway accepted last
         # "RHD"/"LHD" from the vehicle list; set by the coordinator.
         self.drive_side: str | None = None
         self._private_key = self._load_private_key(private_key_pem) if private_key_pem else None
@@ -1189,9 +1190,50 @@ class DeepalClient:
             raise DeepalApiError(f"Deepal API error for {path}: {code} {msg}")
         return body if return_body else body.get("data")
 
+    def _ca_tsp_candidates(self) -> list[str]:
+        """Tokens that may be accepted as the CA gateway's X-Tsp-User-Token.
+
+        Accounts differ: for some the gateway wants the cacToken, for others the
+        access-token half of the login token. The cacToken (what this client has
+        always sent) comes first.
+        """
+        access = (self.tokens.access_token or "").removeprefix("Bearer ").partition("|")[0].strip()
+        candidates: list[str] = []
+        if self.cac_token:
+            candidates.append(self.cac_token)
+        if access and access not in candidates:
+            candidates.append(access)
+        return candidates
+
     async def _post_ca(self, path: str, payload: dict[str, Any] | None = None) -> Any:
-        """POST to the CA gateway used by MQTT setup endpoints."""
-        return await self._post(path, payload, base_url=CA_BASE_URL)
+        """POST to the CA gateway used by MQTT setup endpoints.
+
+        If the gateway rejects the user token (``APIGW_`` errors such as
+        "invalided token"), try the other candidate token once and remember the one
+        that works. Idea from danperks/ha-deepal.
+        """
+        candidates = self._ca_tsp_candidates()
+        remembered = self._ca_tsp_token
+        ordered = ([remembered] if remembered in candidates else []) + [c for c in candidates if c != remembered]
+        if not ordered:
+            return await self._post(path, payload, base_url=CA_BASE_URL)
+        for index, token in enumerate(ordered):
+            try:
+                data = await self._post(
+                    path,
+                    payload,
+                    base_url=CA_BASE_URL,
+                    header_overrides={"X-Tsp-User-Token": token, "X-VCS-User-Token": token},
+                )
+            except DeepalAuthError:
+                raise
+            except DeepalApiError as err:
+                if "APIGW_" not in str(err) or index == len(ordered) - 1:
+                    raise
+                continue
+            self._ca_tsp_token = token
+            return data
+        raise DeepalApiError("No token is available for the CA gateway")  # pragma: no cover
 
     async def refresh_tokens(self) -> DeepalTokens:
         """Refresh the bearer token using the captured app endpoint."""
