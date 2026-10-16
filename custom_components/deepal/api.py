@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import ast
 import asyncio
 import base64
+import binascii
 from datetime import UTC, datetime
 import gzip
 import hashlib
+import inspect
 import json
 import logging
 import ssl
@@ -24,11 +27,30 @@ from .const import (
     BASE_URL,
     CA_BASE_URL,
     DEFAULT_GATEWAY,
+    AC_MAX_TEMP_C,
+    AC_MIN_TEMP_C,
     REGION_GATEWAYS,
+    SDA_BASE_URL,
     REQUEST_ENCRYPTION_PUBLIC_KEY,
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+# The MQTT Door_Lock motor enum is lock=1, unlock=2. This differs from the
+# open/close request enum used by the tailgate. (Validated on an S05 only.)
+_S05_LOCK = 1
+_S05_UNLOCK = 2
+_S05_OPEN = 1
+_S05_CLOSE = 2
+_S05_POSITION_OPEN = 100
+_S05_POSITION_CLOSED = 0
+_MQTT_WAKE_SETTLE_SECONDS = 2
+
+_S05_VEHICLE_ERROR_MESSAGES = {
+    "VVCC_-1_-1_02_023": "door status does not meet the command requirements",
+}
+
+_MQTT_SERVICE_CODES = (None, "car_condition", "BDC_Service", "BMS_Service", "OBC_Service", "THU_Service")
 
 _REDACTED = "[redacted]"
 _MAX_LOG_STRING_LENGTH = 500
@@ -73,6 +95,21 @@ _SENSITIVE_EXACT_KEYS = {
     "user_id",
     "vehicleid",
     "vin",
+    # Licence plate and location values (exact match only: "lat" must not catch
+    # keys such as "latestDate").
+    "address",
+    "gps",
+    "lat",
+    "latitude",
+    "licenseplate",
+    "licenceplate",
+    "lng",
+    "location",
+    "lon",
+    "longitude",
+    "plate",
+    "platenumber",
+    "plateno",
 }
 _SENSITIVE_KEY_PARTS = (
     "authorization",
@@ -104,6 +141,33 @@ def _is_sensitive_log_key(key: Any) -> bool:
         or compact in _SENSITIVE_EXACT_KEYS
         or any(part in compact for part in _SENSITIVE_KEY_PARTS)
     )
+
+
+def _redact_topic(topic: str) -> str:
+    """Replace the device-id segment of a $vdp/<did>/... topic for logging."""
+    parts = str(topic).split("/")
+    if len(parts) > 2 and parts[0] == "$vdp":
+        parts[1] = _REDACTED
+    return "/".join(parts)
+
+
+def _redact_signals(value: Any) -> Any:
+    """Redact only exactly-sensitive keys (VIN, plate, location, ids) in raw signals.
+
+    Raw vehicle signal names are arbitrary, so the substring rules of
+    ``_redact_for_log`` (``key``, ``pin``, ...) would hide legitimate signals.
+    """
+    if isinstance(value, dict):
+        return {
+            key: _REDACTED
+            if str(key).lower().replace("-", "_") in _SENSITIVE_EXACT_KEYS
+            or str(key).lower().replace("-", "_").replace("_", "") in _SENSITIVE_EXACT_KEYS
+            else _redact_signals(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_redact_signals(item) for item in value]
+    return value
 
 
 def _redact_for_log(value: Any) -> Any:
@@ -198,7 +262,7 @@ def _b64decode(value: str) -> bytes:
     return base64.b64decode(value + "=" * ((4 - len(value) % 4) % 4))
 
 
-def _s05_aes_decrypt(encrypted: str, secret_key: str, req_id: str) -> list[dict[str, Any]]:
+def _mqtt_aes_decrypt(encrypted: str, secret_key: str, req_id: str) -> list[dict[str, Any]]:
     decryptor = Cipher(
         algorithms.AES(secret_key.encode()),
         modes.CBC(hashlib.md5(req_id.encode()).digest()),
@@ -211,7 +275,7 @@ def _s05_aes_decrypt(encrypted: str, secret_key: str, req_id: str) -> list[dict[
     return decoded if isinstance(decoded, list) else []
 
 
-def _s05_aes_encrypt(data: list[dict[str, Any]], secret_key: str, req_id: str) -> str:
+def _mqtt_aes_encrypt(data: list[dict[str, Any]], secret_key: str, req_id: str) -> str:
     compressed_b64 = base64.b64encode(
         gzip.compress(json.dumps(data, ensure_ascii=False, separators=(",", ":")).encode())
     )
@@ -222,6 +286,124 @@ def _s05_aes_encrypt(data: list[dict[str, Any]], secret_key: str, req_id: str) -
         modes.CBC(hashlib.md5(req_id.encode()).digest()),
     ).encryptor()
     return base64.b64encode(encryptor.update(padded) + encryptor.finalize()).decode()
+
+def _mqtt_command_result_error(
+    payload: dict[str, Any], secret_key: str, req_id: str
+) -> str | None:
+    """Return an explicit command error from a correlated MQTT response."""
+    items = _mqtt_command_response_items(payload, secret_key, req_id)
+
+    candidates: list[dict[str, Any]] = [payload, *items]
+    for key in ("h", "header", "d", "data"):
+        nested = payload.get(key)
+        if isinstance(nested, dict):
+            candidates.append(nested)
+    for item in items:
+        for key in ("params", "data"):
+            nested = item.get(key)
+            if isinstance(nested, dict):
+                candidates.append(nested)
+
+    for item in candidates:
+        for key in ("p", "params", "data"):
+            nested = item.get(key)
+            if isinstance(nested, dict) and nested not in candidates:
+                candidates.append(nested)
+
+    for item in candidates:
+        success = item.get("success")
+        if success is False:
+            return str(
+                item.get("msg") or item.get("message") or "vehicle rejected the command"
+            )
+        for key in ("resultCode", "result_code", "code"):
+            code = item.get(key)
+            if code not in (
+                None,
+                "",
+                0,
+                "0",
+                200,
+                "200",
+                "000000",
+                "OK",
+                "SUCCESS",
+                "success",
+            ):
+                message = item.get("msg") or item.get("message")
+                detail = _S05_VEHICLE_ERROR_MESSAGES.get(str(code))
+                detail_code = str(code)
+                if detail is None and message:
+                    match = next(
+                        (
+                            (error_code, text)
+                            for error_code, text in _S05_VEHICLE_ERROR_MESSAGES.items()
+                            if error_code in str(message)
+                        ),
+                        None,
+                    )
+                    if match:
+                        detail_code, detail = match
+                if detail:
+                    return f"{detail} ({detail_code})"
+                return str(message or f"result code {code}")
+    return None
+
+def _mqtt_command_response_items(
+    payload: dict[str, Any], secret_key: str, req_id: str
+) -> list[dict[str, Any]]:
+    """Decrypt the result items in an MQTT command response."""
+    items: list[dict[str, Any]] = []
+    for field in ("rs", "sers"):
+        value = payload.get(field)
+        if isinstance(value, str) and value:
+            try:
+                items.extend(_mqtt_aes_decrypt(value, secret_key, req_id))
+            except (
+                ValueError,
+                binascii.Error,
+                json.JSONDecodeError,
+                gzip.BadGzipFile,
+            ) as err:
+                raise DeepalApiError(
+                    f"Could not decrypt MQTT command response: {err}"
+                ) from err
+        elif isinstance(value, list):
+            items.extend(item for item in value if isinstance(item, dict))
+    return items
+
+def _mqtt_command_response_log_view(
+    payload: dict[str, Any], secret_key: str, req_id: str
+) -> dict[str, Any]:
+    """Return a useful command response view without IDs or ciphertext."""
+    status_keys = (
+        "mt",
+        "e",
+        "z",
+        "tf",
+        "a",
+        "success",
+        "code",
+        "resultCode",
+        "result_code",
+        "msg",
+        "message",
+    )
+    return {
+        "envelope": {key: payload[key] for key in status_keys if key in payload},
+        "items": _mqtt_command_response_items(payload, secret_key, req_id),
+    }
+
+def _mqtt_payload_req_id(payload: dict[str, Any]) -> str | None:
+    """Return a request id from either supported MQTT response envelope."""
+    req_id = payload.get("r")
+    if isinstance(req_id, str):
+        return req_id
+    for key in ("h", "header"):
+        header = payload.get(key)
+        if isinstance(header, dict) and isinstance(header.get("r"), str):
+            return header["r"]
+    return None
 
 
 def _as_int(value: Any) -> int | None:
@@ -243,6 +425,12 @@ def _as_float(value: Any) -> float | None:
 
 
 def _iso_to_millis(value: Any) -> int | None:
+    """Return epoch milliseconds from an ISO-8601 string or epoch seconds/milliseconds."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int | float) or (isinstance(value, str) and value.strip().lstrip("-").replace(".", "", 1).isdigit()):
+        number = int(float(value))
+        return number if abs(number) >= 100_000_000_000 else number * 1000
     if not isinstance(value, str) or not value:
         return None
     try:
@@ -262,8 +450,395 @@ def _first(params: dict[str, Any], *keys: str) -> Any:
     return None
 
 
-def _s05_condition_from_params(params: dict[str, Any]) -> dict[str, Any]:
-    latest = _first(params, "latestDate", "lastUpdatedAt")
+SDA_CONDITION_PATH = "/app-apigw/sda-app-control/api/v1/sda-app/car-ctrl/getCarConditionByCarId"
+_SDA_SIGNAL_KEYS = ("BcuSocDisp", "VIUSocDisp", "VcuResiMilg", "CdcTotMilg", "DrvrDoorSts")
+_CHARGE_TIME_SENTINEL = 8191
+
+
+def _front_pair(driver: Any, passenger: Any, drive_side: str | None, *, legacy_driver_left: bool) -> tuple[Any, Any]:
+    """Return (front-left, front-right) for a driver/passenger pair.
+
+    The vehicle reports front items by role (driver/passenger) but the shared
+    condition is positional. A right-hand-drive car has the driver on the right.
+    When the drive side is unknown, keep the arrangement this mapper used before
+    drive-side support existed.
+    """
+    side = (drive_side or "").upper()
+    if side == "RHD":
+        return passenger, driver
+    if side == "LHD":
+        return driver, passenger
+    return (driver, passenger) if legacy_driver_left else (passenger, driver)
+
+
+def add_seat_roles(condition: dict[str, Any], drive_side: str | None) -> dict[str, Any]:
+    """Add seat.driver / seat.passenger aliases to a positional condition.
+
+    The driver's seat is front-right on RHD cars and front-left on LHD cars.
+    Defaults to RHD, which is what the seat entities assumed before.
+    """
+    seat = condition.get("seat")
+    if not isinstance(seat, dict):
+        return condition
+    right_hand_drive = (drive_side or "RHD").upper() != "LHD"
+    driver_key, passenger_key = ("rightFront", "leftFront") if right_hand_drive else ("leftFront", "rightFront")
+    seat = dict(seat)
+    seat["driver"] = seat.get(driver_key) or {}
+    seat["passenger"] = seat.get(passenger_key) or {}
+    return {**condition, "seat": seat}
+
+
+def _charge_minutes(value: Any) -> int | None:
+    """Return remaining charge minutes; the app reports 8191 for "no estimate"."""
+    minutes = _as_int(value)
+    return None if minutes == _CHARGE_TIME_SENTINEL else minutes
+
+
+def _sda_charge_status(
+    raw: int | None, ac_amps: float | None, dc_amps: float | None, battery_amps: float | None
+) -> int | None:
+    """Translate the E07's BcuChrgSts into the shared charge status codes.
+
+    The shared condition uses the S07 REST codes (1 = not charging, 6 = charging,
+    0 = charge complete). The E07 reports a different enum: on an AU E07 a car
+    charging at 7 kW reported 1, and 0 is idle. So any non-zero value means a
+    charge session, which is confirmed by current when currents are reported
+    (battery current is negative while charging into the pack). A session
+    without any current is treated as complete. This enum is inferred from one
+    car's report plus Sunek0/ha-deepal-alternative's rule that non-zero means
+    charging.
+    """
+    if raw is None:
+        return None
+    if raw == 0:
+        return 1
+    currents = (ac_amps, dc_amps, battery_amps)
+    if all(value is None for value in currents):
+        return 6
+    drawing = (
+        (ac_amps or 0) > 1 or (dc_amps or 0) > 1 or (battery_amps is not None and battery_amps < -1)
+    )
+    return 6 if drawing else 0
+
+
+def _sda_params_from_body(body: Any) -> dict[str, Any]:
+    """Return the flat SDA signal object from a condition response, if any."""
+    if not isinstance(body, dict):
+        return {}
+    candidates = [body]
+    for key in ("data", "params"):
+        value = body.get(key)
+        if isinstance(value, dict):
+            candidates.append(value)
+    for candidate in reversed(candidates):
+        if any(key in candidate for key in _SDA_SIGNAL_KEYS):
+            return candidate
+    return {}
+
+
+def _sda_status(value: Any, closed_value: int = 2) -> int:
+    """Map an SDA status signal to 1 (open) or 0 (closed); unknown counts as closed."""
+    parsed = _as_int(value)
+    return 0 if parsed is None or parsed == closed_value else 1
+
+
+def _sda_lock(value: Any) -> int | None:
+    """Map an SDA lock signal to the REST convention (0 = locked).
+
+    The E07 reports 2 while locked. Missing values stay unknown.
+    """
+    parsed = _as_int(value)
+    if parsed is None:
+        return None
+    return 0 if parsed == 2 else 1
+
+
+def _sda_tenths(value: Any) -> float | None:
+    parsed = _as_float(value)
+    return parsed * 10 if parsed is not None else None
+
+
+def _sda_condition_from_params(params: dict[str, Any], drive_side: str | None = None) -> dict[str, Any]:
+    """Map flat SDA condition signals into the shared nested condition shape.
+
+    Signal names and value conventions come from an app trace of a real E07, as
+    documented in Sunek0/ha-deepal-alternative (MIT): status 2 means closed,
+    lock 2 means locked, window positions are percentages with 0 closed.
+    """
+    soc = _as_int(params.get("VIUSocDisp"))
+    if soc is None:
+        raw_soc = _as_float(params.get("BcuSocDisp"))
+        soc = round(raw_soc) if raw_soc is not None else None
+    ac_connected = _as_int(params.get("AcChrgCnctrSts"))
+    dc_connected = _as_int(params.get("DcChrgCnctrSts"))
+    battery_amps = _as_float(params.get("BcuBattI"))
+    ac_amps = _as_float(params.get("ObcChrgInpAcIL1"))
+    dc_amps = _as_float(params.get("ObcChrgDcI"))
+    charge_status = _sda_charge_status(_as_int(params.get("BcuChrgSts")), ac_amps, dc_amps, battery_amps)
+    # The plug entities expect 3 for "connected". Like the S07, 0 and 1 mean not
+    # connected; a charging car is connected whatever the connector signal says.
+    gun_connected = charge_status == 6 or ac_connected not in (None, 0, 1)
+    charge_minutes = _charge_minutes(params.get("BcuChrgTiDisp"))
+    door_left, door_right = _front_pair(
+        _sda_status(params.get("DrvrDoorSts")),
+        _sda_status(params.get("PassDoorSts")),
+        drive_side,
+        legacy_driver_left=True,
+    )
+    window_left, window_right = _front_pair(
+        _as_int(params.get("DrvrWinPos")),
+        _as_int(params.get("PassWinPos")),
+        drive_side,
+        legacy_driver_left=True,
+    )
+    seat_left, seat_right = _front_pair(
+        {"heatStatus": _as_int(params.get("DrHeatGear")), "ventStatus": _as_int(params.get("DrVentGear"))},
+        {"heatStatus": _as_int(params.get("PsgHeatGear")), "ventStatus": _as_int(params.get("PsgVentGear"))},
+        drive_side,
+        legacy_driver_left=True,
+    )
+    return {
+        "lastUpdatedAt": int(time.time() * 1000),
+        "vehicleStatus": {
+            "soc": soc,
+            "drvMileage": _as_int(params.get("VcuResiMilg")),
+            "totalMileage": _as_float(params.get("CdcTotMilg")),
+            "speed": _as_float(params.get("EspVehSpd")),
+            "engineSts": _as_int(params.get("VcuRdySts")),
+            "connectStatus": 1,
+            "powerStatus": _as_int(params.get("BcmPwrStsFb")),
+            "steeringWheelHeater": _as_int(params.get("SteeringHeat")),
+        },
+        "charge": {
+            "chargeStatus": charge_status,
+            "chargeConStatus": 3 if gun_connected else 0,
+            "dcChargeGunConnectStatus": dc_connected,
+            # Battery current is negative while charging into the pack.
+            "chargeCurrent": max(0.0, -battery_amps) if battery_amps is not None else None,
+            "acChargeCurrent": ac_amps,
+            "dcChargeCurrent": dc_amps,
+            "remainChargeTime": charge_minutes,
+            "maxSocPercent": _as_int(params.get("TboxSocChrgTarSet")),
+        },
+        "door": {
+            "doors": [
+                door_left,
+                door_right,
+                _sda_status(params.get("LeReDoorSts")),
+                _sda_status(params.get("RiReDoorSts")),
+            ],
+            "trunk": _sda_status(params.get("ObjStTypePLGDoorSt")),
+            "hood": _sda_status(params.get("FrtGateSts")),
+            "driverLock": _sda_lock(params.get("DrvrDoorLockLogicSts")),
+            "passengerLock": _sda_lock(params.get("PassDoorLockLogicSts")),
+        },
+        "window": {
+            "windows": [
+                window_left,
+                window_right,
+                _as_int(params.get("LeReWinPos")),
+                _as_int(params.get("RiReWinPos")),
+            ],
+        },
+        "hvac": {
+            "insideTemp": _sda_tenths(params.get("ITMSAcIntT")),
+            "remoteTemp": _sda_tenths(params.get("ITMSDrvrAutT")),
+            "acStatus": _as_int(params.get("ITMSACOnOff")),
+            "insidePm25": _as_float(params.get("ITMSPm25InCarDens")),
+            "insideAirQualityLevel": _as_int(params.get("ITMSAirQlyInCarLvl")),
+            "defrostStatus": _as_int(params.get("ITMSFrntDefroster")),
+        },
+        "seat": {
+            "leftFront": seat_left,
+            "rightFront": seat_right,
+            "leftBack": {
+                "heatStatus": _as_int(params.get("RearLeHeatGear")),
+                "ventStatus": _as_int(params.get("RearLeVentGear")),
+            },
+            "rightBack": {
+                "heatStatus": _as_int(params.get("RearRiHeatGear")),
+                "ventStatus": _as_int(params.get("RearRiVentGear")),
+            },
+        },
+        "lamp": {
+            "highBeam": max(
+                _as_int(params.get("HCM_LeHiBeSt")) or 0,
+                _as_int(params.get("HCM_RiHiBeSt")) or 0,
+            ),
+            "lowBeam": max(
+                _as_int(params.get("HCM_LeLoBeSt")) or 0,
+                _as_int(params.get("HCM_RiLoBeSt")) or 0,
+            ),
+        },
+        "rawSda": params,
+    }
+
+
+def _signal_keys_used(function: Any) -> frozenset[str]:
+    """Return the raw signal names a *_condition_from_params mapper reads.
+
+    Used by diagnostics to show which signals the vehicle reports but no entity
+    consumes yet.
+    """
+    tree = ast.parse(inspect.getsource(function))
+    keys: set[str] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if isinstance(func, ast.Attribute) and func.attr == "get":
+            args = node.args[:1]
+        elif isinstance(func, ast.Name) and func.id == "_first":
+            args = node.args[1:]
+        else:
+            continue
+        keys.update(a.value for a in args if isinstance(a, ast.Constant) and isinstance(a.value, str))
+    return frozenset(keys)
+
+
+def unmapped_signal_keys(raw: dict[str, Any], *, sda: bool) -> list[str]:
+    """Return raw signal names in ``raw`` that the condition mapper ignores."""
+    mapper = _sda_condition_from_params if sda else _mqtt_condition_from_params
+    return sorted(set(raw) - _signal_keys_used(mapper))
+
+
+# S05 ChrgSts charging states, observed live on an S05 by moving the gun through
+# every state (as documented by Sunek0/ha-deepal-alternative, MIT). Any other
+# value is unknown and must not be translated into one.
+_CHARGE_STATES = (0, 1, 2, 3, 4)  # 0 not charging, 1 AC plugged, 2 DC plugged, 3 AC charging, 4 DC charging
+_CHARGING_STATES = frozenset({3, 4})
+_AC_GUN_STATES = frozenset({1, 3})
+_DC_GUN_STATES = frozenset({2, 4})
+# The S05 reported 2538 A in BattDCChrgInCurr while parked after a DC session;
+# nothing can approach this, so a reading outside 0..this is a glitch (DC peak ~480 A).
+_MAX_CHARGE_CURRENT_A = 600.0
+
+
+def _charge_state(value: Any) -> int | None:
+    """Return the S05 charging state (0-4), or None when it is not one."""
+    parsed = _as_int(value)
+    return parsed if parsed in _CHARGE_STATES else None
+
+
+def _mqtt_charge_status(state: int | None) -> int | None:
+    """Translate an S05 charging state into the shared status codes (6 charging, 1 not)."""
+    if state is None:
+        return None
+    return 6 if state in _CHARGING_STATES else 1
+
+
+def _gun_code_connected(value: Any) -> bool | None:
+    """A raw gun field: 0 and 1 mean not connected, higher values a plugged gun."""
+    code = _as_int(value)
+    return None if code is None else code not in (0, 1)
+
+
+def _mqtt_gun_flags(state: int | None, ac_raw: Any, dc_raw: Any) -> tuple[bool | None, bool | None]:
+    """Return (AC gun connected, DC gun connected).
+
+    A recognised charging state identifies the gun, so a stale raw field cannot
+    keep a gun "plugged" after unplugging; without one, fall back to the raw fields.
+    """
+    if state is not None:
+        return state in _AC_GUN_STATES, state in _DC_GUN_STATES
+    return _gun_code_connected(ac_raw), _gun_code_connected(dc_raw)
+
+
+def _gun_value(connected: bool | None) -> int | None:
+    """Shared plug code the entities expect: 3 means connected."""
+    return None if connected is None else (3 if connected else 0)
+
+
+def _clean_charge_current(value: Any) -> float | None:
+    """Return a believable current in amps, or None for a glitch."""
+    current = _as_float(value)
+    if current is None or not 0 <= current <= _MAX_CHARGE_CURRENT_A:
+        return None
+    return current
+
+
+def _mqtt_charge_currents(
+    ac_raw: Any, dc_raw: Any, state: int | None
+) -> tuple[float | None, float | None, float | None]:
+    """Return (AC, DC, active) charging current for one S05 report.
+
+    The car keeps reporting the current of the charger it is not using, and
+    publishes a glitch value after a DC session, so both fields are resolved
+    against the charging state: the active mode's field is the charge current,
+    the other is zeroed, and plugged-but-not-charging or unplugged report 0.
+    Without a recognised state, the cleaned readings are kept and a non-zero one wins.
+    """
+    ac_reported = _as_float(ac_raw) is not None
+    dc_reported = _as_float(dc_raw) is not None
+    ac = _clean_charge_current(ac_raw)
+    dc = _clean_charge_current(dc_raw)
+    if state == 4:
+        return (0.0 if ac_reported else None), dc, dc
+    if state == 3:
+        return ac, (0.0 if dc_reported else None), ac
+    if state is not None:
+        zero = 0.0 if (ac_reported or dc_reported) else None
+        return (0.0 if ac_reported else None), (0.0 if dc_reported else None), zero
+    active = ac if ac not in (None, 0) else dc
+    if active is None and ac is not None:
+        active = 0.0
+    return ac, dc, active
+
+
+def _humidity_percent(value: Any) -> float | None:
+    """Cabin humidity in percent. The S05 sends a percentage or tenths of a percent."""
+    humidity = _as_float(value)
+    if humidity is None:
+        return None
+    if humidity > 100:
+        humidity /= 10
+    return humidity if 0 <= humidity <= 100 else None
+
+
+def clamp_ac_temperature(target_c: float) -> float:
+    """Clamp an air-conditioning target to what the gateway accepts."""
+    return min(AC_MAX_TEMP_C, max(AC_MIN_TEMP_C, float(target_c)))
+
+
+def _mqtt_condition_from_params(params: dict[str, Any], drive_side: str | None = None) -> dict[str, Any]:
+    charge_state = _charge_state(params.get("ChrgSts"))
+    ac_gun, dc_gun = _mqtt_gun_flags(
+        charge_state,
+        params.get("acChargeGunConnectionState"),
+        _first(params, "dcDhargeGunConnectionState", "dcChargeGunConnectionState"),
+    )
+    ac_amps, dc_amps, active_amps = _mqtt_charge_currents(
+        _first(params, "BattACChrgInCurr", "battACChrgInCurr"),
+        _first(params, "BattDCChrgInCurr", "battDCChrgInCurr"),
+        charge_state,
+    )
+    door_left, door_right = _front_pair(
+        _as_int(params.get("driverDoor")),
+        _as_int(params.get("passengerDoor")),
+        drive_side,
+        legacy_driver_left=True,
+    )
+    window_left, window_right = _front_pair(
+        _as_int(params.get("diverWindow")),
+        _as_int(params.get("passengerWindow")),
+        drive_side,
+        legacy_driver_left=True,
+    )
+    seat_left, seat_right = _front_pair(
+        {
+            "level": _as_int(params.get("driverSeatHeatStatus")),
+            "heatStatus": _as_int(params.get("driverSeatHeatStatus")),
+            "ventStatus": _as_int(params.get("driverSeatAirStatus")),
+        },
+        {
+            "level": _as_int(params.get("passengerSeatHeatStatus")),
+            "heatStatus": _as_int(params.get("passengerSeatHeatStatus")),
+            "ventStatus": _as_int(params.get("passengerSeatAirStatus")),
+        },
+        drive_side,
+        legacy_driver_left=False,
+    )
+    latest = _first(params, "lastUpdatedTime", "lastUpdatedAt", "latestDate")
     condition: dict[str, Any] = {
         "lastUpdatedAt": _iso_to_millis(latest) or int(time.time() * 1000),
         "vehicleStatus": {
@@ -281,7 +856,7 @@ def _s05_condition_from_params(params: dict[str, Any]) -> dict[str, Any]:
             "insideTemp": _as_float(params.get("vehicleTemperature")) * 10
             if _as_float(params.get("vehicleTemperature")) is not None
             else None,
-            "insideHumidity": _as_float(params.get("innerHumidity")),
+            "insideHumidity": _humidity_percent(params.get("innerHumidity")),
             "remoteTemp": _as_float(params.get("airConditioningSetTemperature")) * 10
             if _as_float(params.get("airConditioningSetTemperature")) is not None
             else None,
@@ -292,31 +867,32 @@ def _s05_condition_from_params(params: dict[str, Any]) -> dict[str, Any]:
             "fanLevel": _as_int(params.get("airConditioningHairRatings")),
         },
         "charge": {
-            "chargeStatus": _as_int(params.get("ChrgSts")),
-            "chargeConStatus": _as_int(_first(params, "acChargeGunConnectionState", "dcChargeGunConnectionState")),
-            "acChargeCurrent": _as_float(_first(params, "BattACChrgInCurr", "battACChrgInCurr")),
-            "dcChargeCurrent": _as_float(_first(params, "BattDCChrgInCurr", "battDCChrgInCurr")),
-            "chargeCurrent": _as_float(_first(params, "BattACChrgInCurr", "BattDCChrgInCurr", "battACChrgInCurr", "battDCChrgInCurr")),
-            "remainChargeTime": _as_int(params.get("chargDeltMins")),
-            "dcChargeGunConnectStatus": _as_int(params.get("dcChargeGunConnectionState")),
+            "chargeStatus": _mqtt_charge_status(charge_state),
+            "chargeConStatus": _gun_value(ac_gun),
+            "acChargeCurrent": ac_amps,
+            "dcChargeCurrent": dc_amps,
+            "chargeCurrent": active_amps,
+            "remainChargeTime": _charge_minutes(params.get("chargDeltMins")),
+            # The real payload misspells the DC gun key as "dcDharge...".
+            "dcChargeGunConnectStatus": _gun_value(dc_gun),
             "chargeCoverStatus": _as_int(params.get("chargeCoverStatus")),
         },
         "door": {
             "doors": [
-                _as_int(params.get("driverDoor")),
-                _as_int(params.get("passengerDoor")),
+                door_left,
+                door_right,
                 _as_int(params.get("leftRearDoor")),
                 _as_int(params.get("rightRearDoor")),
             ],
             "trunk": _as_int(params.get("trunk")),
-            "hood": _as_int(params.get("hoodStatus")),
+            "hood": _as_int(_first(params, "hood", "hoodStatus")),
             "driverLock": _as_int(params.get("driverDoorLock")),
             "passengerLock": _as_int(params.get("passengerDoorLock")),
         },
         "window": {
             "windows": [
-                _as_int(params.get("diverWindow")),
-                _as_int(params.get("passengerWindow")),
+                window_left,
+                window_right,
                 _as_int(params.get("leftRearWindow")),
                 _as_int(params.get("rightRearWindow")),
             ],
@@ -344,18 +920,10 @@ def _s05_condition_from_params(params: dict[str, Any]) -> dict[str, Any]:
             "rightBack": {"pressure": _as_float(params.get("rrTyrePressure")), "warning": _as_int(params.get("rrPressureWarning"))},
         },
         "seat": {
-            "rightFront": {
-                "level": _as_int(params.get("driverSeatHeatStatus")),
-                "heatStatus": _as_int(params.get("driverSeatHeatStatus")),
-                "ventStatus": _as_int(params.get("driverSeatAirStatus")),
-            },
-            "leftFront": {
-                "level": _as_int(params.get("passengerSeatHeatStatus")),
-                "heatStatus": _as_int(params.get("passengerSeatHeatStatus")),
-                "ventStatus": _as_int(params.get("passengerSeatAirStatus")),
-            },
+            "leftFront": seat_left,
+            "rightFront": seat_right,
         },
-        "rawS05": params,
+        "rawMqtt": params,
     }
     return condition
 
@@ -416,6 +984,7 @@ class DeepalClient:
         # regions (e.g. AU -> Singapore) also use a different gateway prefix.
         region = REGION_GATEWAYS.get((country or "").upper())
         self.base_url = region["base_url"] if region else BASE_URL
+        self.sda_base_url = region["sda_base_url"] if region else SDA_BASE_URL
         self.gateway_prefix = region["gateway"] if region else DEFAULT_GATEWAY
         self.language = language
         self.app_version = app_version
@@ -426,6 +995,10 @@ class DeepalClient:
         self.control_pin = control_pin
         self.cac_token = cac_token
         self.user_id = user_id
+        self.last_mqtt_topics: list[dict[str, Any]] | None = None
+        self._ca_tsp_token: str | None = None  # token the CA gateway accepted last
+        # "RHD"/"LHD" from the vehicle list; set by the coordinator.
+        self.drive_side: str | None = None
         self._private_key = self._load_private_key(private_key_pem) if private_key_pem else None
 
     @property
@@ -504,6 +1077,10 @@ class DeepalClient:
         *,
         include_auth: bool = True,
         base_url: str | None = None,
+        method: str = "POST",
+        query: dict[str, Any] | None = None,
+        header_overrides: dict[str, str] | None = None,
+        return_body: bool = False,
     ) -> Any:
         if base_url is None:
             base_url = self.base_url
@@ -513,6 +1090,8 @@ class DeepalClient:
             path = self.gateway_prefix + path[len(DEFAULT_GATEWAY):]
         url = f"{base_url}{path}"
         headers = self._headers(include_auth=include_auth)
+        if header_overrides:
+            headers.update(header_overrides)
         started_at = time.monotonic()
         request_payload = payload or {}
         if self.enable_api_logging:
@@ -532,9 +1111,11 @@ class DeepalClient:
         last_transient_err: Exception | None = None
         for attempt in range(3):
             try:
-                async with self._session.post(
+                async with self._session.request(
+                    method,
                     url,
-                    data=request_body,
+                    data=request_body if method == "POST" else None,
+                    params=query,
                     headers=headers,
                     timeout=30,
                 ) as resp:
@@ -607,11 +1188,52 @@ class DeepalClient:
             ):
                 raise DeepalAuthError(f"Deepal auth failed: {code} {msg}")
             raise DeepalApiError(f"Deepal API error for {path}: {code} {msg}")
-        return body.get("data")
+        return body if return_body else body.get("data")
+
+    def _ca_tsp_candidates(self) -> list[str]:
+        """Tokens that may be accepted as the CA gateway's X-Tsp-User-Token.
+
+        Accounts differ: for some the gateway wants the cacToken, for others the
+        access-token half of the login token. The cacToken (what this client has
+        always sent) comes first.
+        """
+        access = (self.tokens.access_token or "").removeprefix("Bearer ").partition("|")[0].strip()
+        candidates: list[str] = []
+        if self.cac_token:
+            candidates.append(self.cac_token)
+        if access and access not in candidates:
+            candidates.append(access)
+        return candidates
 
     async def _post_ca(self, path: str, payload: dict[str, Any] | None = None) -> Any:
-        """POST to the CA gateway used by S05 MQTT setup endpoints."""
-        return await self._post(path, payload, base_url=CA_BASE_URL)
+        """POST to the CA gateway used by MQTT setup endpoints.
+
+        If the gateway rejects the user token (``APIGW_`` errors such as
+        "invalided token"), try the other candidate token once and remember the one
+        that works. Idea from danperks/ha-deepal.
+        """
+        candidates = self._ca_tsp_candidates()
+        remembered = self._ca_tsp_token
+        ordered = ([remembered] if remembered in candidates else []) + [c for c in candidates if c != remembered]
+        if not ordered:
+            return await self._post(path, payload, base_url=CA_BASE_URL)
+        for index, token in enumerate(ordered):
+            try:
+                data = await self._post(
+                    path,
+                    payload,
+                    base_url=CA_BASE_URL,
+                    header_overrides={"X-Tsp-User-Token": token, "X-VCS-User-Token": token},
+                )
+            except DeepalAuthError:
+                raise
+            except DeepalApiError as err:
+                if "APIGW_" not in str(err) or index == len(ordered) - 1:
+                    raise
+                continue
+            self._ca_tsp_token = token
+            return data
+        raise DeepalApiError("No token is available for the CA gateway")  # pragma: no cover
 
     async def refresh_tokens(self) -> DeepalTokens:
         """Refresh the bearer token using the captured app endpoint."""
@@ -732,19 +1354,107 @@ class DeepalClient:
         )
         return data if isinstance(data, dict) else {}
 
-    async def s05_mqtt_condition(self, vehicle_id: str) -> dict[str, Any]:
-        """Fetch and decrypt S05 condition data from the MQTT telemetry path."""
-        if not self.user_id:
-            raise DeepalApiError("S05 MQTT telemetry requires user id; reauthenticate the integration")
+    async def sda_condition(self, vehicle_id: str) -> dict[str, Any]:
+        """Fetch the condition of an SDA-MQTT vehicle (Deepal E07) over REST.
 
-        config = await self._s05_mqtt_config(vehicle_id)
-        token = await self._s05_mqtt_token()
-        condition = await self._s05_mqtt_read_condition(config, token)
+        The official app reads it with a GET on the SDA gateway, passing the
+        login token without the "Bearer " prefix. The flat SDA signal object is
+        mapped into the shared condition shape. Request shape and signal
+        mapping follow Sunek0/ha-deepal-alternative (MIT).
+        """
+        # The SDA host takes the same composite login token the intl hosts get
+        # in the Authorization header (access|cac), minus the "Bearer " prefix.
+        token = (self._headers().get("authorization") or "").removeprefix("Bearer ").strip()
+        overrides = {"Accept-Encoding": "identity"}
+        if token:
+            overrides["X-Tsp-User-Token"] = token
+        last_error: DeepalApiError | None = None
+        for key in ("car_id", "carId", "vehicleId"):
+            try:
+                body = await self._post(
+                    SDA_CONDITION_PATH,
+                    base_url=self.sda_base_url,
+                    method="GET",
+                    query={key: vehicle_id},
+                    header_overrides=overrides,
+                    return_body=True,
+                )
+            except DeepalAuthError:
+                raise
+            except DeepalApiError as err:
+                last_error = err
+                continue
+            params = _sda_params_from_body(body)
+            if params:
+                return _sda_condition_from_params(params, self.drive_side)
+            last_error = DeepalApiError(
+                "SDA condition response had no recognised signals; "
+                f"top-level keys: {sorted(body) if isinstance(body, dict) else type(body).__name__}"
+            )
+        raise last_error or DeepalApiError("SDA condition did not return vehicle condition")
+
+    async def mqtt_condition(self, vehicle_id: str) -> dict[str, Any]:
+        """Fetch and decrypt condition data from the MQTT telemetry path."""
+        if not self.user_id:
+            raise DeepalApiError("MQTT telemetry requires user id; reauthenticate the integration")
+
+        config = await self._mqtt_config(vehicle_id)
+        token = await self._mqtt_token()
+        condition = await self._mqtt_read_condition(config, token)
         if not condition:
-            raise DeepalApiError("S05 MQTT telemetry did not return vehicle condition")
+            raise DeepalApiError("MQTT telemetry did not return vehicle condition")
         return condition
 
-    async def _s05_mqtt_config(self, vehicle_id: str) -> dict[str, Any]:
+    async def mqtt_wake(self, vehicle_id: str) -> str:
+        """Wake an MQTT vehicle so it publishes a fresh report.
+
+        Uses the same TxWakeup request that precedes MQTT commands (validated on
+        an S05). It moves nothing on the car but can drain the 12 V battery if
+        overused, so callers must throttle it.
+        """
+        return await self._mqtt_command(
+            vehicle_id,
+            service_code="TxWakeup",
+            method="Cnr_ReWakeup",
+            params={},
+            wake_only=True,
+        )
+
+    async def mqtt_control_doors(self, *, vehicle_id: str, open_value: bool) -> str:
+        """Lock or unlock an MQTT-backed vehicle."""
+        return await self._mqtt_command(
+            vehicle_id,
+            service_code="Door_Lock",
+            method="Cnr_RR_ObjDrv",
+            params={"MotCtrl": _S05_UNLOCK if open_value else _S05_LOCK},
+        )
+
+    async def mqtt_control_windows(self, *, vehicle_id: str, open_value: bool) -> str:
+        """Open or close all windows on an MQTT-backed vehicle."""
+        return await self._mqtt_command(
+            vehicle_id,
+            service_code="CarWin",
+            method="Cnr_WinAllCtrl",
+            params={
+                "MotCtrlPos": _S05_POSITION_OPEN if open_value else _S05_POSITION_CLOSED
+            },
+        )
+
+    async def mqtt_control_trunk(self, *, vehicle_id: str, open_value: bool) -> str:
+        """Open or close the boot on an MQTT-backed vehicle."""
+        return await self._mqtt_command(
+            vehicle_id,
+            service_code="TailGateDrv",
+            method="Cnr_TailGateDrv_ReqSt",
+            params={
+                "ReqTypeDoor": _S05_OPEN if open_value else _S05_CLOSE,
+                "TarPosnPerc": _S05_POSITION_OPEN
+                if open_value
+                else _S05_POSITION_CLOSED,
+            },
+        )
+
+    async def _mqtt_config(self, vehicle_id: str) -> dict[str, Any]:
         data = await self._post_ca(
             "/user-apigw/vot-connect-conf-center/api/device/getConnConf",
             {
@@ -756,19 +1466,218 @@ class DeepalClient:
             },
         )
         if not isinstance(data, dict):
-            raise DeepalApiError("Unexpected S05 MQTT config response")
+            raise DeepalApiError("Unexpected MQTT config response")
         return data
 
-    async def _s05_mqtt_token(self) -> str:
+    async def _mqtt_token(self) -> str:
         data = await self._post_ca(
             "/user-apigw/vot-connect-auth-center/api/auth/getAuthTokenByUserId",
             {"userId": self.user_id},
         )
         if not isinstance(data, dict) or not data.get("authToken"):
-            raise DeepalApiError("S05 MQTT auth response did not include authToken")
+            raise DeepalApiError("MQTT auth response did not include authToken")
         return str(data["authToken"])
 
-    async def _s05_mqtt_read_condition(self, config: dict[str, Any], token: str) -> dict[str, Any]:
+    async def _mqtt_command(
+        self,
+        vehicle_id: str,
+        *,
+        service_code: str,
+        method: str,
+        params: dict[str, Any],
+        wake_only: bool = False,
+    ) -> str:
+        """Wake the vehicle, publish one command, and wait for its broker response.
+
+        The wake-up request does not move any vehicle component. The requested
+        physical command is deliberately published exactly once: a lost
+        acknowledgement must not cause a second physical action. With
+        ``wake_only`` the exchange stops after the wake request is answered and
+        no command (and no control PIN) is involved.
+        """
+        if not wake_only:
+            if not self.commands_available:
+                raise DeepalCommandNotReady(
+                    "Remote commands require explicit enablement and a control PIN"
+                )
+            if self.control_pin:
+                await self.check_control_code(self.control_pin)
+
+        config = await self._mqtt_config(vehicle_id)
+        token = await self._mqtt_token()
+        info = ((config.get("mqttConnectionInfos") or [None])[0]) or {}
+        cluster = ((info.get("clusterInfos") or [None])[0]) or {}
+        host = str(cluster.get("brokerUrl", "")).replace("ssl://", "")
+        port = int(cluster.get("brokerPort") or 8883)
+        topics: list[str] = []
+        login_pub_topic: str | None = None
+        login_did: str | None = None
+        command_pub_topic: str | None = None
+        command_res_topic: str | None = None
+        device_did: str | None = None
+
+        for topic_info in info.get("topicInfos") or []:
+            msg_type = topic_info.get("msgType")
+            for topic in topic_info.get("pubTopics") or []:
+                if msg_type == "loginout" and "/loginout/req" in topic:
+                    login_pub_topic = topic
+                    login_did = self._mqtt_topic_did(topic)
+                elif msg_type == "commands" and "/commands/req" in topic:
+                    command_pub_topic = topic
+                    device_did = self._mqtt_topic_did(topic)
+            for topic in topic_info.get("subTopics") or []:
+                if msg_type in ("loginout", "commands"):
+                    topics.append(topic)
+                if msg_type == "commands" and "/commands/res" in topic:
+                    command_res_topic = topic
+                    if device_did is None:
+                        device_did = self._mqtt_topic_did(topic)
+
+        if not all(
+            (
+                host,
+                login_pub_topic,
+                login_did,
+                command_pub_topic,
+                command_res_topic,
+                device_did,
+            )
+        ):
+            raise DeepalApiError("MQTT config did not include command topics")
+
+        context = await asyncio.to_thread(ssl.create_default_context)
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_connection(host, port, ssl=context, server_hostname=host),
+            timeout=15,
+        )
+        try:
+            writer.write(_mqtt_connect_packet(login_did, login_did, token))
+            await writer.drain()
+            first, body = await asyncio.wait_for(_mqtt_read_packet(reader), timeout=15)
+            rc = body[1] if first == 0x20 and len(body) >= 2 else None
+            if rc != 0:
+                raise DeepalApiError(f"MQTT broker rejected connection: rc={rc}")
+
+            writer.write(_mqtt_subscribe_packet(1, sorted(set(topics))))
+            await writer.drain()
+            await asyncio.wait_for(_mqtt_read_packet(reader), timeout=15)
+
+            login_req_id = self._mqtt_req_id(login_did)
+            writer.write(
+                _mqtt_publish_packet(
+                    login_pub_topic, self._mqtt_login_payload(login_did, login_req_id)
+                )
+            )
+            await writer.drain()
+
+            wake_req_id: str | None = None
+            command_req_id: str | None = None
+            secret_key: str | None = None
+            deadline = time.monotonic() + 45
+            while time.monotonic() < deadline:
+                first, body = await asyncio.wait_for(
+                    _mqtt_read_packet(reader),
+                    timeout=max(1, deadline - time.monotonic()),
+                )
+                if first >> 4 != 3:
+                    continue
+                topic, payload, packet_id = _mqtt_parse_publish(first, body)
+                if packet_id is not None:
+                    writer.write(bytes([0x40, 0x02]) + struct.pack("!H", packet_id))
+                    await writer.drain()
+
+                if secret_key is None:
+                    secret_key = self._mqtt_secret_from_payload(payload)
+                    if secret_key:
+                        wake_req_id = self._mqtt_req_id(device_did)
+                        wake_request = self._mqtt_command_request_payload(
+                            device_did,
+                            login_did,
+                            secret_key,
+                            wake_req_id,
+                            service_code="TxWakeup",
+                            method="Cnr_ReWakeup",
+                            params={},
+                        )
+                        writer.write(
+                            _mqtt_publish_packet(command_pub_topic, wake_request)
+                        )
+                        await writer.drain()
+                    continue
+
+                if topic != command_res_topic:
+                    continue
+
+                response_req_id = _mqtt_payload_req_id(payload)
+                if response_req_id == wake_req_id and command_req_id is None:
+                    if self.enable_api_logging:
+                        _LOGGER.warning(
+                            "Deepal MQTT debug response phase=wake body=%s",
+                            _redact_for_log(
+                                _mqtt_command_response_log_view(
+                                    payload, secret_key, wake_req_id
+                                )
+                            ),
+                        )
+                    # A car that is already awake may reject the redundant wake
+                    # request. Either response proves the wake request was
+                    # processed, so proceed with the user's command once.
+                    if wake_only:
+                        return wake_req_id
+                    await asyncio.sleep(_MQTT_WAKE_SETTLE_SECONDS)
+                    command_req_id = self._mqtt_req_id(device_did)
+                    request = self._mqtt_command_request_payload(
+                        device_did,
+                        login_did,
+                        secret_key,
+                        command_req_id,
+                        service_code=service_code,
+                        method=method,
+                        params=params,
+                    )
+                    writer.write(_mqtt_publish_packet(command_pub_topic, request))
+                    await writer.drain()
+                    continue
+
+                if command_req_id is None or response_req_id != command_req_id:
+                    continue
+                if self.enable_api_logging:
+                    _LOGGER.warning(
+                        "Deepal MQTT debug request phase=command service=%s method=%s params=%s",
+                        service_code,
+                        method,
+                        _redact_for_log(params),
+                    )
+                    _LOGGER.warning(
+                        "Deepal MQTT debug response phase=command body=%s",
+                        _redact_for_log(
+                            _mqtt_command_response_log_view(
+                                payload, secret_key, command_req_id
+                            )
+                        ),
+                    )
+                error = _mqtt_command_result_error(payload, secret_key, command_req_id)
+                if error:
+                    raise DeepalApiError(f"MQTT command failed: {error}")
+                return command_req_id
+
+            raise DeepalApiError(
+                "MQTT command timed out without a correlated response"
+            )
+        except TimeoutError as err:
+            raise DeepalApiError(
+                "MQTT command timed out without a correlated response"
+            ) from err
+        finally:
+            writer.close()
+            try:
+                await writer.wait_closed()
+            except (ConnectionError, TimeoutError, ssl.SSLError):
+                pass
+
+    async def _mqtt_read_condition(
+        self, config: dict[str, Any], token: str
+    ) -> dict[str, Any]:
         info = ((config.get("mqttConnectionInfos") or [None])[0]) or {}
         cluster = ((info.get("clusterInfos") or [None])[0]) or {}
         host = str(cluster.get("brokerUrl", "")).replace("ssl://", "")
@@ -784,20 +1693,30 @@ class DeepalClient:
             for topic in topic_info.get("pubTopics") or []:
                 if msg_type == "loginout" and "/loginout/req" in topic:
                     login_pub_topic = topic
-                    login_did = self._s05_topic_did(topic)
+                    login_did = self._mqtt_topic_did(topic)
                 if msg_type == "properties" and "/properties/get/req" in topic:
                     properties_get_topic = topic
-                    device_did = self._s05_topic_did(topic)
+                    device_did = self._mqtt_topic_did(topic)
             for topic in topic_info.get("subTopics") or []:
                 if "/commands/" not in topic and "/set/" not in topic:
                     topics.append(topic)
                 if device_did is None and "/properties/" in topic:
-                    device_did = self._s05_topic_did(topic)
+                    device_did = self._mqtt_topic_did(topic)
 
+        self.last_mqtt_topics = self._mqtt_topic_summary(info)
+        if self.enable_api_logging or not (
+            host and login_pub_topic and login_did and properties_get_topic and device_did
+        ):
+            _LOGGER.warning(
+                "Deepal MQTT debug config port=%s topics=%s",
+                port,
+                self.last_mqtt_topics,
+            )
         if not host or not login_pub_topic or not login_did or not properties_get_topic or not device_did:
-            raise DeepalApiError("S05 MQTT config did not include required topics")
+            raise DeepalApiError("MQTT config did not include required topics")
 
-        context = ssl.create_default_context()
+        # Loading the system trust store is blocking I/O; keep it off the event loop.
+        context = await asyncio.to_thread(ssl.create_default_context)
         reader: asyncio.StreamReader
         writer: asyncio.StreamWriter
         reader, writer = await asyncio.wait_for(
@@ -810,38 +1729,17 @@ class DeepalClient:
             first, body = await asyncio.wait_for(_mqtt_read_packet(reader), timeout=15)
             rc = body[1] if first == 0x20 and len(body) >= 2 else None
             if rc != 0:
-                raise DeepalApiError(f"S05 MQTT broker rejected connection: rc={rc}")
+                raise DeepalApiError(f"MQTT broker rejected connection: rc={rc}")
 
             writer.write(_mqtt_subscribe_packet(1, sorted(set(topics))))
             await writer.drain()
             await asyncio.wait_for(_mqtt_read_packet(reader), timeout=15)
 
-            login_req_id = self._s05_req_id(login_did)
+            login_req_id = self._mqtt_req_id(login_did)
             writer.write(
                 _mqtt_publish_packet(
                     login_pub_topic,
-                    {
-                        "did": login_did,
-                        "r": login_req_id,
-                        "v": "v1.0.0",
-                        "mt": "loginout",
-                        "z": "unzip",
-                        "a": 0,
-                        "e": 0,
-                        "tf": 0,
-                        "dt": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-                        "pl": True,
-                        "sers": [
-                            {
-                                "service_code": "login",
-                                "params": {
-                                    "encryptEnable": 1,
-                                    "zipType": "gzip",
-                                    "ts": int(time.time() * 1000),
-                                },
-                            }
-                        ],
-                    },
+                    self._mqtt_login_payload(login_did, login_req_id),
                 )
             )
             await writer.drain()
@@ -852,7 +1750,10 @@ class DeepalClient:
             requested_condition = False
 
             while time.monotonic() < deadline:
-                first, body = await asyncio.wait_for(_mqtt_read_packet(reader), timeout=max(1, deadline - time.monotonic()))
+                first, body = await asyncio.wait_for(
+                    _mqtt_read_packet(reader),
+                    timeout=max(1, deadline - time.monotonic()),
+                )
                 if first >> 4 != 3:
                     continue
                 topic, payload, packet_id = _mqtt_parse_publish(first, body)
@@ -861,29 +1762,38 @@ class DeepalClient:
                     await writer.drain()
 
                 if not secret_key:
-                    secret_key = self._s05_secret_from_payload(payload)
+                    secret_key = self._mqtt_secret_from_payload(payload)
                     if secret_key:
-                        condition_req_id = self._s05_req_id(device_did)
+                        condition_req_id = self._mqtt_req_id(device_did)
                         writer.write(
                             _mqtt_publish_packet(
                                 properties_get_topic,
-                                self._s05_condition_request_payload(device_did, login_did, secret_key, condition_req_id),
+                                self._mqtt_condition_request_payload(
+                                    device_did, login_did, secret_key, condition_req_id
+                                ),
                             )
                         )
                         await writer.drain()
                         requested_condition = True
                     continue
 
-                params = self._s05_condition_params_from_payload(payload, secret_key)
+                params = self._mqtt_condition_params_from_payload(payload, secret_key)
+                if self.enable_api_logging:
+                    _LOGGER.warning(
+                        "Deepal MQTT debug topic=%s payload_keys=%s decoded_params=%s",
+                        topic,
+                        sorted(payload),
+                        _redact_for_log(params),
+                    )
                 if not params:
                     continue
                 if topic.endswith("/properties/get/res") and len(params) > 10:
-                    return _s05_condition_from_params(params)
+                    return _mqtt_condition_from_params(params, self.drive_side)
                 partial_params.update(params)
                 if requested_condition and len(partial_params) > 30:
-                    return _s05_condition_from_params(partial_params)
+                    return _mqtt_condition_from_params(partial_params, self.drive_side)
 
-            return _s05_condition_from_params(partial_params) if partial_params else {}
+            return _mqtt_condition_from_params(partial_params, self.drive_side) if partial_params else {}
         finally:
             writer.close()
             try:
@@ -892,16 +1802,30 @@ class DeepalClient:
                 pass
 
     @staticmethod
-    def _s05_topic_did(topic: str) -> str | None:
+    def _mqtt_topic_did(topic: str) -> str | None:
         parts = topic.split("/")
         return parts[1] if len(parts) > 2 and parts[0] == "$vdp" else None
 
     @staticmethod
-    def _s05_req_id(device_id: str) -> str:
+    def _mqtt_topic_summary(info: dict[str, Any]) -> list[dict[str, Any]]:
+        """Summarise MQTT topics by message type, hiding device identifiers."""
+        summary = []
+        for topic_info in info.get("topicInfos") or []:
+            summary.append(
+                {
+                    "msgType": topic_info.get("msgType"),
+                    "pub": [_redact_topic(t) for t in topic_info.get("pubTopics") or []],
+                    "sub": [_redact_topic(t) for t in topic_info.get("subTopics") or []],
+                }
+            )
+        return summary
+
+    @staticmethod
+    def _mqtt_req_id(device_id: str) -> str:
         return f"{device_id}_{int(time.time() * 1000000)}"
 
     @staticmethod
-    def _s05_secret_from_payload(payload: dict[str, Any]) -> str | None:
+    def _mqtt_secret_from_payload(payload: dict[str, Any]) -> str | None:
         for item in payload.get("rs") or []:
             if not isinstance(item, dict):
                 continue
@@ -912,7 +1836,7 @@ class DeepalClient:
         return None
 
     @staticmethod
-    def _s05_condition_request_payload(device_did: str, login_did: str, secret_key: str, req_id: str) -> dict[str, Any]:
+    def _mqtt_condition_request_payload(device_did: str, login_did: str, secret_key: str, req_id: str) -> dict[str, Any]:
         sers = [
             {
                 "service_code": "car_condition",
@@ -929,12 +1853,63 @@ class DeepalClient:
             "tf": 0,
             "dt": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
             "b": {"ruid": login_did},
-            "sers": _s05_aes_encrypt(sers, secret_key, req_id),
+            "sers": _mqtt_aes_encrypt(sers, secret_key, req_id),
             "rt": "",
         }
 
     @staticmethod
-    def _s05_condition_params_from_payload(payload: dict[str, Any], secret_key: str) -> dict[str, Any]:
+    def _mqtt_login_payload(login_did: str, req_id: str) -> dict[str, Any]:
+        return {
+            "did": login_did,
+            "r": req_id,
+            "v": "v1.0.0",
+            "mt": "loginout",
+            "z": "unzip",
+            "a": 0,
+            "e": 0,
+            "tf": 0,
+            "dt": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+            "pl": True,
+            "sers": [
+                {
+                    "service_code": "login",
+                    "params": {
+                        "encryptEnable": 1,
+                        "zipType": "gzip",
+                        "ts": int(time.time() * 1000),
+                    },
+                }
+            ],
+        }
+
+    @staticmethod
+    def _mqtt_command_request_payload(
+        device_did: str,
+        login_did: str,
+        secret_key: str,
+        req_id: str,
+        *,
+        service_code: str,
+        method: str,
+        params: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Build the encrypted VDP command envelope used by MQTT vehicles."""
+        sers = [{"service_code": service_code, "command_code": method, "params": params}]
+        return {
+            "did": device_did,
+            "r": req_id,
+            "v": "v1.0.0",
+            "mt": "commands",
+            "e": 1,
+            "z": "gzip",
+            "tf": 0,
+            "dt": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+            "b": {"ruid": login_did},
+            "sers": _mqtt_aes_encrypt(sers, secret_key, req_id),
+            "rt": "",
+        }
+
+    def _mqtt_condition_params_from_payload(self, payload: dict[str, Any], secret_key: str) -> dict[str, Any]:
         req_id = payload.get("r")
         if not isinstance(req_id, str):
             return {}
@@ -944,16 +1919,24 @@ class DeepalClient:
             if not isinstance(encrypted, str) or not encrypted:
                 continue
             try:
-                items = _s05_aes_decrypt(encrypted, secret_key, req_id)
+                items = _mqtt_aes_decrypt(encrypted, secret_key, req_id)
             except (ValueError, json.JSONDecodeError, gzip.BadGzipFile) as err:
-                _LOGGER.debug("Failed to decrypt S05 MQTT %s payload: %s", field, err)
+                _LOGGER.debug("Failed to decrypt MQTT %s payload: %s", field, err)
                 continue
             for item in items:
                 if not isinstance(item, dict):
                     continue
                 service_code = item.get("service_code")
                 item_params = item.get("params")
-                if service_code in (None, "car_condition", "BDC_Service", "BMS_Service", "OBC_Service", "THU_Service") and isinstance(item_params, dict):
+                if self.enable_api_logging:
+                    _LOGGER.warning(
+                        "Deepal MQTT debug field=%s service_code=%s accepted=%s param_count=%s",
+                        field,
+                        service_code,
+                        service_code in _MQTT_SERVICE_CODES,
+                        len(item_params) if isinstance(item_params, dict) else None,
+                    )
+                if service_code in _MQTT_SERVICE_CODES and isinstance(item_params, dict):
                     params.update(item_params)
         return params
 
@@ -1074,6 +2057,43 @@ class DeepalClient:
             require_rc_token=True,
         )
 
+    async def control_seats_heat(self, *, vehicle_id: str, driver: bool, level: int) -> str:
+        """Set the driver or front-passenger seat heating level (0 turns it off)."""
+        return await self._signed_command(
+            path="/intl-app-gw/intl-app-car-control/api/control/seats/heat",
+            vehicle_id=vehicle_id,
+            payload=self._seat_payload("seats_heat", driver=driver, level=level),
+            sign_omit_keys={"command", "rcToken"},
+        )
+
+    async def control_seats_wind(self, *, vehicle_id: str, driver: bool, level: int) -> str:
+        """Set the driver or front-passenger seat ventilation level (0 turns it off)."""
+        return await self._signed_command(
+            path="/intl-app-gw/intl-app-car-control/api/control/seats/wind",
+            vehicle_id=vehicle_id,
+            payload=self._seat_payload("seats_wind", driver=driver, level=level),
+            sign_omit_keys={"command", "rcToken"},
+        )
+
+    @staticmethod
+    def _seat_payload(command: str, *, driver: bool, level: int) -> dict[str, Any]:
+        # The endpoint rejects explicit nulls and a zero level, so only the
+        # requested seat is sent and "off" is a zero switch without a level.
+        prefix = "master" if driver else "copilot"
+        payload: dict[str, Any] = {"command": command, f"{prefix}Switch": 1 if level > 0 else 0}
+        if level > 0:
+            payload[f"{prefix}Level"] = level
+        return payload
+
+    async def control_steering_wheel_heat(self, *, vehicle_id: str, open_value: bool) -> str:
+        """Turn the steering wheel heating on or off."""
+        return await self._signed_command(
+            path="/intl-app-gw/intl-app-car-control/api/control/steering-wheel/heat",
+            vehicle_id=vehicle_id,
+            payload={"command": "steering_wheel_heating", "open": open_value},
+            sign_omit_keys={"command", "rcToken"},
+        )
+
     async def control_air_conditioner(
         self,
         *,
@@ -1091,7 +2111,7 @@ class DeepalClient:
                 "command": "air",
                 "enabled": enabled,
                 "runTime": run_time,
-                "targetTemp": int(round(target_temp_c * 10)),
+                "targetTemp": int(round(clamp_ac_temperature(target_temp_c) * 10)),
                 "windMode": wind_mode,
             },
             sign_omit_keys={"command", "rcToken"},

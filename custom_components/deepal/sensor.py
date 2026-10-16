@@ -15,6 +15,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .coordinator import DeepalDataUpdateCoordinator
 from .entity import DeepalEntity
+from .gating import async_add_supported
 
 
 def _path_value(data: dict[str, Any], path: tuple[str | int, ...]) -> Any:
@@ -52,6 +53,19 @@ def _charge_schedule(data: dict[str, Any]) -> dict[str, Any]:
     return first_plan if isinstance(first_plan, dict) else {}
 
 
+def _format_hours_minutes(minutes: Any) -> str | None:
+    """Format remaining charge minutes as H:MM, or None when there is no estimate.
+
+    The duration-style sensor shows seconds in the frontend; this text form is
+    meant for dashboards. 8191 is the app's "no estimate" value. Idea and format
+    follow Sunek0/ha-deepal-alternative (MIT).
+    """
+    if not isinstance(minutes, int | float) or minutes < 0 or minutes == 8191:
+        return None
+    total = int(minutes)
+    return f"{total // 60}:{total % 60:02d}"
+
+
 def _format_hhmm(value: Any) -> str | None:
     if value is None:
         return None
@@ -87,6 +101,7 @@ SENSOR_NAMES = {
     "ac_charge_current": "AC Charge Current",
     "dc_charge_current": "DC Charge Current",
     "remain_charge_time": "Remaining Charge Time",
+    "remain_charge_time_hhmm": "Remaining Charge Time (H:MM)",
     "max_soc_percent": "Max Charge Limit",
     "charge_plan_start_time": "Charge Schedule Start Time",
     "charge_plan_end_time": "Charge Schedule End Time",
@@ -239,6 +254,12 @@ SENSORS: tuple[DeepalSensorDescription, ...] = (
         path=("charge", "remainChargeTime"),
     ),
     DeepalSensorDescription(
+        key="remain_charge_time_hhmm",
+        translation_key="remain_charge_time_hhmm",
+        icon="mdi:timer-outline",
+        path=("charge", "remainChargeTime"),
+    ),
+    DeepalSensorDescription(
         key="max_soc_percent",
         translation_key="max_soc_percent",
         native_unit_of_measurement=PERCENTAGE,
@@ -290,12 +311,12 @@ SENSORS: tuple[DeepalSensorDescription, ...] = (
     DeepalSensorDescription(
         key="driver_seat_heater_level",
         translation_key="driver_seat_heater_level",
-        path=("seat", "rightFront", "heatStatus"),
+        path=("seat", "driver", "heatStatus"),
     ),
     DeepalSensorDescription(
         key="front_passenger_seat_heater_level",
         translation_key="front_passenger_seat_heater_level",
-        path=("seat", "leftFront", "heatStatus"),
+        path=("seat", "passenger", "heatStatus"),
     ),
     DeepalSensorDescription(
         key="rear_left_seat_heater_level",
@@ -361,10 +382,42 @@ SENSORS: tuple[DeepalSensorDescription, ...] = (
 )
 
 
+# Sensors that are always created: they do not come from the vehicle's condition.
+ALWAYS_SENSORS = frozenset({"refresh_failure_count", "img_url"})
+
+
+def _condition(data: dict[str, Any]) -> dict[str, Any]:
+    return data.get("condition") or {}
+
+
+def _sensor_supported(description: "DeepalSensorDescription"):
+    """Return a predicate telling whether the vehicle reports this sensor's data."""
+    key = description.key
+    if key in ALWAYS_SENSORS:
+        return lambda data: True
+    if key == "ota_status":
+        return lambda data: bool(data.get("ota"))
+    if key in ("charge_plan_start_time", "charge_plan_end_time"):
+        field = "startTime" if key == "charge_plan_start_time" else "endTime"
+        return lambda data: _charge_schedule(_condition(data)).get(field) is not None
+    if key == "ac_status":
+        return lambda data: _path_value(_condition(data), ("hvac", "acStatus")) is not None
+    if key == "steering_wheel_heater":
+        return lambda data: _path_value(_condition(data), ("vehicleStatus", "steeringWheelHeater")) is not None
+    path = description.path
+    return lambda data: _path_value(_condition(data), path) is not None
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     coordinator: DeepalDataUpdateCoordinator = entry.runtime_data
-    async_add_entities(
-        [*(DeepalSensor(coordinator, description) for description in SENSORS), DeepalRawConditionSensor(coordinator)]
+    async_add_entities([DeepalRawConditionSensor(coordinator)])
+    await async_add_supported(
+        hass,
+        entry,
+        coordinator,
+        async_add_entities,
+        [(DeepalSensor(coordinator, description), _sensor_supported(description)) for description in SENSORS],
+        "sensor",
     )
 
 
@@ -384,6 +437,11 @@ class DeepalSensor(DeepalEntity, SensorEntity):
     def native_value(self) -> Any:
         if self.entity_description.key == "ac_status":
             return _cabin_climate_mode_state(self.condition)
+        if self.entity_description.key == "remain_charge_time":
+            minutes = _path_value(self.condition, self.entity_description.path)
+            return None if minutes == 8191 else minutes
+        if self.entity_description.key == "remain_charge_time_hhmm":
+            return _format_hours_minutes(_path_value(self.condition, self.entity_description.path))
         if self.entity_description.key == "charge_plan_start_time":
             return _format_hhmm(_charge_schedule(self.condition).get("startTime"))
         if self.entity_description.key == "charge_plan_end_time":

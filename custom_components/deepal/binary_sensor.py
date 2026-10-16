@@ -13,6 +13,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .coordinator import DeepalDataUpdateCoordinator
 from .entity import DeepalEntity
+from .gating import async_add_supported
 
 
 def _path_value(data: dict[str, Any], path: tuple[str | int, ...]) -> Any:
@@ -31,6 +32,17 @@ def _path_value(data: dict[str, Any], path: tuple[str | int, ...]) -> Any:
 
 def _door(data: dict[str, Any]) -> dict[str, Any]:
     return data.get("door") or {}
+
+
+def _any_open(values: list[Any]) -> bool | None:
+    """Return whether any known value is non-zero (open); None if none is known.
+
+    A value the vehicle did not report counts as unknown, not as open.
+    """
+    known = [value for value in values if value is not None]
+    if not known:
+        return None
+    return any(value != 0 for value in known)
 
 
 def _charge(data: dict[str, Any]) -> dict[str, Any]:
@@ -76,6 +88,7 @@ BINARY_SENSOR_NAMES = {
     "front_right_door_open": "Front Right Door",
     "rear_left_door_open": "Rear Left Door",
     "rear_right_door_open": "Rear Right Door",
+    "any_window_open": "Any Window",
     "trunk": "Boot",
     "driver_lock": "Driver Door Locked",
     "passenger_lock": "Passenger Door Locked",
@@ -107,7 +120,13 @@ BINARY_SENSORS: tuple[DeepalBinarySensorDescription, ...] = (
         key="any_door_open",
         translation_key="any_door_open",
         device_class=BinarySensorDeviceClass.DOOR,
-        value_fn=lambda data: any(value != 0 for value in (_door(data).get("doors") or [])),
+        value_fn=lambda data: _any_open(_door(data).get("doors") or []),
+    ),
+    DeepalBinarySensorDescription(
+        key="any_window_open",
+        translation_key="any_window_open",
+        device_class=BinarySensorDeviceClass.WINDOW,
+        value_fn=lambda data: _any_open((data.get("window") or {}).get("windows") or []),
     ),
     DeepalBinarySensorDescription(
         key="front_left_door_open",
@@ -268,29 +287,41 @@ BINARY_SENSORS: tuple[DeepalBinarySensorDescription, ...] = (
     DeepalBinarySensorDescription(
         key="driver_seat_heater_on",
         translation_key="driver_seat_heater_on",
-        value_fn=lambda data: _path_value(data, ("seat", "rightFront", "heatStatus")) != 0 if _path_value(data, ("seat", "rightFront", "heatStatus")) is not None else None,
+        value_fn=lambda data: _path_value(data, ("seat", "driver", "heatStatus")) != 0 if _path_value(data, ("seat", "driver", "heatStatus")) is not None else None,
     ),
     DeepalBinarySensorDescription(
         key="front_passenger_seat_heater_on",
         translation_key="front_passenger_seat_heater_on",
-        value_fn=lambda data: _path_value(data, ("seat", "leftFront", "heatStatus")) != 0 if _path_value(data, ("seat", "leftFront", "heatStatus")) is not None else None,
+        value_fn=lambda data: _path_value(data, ("seat", "passenger", "heatStatus")) != 0 if _path_value(data, ("seat", "passenger", "heatStatus")) is not None else None,
     ),
     DeepalBinarySensorDescription(
         key="driver_seat_ventilation_on",
         translation_key="driver_seat_ventilation_on",
-        value_fn=lambda data: _path_value(data, ("seat", "rightFront", "ventStatus")) != 0 if _path_value(data, ("seat", "rightFront", "ventStatus")) is not None else None,
+        value_fn=lambda data: _path_value(data, ("seat", "driver", "ventStatus")) != 0 if _path_value(data, ("seat", "driver", "ventStatus")) is not None else None,
     ),
     DeepalBinarySensorDescription(
         key="front_passenger_seat_ventilation_on",
         translation_key="front_passenger_seat_ventilation_on",
-        value_fn=lambda data: _path_value(data, ("seat", "leftFront", "ventStatus")) != 0 if _path_value(data, ("seat", "leftFront", "ventStatus")) is not None else None,
+        value_fn=lambda data: _path_value(data, ("seat", "passenger", "ventStatus")) != 0 if _path_value(data, ("seat", "passenger", "ventStatus")) is not None else None,
     ),
 )
 
 
+def _binary_supported(description: "DeepalBinarySensorDescription"):
+    """Return a predicate telling whether the vehicle reports this sensor's data."""
+    return lambda data: description.value_fn(data.get("condition") or {}) is not None
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     coordinator: DeepalDataUpdateCoordinator = entry.runtime_data
-    async_add_entities(DeepalBinarySensor(coordinator, description) for description in BINARY_SENSORS)
+    await async_add_supported(
+        hass,
+        entry,
+        coordinator,
+        async_add_entities,
+        [(DeepalBinarySensor(coordinator, description), _binary_supported(description)) for description in BINARY_SENSORS],
+        "binary_sensor",
+    )
 
 
 class DeepalBinarySensor(DeepalEntity, BinarySensorEntity):

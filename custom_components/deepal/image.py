@@ -15,8 +15,11 @@ image_url, this entity fetches the bytes itself and sniffs the format directly.
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import time
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 import aiohttp
@@ -30,6 +33,19 @@ from .coordinator import DeepalDataUpdateCoordinator
 from .entity import DeepalEntity
 
 _LOGGER = logging.getLogger(__name__)
+
+# Bundled picture (the Deepal logo) served when the API image is missing, slow or not an image, so
+# the device page always has one (idea from Sunek0/ha-deepal-alternative, MIT).
+GENERIC_ASSET = Path(__file__).parent / "assets" / "vehicle_generic.png"
+FALLBACK_CONTENT_TYPE = "image/png"
+
+# The API image is fetched in the background with a generous timeout, so a slow
+# CDN does not matter; a request only waits a short time for it, well inside
+# Home Assistant's 10 s image-proxy limit, then serves the fallback.
+API_IMAGE_FETCH_TIMEOUT = 20
+API_IMAGE_WAIT = 7
+# After a failed fetch, serve the fallback without retrying for this long.
+API_IMAGE_RETRY_AFTER = 60
 
 # Magic-byte signatures for the image formats Deepal is known to serve.
 _SIGNATURES: tuple[tuple[bytes, str], ...] = (
@@ -65,6 +81,10 @@ class DeepalVehicleImage(DeepalEntity, ImageEntity):
         self._session = async_get_clientsession(hass)
         self._last_url: str | None = None
         self._image_bytes: bytes | None = None
+        self._fallback_bytes: bytes | None = None
+        self._failed_at: float | None = None
+        self._fetch_task: asyncio.Task[bytes | None] | None = None
+        self._warned = False
         self._attr_image_last_updated = datetime.now(timezone.utc)
         # Deliberately NOT setting image_url: HA's own fetch path enforces a strict
         # image/* Content-Type header that this CDN doesn't reliably send. We fetch
@@ -81,38 +101,88 @@ class DeepalVehicleImage(DeepalEntity, ImageEntity):
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
         self._last_url = self._source_url
+        if self._last_url:
+            self._async_start_fetch()
+
+    async def async_will_remove_from_hass(self) -> None:
+        if self._fetch_task is not None and not self._fetch_task.done():
+            self._fetch_task.cancel()
+        await super().async_will_remove_from_hass()
 
     def _handle_coordinator_update(self) -> None:
         current_url = self._source_url
         if current_url and current_url != self._last_url:
             self._last_url = current_url
             self._image_bytes = None  # force a re-fetch on next async_image()
+            self._failed_at = None
             self._attr_image_last_updated = datetime.now(timezone.utc)
+            self._async_start_fetch()
         super()._handle_coordinator_update()
 
-    async def async_image(self) -> bytes | None:
-        if self._image_bytes is not None:
-            return self._image_bytes
+    async def _async_fallback(self) -> bytes | None:
+        """Return the bundled fallback picture, reading it once."""
+        if self._fallback_bytes is None:
+            try:
+                self._fallback_bytes = await self.hass.async_add_executor_job(GENERIC_ASSET.read_bytes)
+            except OSError as err:
+                _LOGGER.error("Deepal: bundled vehicle image %s is missing: %s", GENERIC_ASSET, err)
+                return None
+        if self._attr_content_type != FALLBACK_CONTENT_TYPE:
+            self._attr_content_type = FALLBACK_CONTENT_TYPE
+            self._attr_image_last_updated = datetime.now(timezone.utc)
+        return self._fallback_bytes
+
+    def _async_start_fetch(self) -> None:
+        """Start the background API image fetch unless one is already running."""
+        if self._fetch_task is not None and not self._fetch_task.done():
+            return
+        self._fetch_task = self.hass.async_create_background_task(
+            self._async_fetch_api_image(), name="deepal_vehicle_image"
+        )
+
+    async def _async_fetch_api_image(self) -> bytes | None:
+        """Download and validate the API image; any failure leaves the fallback."""
         url = self._source_url
         if not url:
             return None
         try:
             async with self._session.get(
-                url, timeout=aiohttp.ClientTimeout(total=10)
+                url, timeout=aiohttp.ClientTimeout(total=API_IMAGE_FETCH_TIMEOUT)
             ) as response:
                 response.raise_for_status()
                 data = await response.read()
-        except Exception as err:  # noqa: BLE001 - log and surface as "no image" rather than crash
-            _LOGGER.warning("Deepal: failed to fetch vehicle image from %s: %s", url, err)
+            content_type = _sniff_content_type(data)
+            if content_type is None:
+                raise ValueError(f"not a recognised image ({len(data)} bytes)")
+        except asyncio.CancelledError:
+            raise
+        except Exception as err:  # noqa: BLE001 - any failure falls back to the bundled picture
+            self._failed_at = time.monotonic()
+            # Warn once so a persistent problem is visible; later retries are quiet.
+            log = _LOGGER.debug if self._warned else _LOGGER.warning
+            self._warned = True
+            log("Deepal: vehicle image fetch failed (%s: %s); using the bundled picture", type(err).__name__, err)
             return None
-        content_type = _sniff_content_type(data)
-        if content_type is None:
-            _LOGGER.warning(
-                "Deepal: vehicle image from %s did not match a known image format (got %d bytes)",
-                url,
-                len(data),
-            )
-            return None
-        self._attr_content_type = content_type
         self._image_bytes = data
+        self._failed_at = None
+        self._warned = False
+        self._attr_content_type = content_type
+        self._attr_image_last_updated = datetime.now(timezone.utc)
+        if self.hass is not None and self.entity_id:
+            self.async_write_ha_state()
         return data
+
+    async def async_image(self) -> bytes | None:
+        """Return the API image, or the bundled fallback if it is unavailable."""
+        if self._image_bytes is not None:
+            return self._image_bytes
+        if not self._source_url:
+            return await self._async_fallback()
+        if self._failed_at is not None and time.monotonic() - self._failed_at < API_IMAGE_RETRY_AFTER:
+            return await self._async_fallback()
+        self._async_start_fetch()
+        try:
+            data = await asyncio.wait_for(asyncio.shield(self._fetch_task), timeout=API_IMAGE_WAIT)
+        except TimeoutError:
+            data = None
+        return data if data is not None else await self._async_fallback()

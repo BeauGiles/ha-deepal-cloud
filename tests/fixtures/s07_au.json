@@ -1,0 +1,124 @@
+{
+  "vehicle": {
+    "seriesName": "S07",
+    "modelName": "S07",
+    "protocolType": "TLV",
+    "driveSeatPosition": "RHD",
+    "carPlatform": 1,
+    "powerMode": 15
+  },
+  "condition": {
+    "lastUpdatedAt": "1791862498000",
+    "vehicleStatus": {
+      "lastUpdatedAt": 1791862498000,
+      "status": 2,
+      "powerStatus": 0,
+      "connectStatus": 1,
+      "soc": 75,
+      "drvMileage": 355,
+      "totalMileage": 17204,
+      "steeringWheelHeater": 0,
+      "remoteControlPrivacy": 0
+    },
+    "door": {
+      "hashCode": 1236894343,
+      "driverLock": 0,
+      "passengerLock": 0,
+      "doors": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "trunk": 0
+    },
+    "window": {
+      "hashCode": 76509601,
+      "windows": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "openDegree": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "tire": {
+      "hashCode": -812479007,
+      "leftFront": {
+        "status": 0,
+        "pressure": 264.0
+      },
+      "rightFront": {
+        "status": 0,
+        "pressure": 273.0
+      },
+      "leftBack": {
+        "status": 0,
+        "pressure": 269.0
+      },
+      "rightBack": {
+        "status": 0,
+        "pressure": 273.0
+      }
+    },
+    "seat": {
+      "hashCode": -28517610,
+      "leftFront": {
+        "mode": 0,
+        "heatStatus": 0,
+        "ventStatus": 0
+      },
+      "rightFront": {
+        "mode": 0,
+        "heatStatus": 0,
+        "ventStatus": 0
+      },
+      "leftBack": {
+        "mode": 0
+      },
+      "rightBack": {
+        "mode": 0
+      }
+    },
+    "lamp": {
+      "hashCode": -55186694,
+      "lowBeam": 3,
+      "highBeam": 3,
+      "leftTurn": 3,
+      "rightTurn": 3,
+      "positionLamp": 0
+    },
+    "charge": {
+      "hashCode": 381889309,
+      "chargeStatus": 1,
+      "soc": 75,
+      "drvMileage": 355.0,
+      "chargeConStatus": 1,
+      "dcChargeGunConnectStatus": 1,
+      "maxSocPercent": 90,
+      "remainChargeTime": 8191.0,
+      "acChargeCurrent": 0.0,
+      "dcChargeCurrent": 0.0,
+      "chargePlanList": [
+        {
+          "planType": 1,
+          "isValid": 0,
+          "startSwitch": 1
+        }
+      ]
+    },
+    "hvac": {
+      "insideTemp": 240,
+      "insideHumidity": 43.0,
+      "remoteTemp": 210,
+      "acStatus": 0,
+      "defrostStatus": 0,
+      "consTempCockpit": 0
+    }
+  }
+}
