@@ -89,6 +89,10 @@ first: some changes break automations.**
   values are now unknown, as in the new Any Window sensor.
 - **Remaining Charge Time** showed 8191 ("no estimate") on the S07 and on MQTT/SDA
   cars; it now shows unknown.
+- **"Power is not off" (result code 1032):** the car refuses some remote
+  commands (seen with turning the air conditioner off, and with windows) while it
+  is powered on. The error now says so and what to do (switch the car off or wait
+  for it to power down), keeping the car's own message.
 - **S05 accounts the CA gateway rejects** (danperks/ha-deepal issue #11: login
   works but `getConnConf` answers `APIGW_-1_7_01_004 invalided token`): the
   gateway accepts a different token as the user token depending on the account.

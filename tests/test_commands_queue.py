@@ -183,3 +183,27 @@ class TestCompletion:
         client.control_condition_inquiry = broken
         coordinator = make(client)
         asyncio.run(coordinator.async_execute_command(send_ok, is_done=lambda: False, timeout=30, interval=0.01))
+
+
+class TestPowerNotOff:
+    """Result code 1032: the car is powered on and refuses the remote command."""
+
+    def test_message_explains_what_to_do(self):
+        message = coordinator_module.command_failure_message(1032, "Operation failed. Power is not off.")
+        assert "result code 1032" in message
+        assert "Power is not off." in message  # the car's own text is kept
+        assert "powered on" in message
+        assert "Switch the car off" in message
+
+    def test_other_codes_get_no_hint(self):
+        message = coordinator_module.command_failure_message(7, "boom")
+        assert message == "Deepal command failed with result code 7: boom"
+
+    def test_the_command_raises_the_explained_error(self):
+        class PowerOnClient(FakeClient):
+            async def control_result(self, *, vehicle_id, command_id):
+                return {"resultCode": 1032, "errorMsg": "Operation failed. Power is not off."}
+
+        coordinator = make(PowerOnClient(conditions=[{"lastUpdatedAt": "0"}]))
+        with pytest.raises(HomeAssistantError, match="Switch the car off"):
+            asyncio.run(coordinator.async_execute_command(send_ok, is_done=lambda: False, interval=0.01))

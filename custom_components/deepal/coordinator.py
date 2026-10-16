@@ -39,6 +39,23 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+# Result code the car returns when it refuses a remote command because it is
+# powered on (seen with the air conditioner and the windows; also reported by
+# Sunek0/ha-deepal-alternative).
+POWER_NOT_OFF_RESULT_CODE = 1032
+POWER_NOT_OFF_HINT = (
+    " The car is powered on, so it refused this remote command. Switch the car off "
+    "(or wait for it to power down) and try again."
+)
+
+
+def command_failure_message(result_code: Any, error_message: Any) -> str:
+    """Build the error shown when the car reports a failed command."""
+    message = f"Deepal command failed with result code {result_code}: {error_message}"
+    if result_code == POWER_NOT_OFF_RESULT_CODE:
+        message += POWER_NOT_OFF_HINT
+    return message
+
 
 class DeepalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Fetch vehicle list and condition data."""
@@ -353,7 +370,7 @@ class DeepalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
             result_code = result.get("resultCode")
             if result_code not in (None, -100, 0, 1015):
-                raise HomeAssistantError(f"Deepal command failed with result code {result_code}: {result.get('errorMsg')}")
+                raise HomeAssistantError(command_failure_message(result_code, result.get("errorMsg")))
 
             if result_code == 0 and success_at is None:
                 success_at = loop.time()
