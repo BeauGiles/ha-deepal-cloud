@@ -12,6 +12,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .api import DeepalApiError, DeepalCommandAuthError, DeepalCommandNotReady
+from .const import AC_MAX_TEMP_C, AC_MIN_TEMP_C
 from .coordinator import DeepalDataUpdateCoordinator
 from .entity import DeepalEntity
 
@@ -32,8 +33,8 @@ class DeepalClimate(DeepalEntity, ClimateEntity):
     _attr_name = "Cabin Climate"
     _attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT_COOL]
     _attr_target_temperature_step = 0.5
-    _attr_min_temp = 16
-    _attr_max_temp = 30
+    _attr_min_temp = AC_MIN_TEMP_C
+    _attr_max_temp = AC_MAX_TEMP_C
 
     def __init__(self, coordinator: DeepalDataUpdateCoordinator) -> None:
         super().__init__(coordinator, "cabin_climate")

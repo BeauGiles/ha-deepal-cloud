@@ -84,7 +84,7 @@ Commands run one at a time in order (up to four queued). Open/closed buttons hav
 ## Known Limitations
 
 - **E07:** No remote controls. The app sends them over a separate MQTT broker that is not implemented. Tyre pressures, outside temperature and humidity are not mapped yet, and the charging-state mapping is inferred from one car's report.
-- **S05:** The MQTT telemetry changes, the wake and the lock/window/boot commands in this fork have not been tested on a real S05. The command protocol comes from [kobizz/ha-deepal](https://github.com/kobizz/ha-deepal), validated there on an Israel-market S05.
+- **S05:** The MQTT telemetry changes (including the charging-state mapping), the wake and the lock/window/boot commands in this fork have not been tested on a real S05. The command protocol comes from [kobizz/ha-deepal](https://github.com/kobizz/ha-deepal), validated there on an Israel-market S05.
 - **Other regions and models** are unverified (see above).
 - Only the data the cloud provides is available; some cars report only while awake.
 

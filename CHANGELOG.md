@@ -89,6 +89,22 @@ first: some changes break automations.**
   values are now unknown, as in the new Any Window sensor.
 - **Remaining Charge Time** showed 8191 ("no estimate") on the S07 and on MQTT/SDA
   cars; it now shows unknown.
+- **S05 charging state, plug and current** (values observed on a live S05 and
+  documented by Sunek0/ha-deepal-alternative): the S05's `ChrgSts` is a 0-4 enum
+  (0 not charging, 1 AC plugged, 2 DC plugged, 3 AC charging, 4 DC charging), not
+  the S07 codes our entities expect, so charging showed as "Unknown" and a plugged
+  cable as "Not Charging". It is now translated; the AC/DC plug entities follow
+  that state, so a stale connection field cannot keep a gun "plugged"; and the
+  charge current is taken from the charger in use. A raw glitch the car publishes
+  after a DC session (2538 A while parked) is no longer shown as amps. Untested
+  on a live S05.
+- **S05 cabin humidity** could read 453%: the car sends a percentage or tenths of
+  a percent, so values above 100 are divided by ten and anything outside 0-100 is
+  unknown.
+- **Cabin Climate temperature range** is now 18-32 C (it was 16-30), and targets
+  sent to the car are clamped to that range: the gateway rejects anything outside
+  it with `COMMON_1_1_01_005`, which made turning the AC on fail when the car's own
+  setting was out of range.
 - **S05 (MQTT) payload keys:** the DC gun state is read from the payload's
   misspelled `dcDhargeGunConnectionState` as well as the correct spelling, `hood`
   is accepted as well as `hoodStatus`, and the report timestamp also looks at

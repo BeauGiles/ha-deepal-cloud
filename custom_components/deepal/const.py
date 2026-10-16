@@ -81,6 +81,11 @@ MAX_QUEUED_COMMANDS = 4  # running + waiting
 COMMAND_SUCCESS_GRACE = 8  # seconds to wait for the data after a success result
 COMMAND_INQUIRY_WAIT = 6  # seconds to wait after the final condition inquiry
 
+# The gateway rejects an air-conditioning target outside this range
+# (COMMON_1_1_01_005); the app offers the same limits.
+AC_MIN_TEMP_C = 18.0
+AC_MAX_TEMP_C = 32.0
+
 WAKE_STALE_AFTER = 120  # seconds since the last report before a refresh wakes the car
 WAKE_COOLDOWN = 300  # minimum seconds between wakes
 WAKE_REPORT_TIMEOUT = 60  # seconds to wait for a fresh report after a wake
