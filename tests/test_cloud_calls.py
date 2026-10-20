@@ -272,9 +272,6 @@ class TestRestHumidity:
     @staticmethod
     def condition(value):
         client = object.__new__(DeepalClient)
-        client.fetch_location = False
-        client.last_position = None
-        client._location_state = None
 
         async def fake_post(path, payload=None, **_):
             return {"hvac": {"insideHumidity": value, "insideTemp": 240}}

@@ -163,14 +163,7 @@ class DeepalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 _LOGGER.debug("Deepal: failed to fetch OTA status: %s", err)
                 ota = None
         condition = add_seat_roles(condition, (vehicle or {}).get("driveSeatPosition"))
-        position = getattr(self.client, "last_position", None)
-        return {
-            "vehicles": vehicles,
-            "vehicle": vehicle or {},
-            "condition": condition,
-            "ota": ota,
-            "position": {"latitude": position[0], "longitude": position[1]} if position else None,
-        }
+        return {"vehicles": vehicles, "vehicle": vehicle or {}, "condition": condition, "ota": ota}
 
     async def _async_fetch(self) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         """Fetch vehicle metadata and condition."""
