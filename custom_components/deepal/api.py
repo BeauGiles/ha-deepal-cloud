@@ -7,11 +7,13 @@ import asyncio
 import base64
 import binascii
 from datetime import UTC, datetime
+import email.utils
 import gzip
 import hashlib
 import inspect
 import json
 import logging
+import math
 import ssl
 import struct
 import time
@@ -23,6 +25,7 @@ from cryptography.hazmat.primitives import hashes, padding as symmetric_padding,
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
+from .location import find_location, location_paths
 from .const import (
     BASE_URL,
     CA_BASE_URL,
@@ -32,6 +35,8 @@ from .const import (
     REGION_GATEWAYS,
     SDA_BASE_URL,
     REQUEST_ENCRYPTION_PUBLIC_KEY,
+    MQTT_CONFIG_TTL,
+    MQTT_TOKEN_TTL,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -258,6 +263,23 @@ def _mqtt_parse_publish(first: int, body: bytes) -> tuple[str, dict[str, Any], i
     return topic, payload, packet_id
 
 
+def _mqtt_try_parse_publish(first: int, body: bytes) -> tuple[str, dict[str, Any], int | None] | None:
+    """Parse a PUBLISH packet, or return None for a malformed one.
+
+    A truncated topic or packet id, bad UTF-8, or a payload that is not a JSON
+    object is skipped rather than aborting the whole telemetry or command exchange.
+    """
+    try:
+        topic, payload, packet_id = _mqtt_parse_publish(first, body)
+    except (ValueError, IndexError, TypeError, struct.error, UnicodeDecodeError) as err:
+        _LOGGER.debug("Skipping a malformed MQTT PUBLISH packet: %s", err)
+        return None
+    if not isinstance(payload, dict):
+        _LOGGER.debug("Skipping an MQTT PUBLISH packet whose payload is not an object")
+        return None
+    return topic, payload, packet_id
+
+
 def _b64decode(value: str) -> bytes:
     return base64.b64decode(value + "=" * ((4 - len(value) % 4) % 4))
 
@@ -326,6 +348,7 @@ def _mqtt_command_result_error(
                 200,
                 "200",
                 "000000",
+                "00000",
                 "OK",
                 "SUCCESS",
                 "success",
@@ -947,6 +970,68 @@ class DeepalCommandNotReady(DeepalApiError):
 class DeepalRateLimitError(DeepalApiError):
     """The API rate-limited the request."""
 
+    def __init__(self, message: str = "", *, retry_after: float | None = None) -> None:
+        super().__init__(message)
+        self.retry_after = retry_after  # seconds the gateway asked us to wait, if it said
+
+
+class DeepalSessionInvalidated(DeepalApiError):
+    """The gateway says the session token is invalid or expired (recognised by its message).
+
+    Deliberately not a DeepalAuthError: raised from the CA bootstrap, where an
+    account the gateway always rejects would otherwise be pushed into a re-login
+    loop (and the rate limits that come with repeated logins). The coordinator
+    refreshes the session once and otherwise falls back.
+    """
+
+
+def parse_retry_after(value: Any, now: datetime | None = None) -> float | None:
+    """Parse an HTTP Retry-After header: delta-seconds or an HTTP date.
+
+    Returns the positive seconds to wait, or None if missing, unparseable, not
+    finite, or already in the past.
+    """
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        seconds = float(text)
+    except ValueError:
+        try:
+            when = email.utils.parsedate_to_datetime(text)
+        except (TypeError, ValueError, IndexError):
+            return None
+        if when is None:
+            return None
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=UTC)
+        seconds = (when - (now or datetime.now(UTC))).total_seconds()
+    return seconds if math.isfinite(seconds) and seconds > 0 else None
+
+
+def _exception_for_http_error(status: int, headers: Any, path: str) -> DeepalApiError:
+    """Map an HTTP error status to the exception to raise."""
+    if status in (401, 403):
+        return DeepalAuthError(f"Deepal auth failed: HTTP {status}")
+    if status == 429:
+        retry_after = parse_retry_after(headers.get("Retry-After") if headers is not None else None)
+        return DeepalRateLimitError(f"Deepal rate limit: HTTP 429 for {path}", retry_after=retry_after)
+    return DeepalApiError(f"Deepal HTTP error {status} for {path}")
+
+
+def _session_invalid_message(message: Any) -> bool:
+    """Whether a gateway message says the session token is invalid/expired.
+
+    Matches the live "invalided token" wording. The command rcToken is excluded:
+    the command flow handles that on its own.
+    """
+    lowered = str(message or "").lower()
+    if "rctoken" in lowered:
+        return False
+    return "token" in lowered and any(marker in lowered for marker in ("invalid", "expired"))
+
 
 @dataclass(slots=True)
 class DeepalTokens:
@@ -972,6 +1057,7 @@ class DeepalClient:
         private_key_pem: str | None = None,
         enable_commands: bool = False,
         enable_api_logging: bool = False,
+        fetch_location: bool = False,
         rc_token: str | None = None,
         control_pin: str | None = None,
         cac_token: str | None = None,
@@ -991,12 +1077,19 @@ class DeepalClient:
         self.device_id = device_id
         self.enable_commands = enable_commands
         self.enable_api_logging = enable_api_logging
+        # Experimental, opt-in: ask the cloud for the vehicle position.
+        self.fetch_location = fetch_location
+        self.last_position: tuple[float, float] | None = None
+        self._location_state: str | None = None
         self.rc_token = rc_token
         self.control_pin = control_pin
         self.cac_token = cac_token
         self.user_id = user_id
         self.last_mqtt_topics: list[dict[str, Any]] | None = None
         self._ca_tsp_token: str | None = None  # token the CA gateway accepted last
+        # CA bootstrap results reused across MQTT sessions (see MQTT_*_TTL).
+        self._mqtt_config_cache: dict[str, tuple[dict[str, Any], float]] = {}
+        self._mqtt_token_cache: tuple[str, float] | None = None
         # "RHD"/"LHD" from the vehicle list; set by the coordinator.
         self.drive_side: str | None = None
         self._private_key = self._load_private_key(private_key_pem) if private_key_pem else None
@@ -1132,9 +1225,7 @@ class DeepalClient:
                         time.monotonic() - started_at,
                         type(err).__name__,
                     )
-                if err.status in (401, 403):
-                    raise DeepalAuthError(f"Deepal auth failed: HTTP {err.status}") from err
-                raise DeepalApiError(f"Deepal HTTP error {err.status} for {path}") from err
+                raise _exception_for_http_error(err.status, getattr(err, "headers", None), path) from err
             except (ClientError, TimeoutError) as err:
                 last_transient_err = err
                 if self.enable_api_logging:
@@ -1187,6 +1278,8 @@ class DeepalClient:
                 or str(code) == "APP_1_1_02_005"
             ):
                 raise DeepalAuthError(f"Deepal auth failed: {code} {msg}")
+            if _session_invalid_message(msg):
+                raise DeepalSessionInvalidated(f"Deepal API error for {path}: {code} {msg}")
             raise DeepalApiError(f"Deepal API error for {path}: {code} {msg}")
         return body if return_body else body.get("data")
 
@@ -1342,8 +1435,39 @@ class DeepalClient:
             },
             "vehicleId": vehicle_id,
         }
+        if self.fetch_location:
+            payload["vechileCriteria"]["location"] = "1"
         data = await self._post("/intl-app-gw/intl-app-car-condition/api/vehicle/condition", payload)
-        return data if isinstance(data, dict) else {}
+        data = data if isinstance(data, dict) else {}
+        hvac = data.get("hvac")
+        if isinstance(hvac, dict) and "insideHumidity" in hvac:
+            # The car sends a percentage or tenths of a percent (453 means 45.3%).
+            hvac["insideHumidity"] = _humidity_percent(hvac["insideHumidity"])
+        self._note_location(data)
+        return data
+
+    def _note_location(self, data: dict[str, Any]) -> None:
+        """Remember the latest position and log, once per change, whether one was found.
+
+        Only key names are logged, never coordinates, so the line is safe to share.
+        """
+        if not self.fetch_location:
+            return
+        found = find_location(data)
+        if found is not None:
+            self.last_position = found  # kept while the car does not report a newer fix
+        state = "found" if found is not None else "missing"
+        if state == self._location_state:
+            return
+        self._location_state = state
+        if found is not None:
+            _LOGGER.info("Deepal location: a position was found at %s", location_paths(data))
+        else:
+            _LOGGER.info(
+                "Deepal location: requested, but the condition response carried no position "
+                "(top-level keys: %s); this model or region may not report one",
+                sorted(data),
+            )
 
     async def ota_status(self, vehicle_id: str) -> dict[str, Any]:
         """Fetch OTA (over-the-air) firmware update status. Ported from the
@@ -1398,11 +1522,16 @@ class DeepalClient:
         if not self.user_id:
             raise DeepalApiError("MQTT telemetry requires user id; reauthenticate the integration")
 
-        config = await self._mqtt_config(vehicle_id)
-        token = await self._mqtt_token()
-        condition = await self._mqtt_read_condition(config, token)
-        if not condition:
-            raise DeepalApiError("MQTT telemetry did not return vehicle condition")
+        try:
+            config = await self._mqtt_config(vehicle_id)
+            token = await self._mqtt_token()
+            condition = await self._mqtt_read_condition(config, token)
+            if not condition:
+                raise DeepalApiError("MQTT telemetry did not return vehicle condition")
+        except DeepalApiError:
+            # Whatever failed, do not keep reusing a bootstrap that may be stale.
+            self._invalidate_mqtt_caches()
+            raise
         return condition
 
     async def mqtt_wake(self, vehicle_id: str) -> str:
@@ -1454,31 +1583,109 @@ class DeepalClient:
             },
         )
 
-    async def _mqtt_config(self, vehicle_id: str) -> dict[str, Any]:
-        data = await self._post_ca(
-            "/user-apigw/vot-connect-conf-center/api/device/getConnConf",
-            {
-                "deviceId": self.device_id,
-                "carId": vehicle_id,
-                "deviceType": 1,
-                "confTimestamp": 0,
-                "deviceTimestamp": str(int(time.time() * 1000)),
-            },
-        )
+    def _invalidate_mqtt_caches(self) -> None:
+        """Drop the cached CA bootstrap (after a failure, or when the session changes)."""
+        self._mqtt_config_cache.clear()
+        self._mqtt_token_cache = None
+
+    async def _mqtt_config(self, vehicle_id: str, *, force: bool = False) -> dict[str, Any]:
+        """Return the CA connection configuration, reused for MQTT_CONFIG_TTL seconds.
+
+        If the legacy route is rejected, the app's alternate route
+        (appGetCarConfFunc) is tried once; it is only used if it carries the
+        connection info. Routes recovered from the app by
+        Sunek0/ha-deepal-alternative (MIT).
+        """
+        cached = self._mqtt_config_cache.get(vehicle_id)
+        if not force and cached is not None and time.monotonic() < cached[1]:
+            return cached[0]
+        self._mqtt_config_cache.pop(vehicle_id, None)
+        payload = {
+            "deviceId": self.device_id,
+            "carId": vehicle_id,
+            "deviceType": 1,
+            "confTimestamp": 0,
+            "deviceTimestamp": str(int(time.time() * 1000)),
+        }
+        try:
+            data = await self._post_ca("/user-apigw/vot-connect-conf-center/api/device/getConnConf", payload)
+        except (DeepalRateLimitError, DeepalAuthError):
+            raise
+        except DeepalApiError as err:
+            data = await self._mqtt_config_alternate(payload, err)
         if not isinstance(data, dict):
             raise DeepalApiError("Unexpected MQTT config response")
+        self._mqtt_config_cache[vehicle_id] = (data, time.monotonic() + MQTT_CONFIG_TTL)
         return data
 
-    async def _mqtt_token(self) -> str:
-        data = await self._post_ca(
-            "/user-apigw/vot-connect-auth-center/api/auth/getAuthTokenByUserId",
-            {"userId": self.user_id},
-        )
+    async def _mqtt_config_alternate(self, payload: dict[str, Any], original: DeepalApiError) -> Any:
+        """Try the app's alternate connection-config route; re-raise the original error if it fails."""
+        try:
+            data = await self._post_ca("/user-apigw/vot-connect-conf-center/api/device/appGetCarConfFunc", payload)
+        except (DeepalRateLimitError, DeepalAuthError):
+            raise
+        except DeepalApiError:
+            raise original from None
+        if not isinstance(data, dict) or "mqttConnectionInfos" not in data:
+            raise original
+        _LOGGER.warning("getConnConf failed (%s); using the app's alternate configuration route", original)
+        return data
+
+    async def _mqtt_token(self, *, force: bool = False) -> str:
+        """Return the MQTT auth token, reused for MQTT_TOKEN_TTL seconds (account level)."""
+        cached = self._mqtt_token_cache
+        if not force and cached is not None and time.monotonic() < cached[1]:
+            return cached[0]
+        self._mqtt_token_cache = None
+        payload = {"userId": self.user_id}
+        try:
+            data = await self._post_ca("/user-apigw/vot-connect-auth-center/api/auth/getAuthTokenByUserId", payload)
+        except (DeepalRateLimitError, DeepalAuthError):
+            raise
+        except DeepalApiError as err:
+            data = await self._mqtt_token_alternate(payload, err)
         if not isinstance(data, dict) or not data.get("authToken"):
             raise DeepalApiError("MQTT auth response did not include authToken")
-        return str(data["authToken"])
+        token = str(data["authToken"])
+        self._mqtt_token_cache = (token, time.monotonic() + MQTT_TOKEN_TTL)
+        return token
+
+    async def _mqtt_token_alternate(self, payload: dict[str, Any], original: DeepalApiError) -> Any:
+        """Try the app's alternate token route; re-raise the original error if it fails."""
+        try:
+            data = await self._post_ca("/app-apigw/vot-auth/api/token/getAuthTokenByUserId", payload)
+        except (DeepalRateLimitError, DeepalAuthError):
+            raise
+        except DeepalApiError:
+            raise original from None
+        if not isinstance(data, dict) or not data.get("authToken"):
+            raise original
+        _LOGGER.warning("getAuthTokenByUserId failed (%s); using the app's alternate token route", original)
+        return data
 
     async def _mqtt_command(
+        self,
+        vehicle_id: str,
+        *,
+        service_code: str,
+        method: str,
+        params: dict[str, Any],
+        wake_only: bool = False,
+    ) -> str:
+        """Run one MQTT command exchange, dropping the cached CA bootstrap if it fails."""
+        try:
+            return await self._mqtt_command_exchange(
+                vehicle_id,
+                service_code=service_code,
+                method=method,
+                params=params,
+                wake_only=wake_only,
+            )
+        except DeepalApiError:
+            self._invalidate_mqtt_caches()
+            raise
+
+    async def _mqtt_command_exchange(
         self,
         vehicle_id: str,
         *,
@@ -1581,7 +1788,10 @@ class DeepalClient:
                 )
                 if first >> 4 != 3:
                     continue
-                topic, payload, packet_id = _mqtt_parse_publish(first, body)
+                parsed = _mqtt_try_parse_publish(first, body)
+                if parsed is None:
+                    continue
+                topic, payload, packet_id = parsed
                 if packet_id is not None:
                     writer.write(bytes([0x40, 0x02]) + struct.pack("!H", packet_id))
                     await writer.drain()
@@ -1756,7 +1966,10 @@ class DeepalClient:
                 )
                 if first >> 4 != 3:
                     continue
-                topic, payload, packet_id = _mqtt_parse_publish(first, body)
+                parsed = _mqtt_try_parse_publish(first, body)
+                if parsed is None:
+                    continue
+                topic, payload, packet_id = parsed
                 if packet_id is not None:
                     writer.write(bytes([0x40, 0x02]) + struct.pack("!H", packet_id))
                     await writer.drain()

@@ -88,6 +88,8 @@ async def async_get_config_entry_diagnostics(
             "uses_sda": vehicle_uses_sda(vehicle),
             "mqtt_commands_supported": vehicle_supports_mqtt_commands(vehicle),
             "commands_enabled": client.commands_enabled,
+            "location_requested": client.fetch_location,
+            "location_available": bool(data.get("position")),
             "country": client.country,
             "base_url": client.base_url,
             "sda_base_url": client.sda_base_url,

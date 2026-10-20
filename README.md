@@ -66,6 +66,7 @@ The integration chooses its behaviour from the `protocolType` the cloud reports 
 - Vehicle image (falls back to the Deepal logo when the picture is unavailable), VIN as the device serial number, and an OTA status sensor where the car provides one.
 - Remaining charge time as minutes and as an `H:MM` sensor for dashboards.
 - **Download diagnostics** on the device page: protocol detection, mapped and raw signals, and which signals no entity reads yet. VIN, plate, location and tokens are redacted.
+- **Experimental, opt-in:** *Fetch the vehicle location* under **Configure** adds a Location tracker if your car or region reports a position (many do not; none is created otherwise).
 - Manual *Refresh Vehicle Data* button. On MQTT vehicles it wakes a car whose last report is stale, at most once per 5 minutes; the periodic poll never wakes the car.
 
 **S07 controls**
@@ -119,9 +120,11 @@ During setup, choose the same login method you use in the official Deepal app. I
 - **A sensor is missing:** entities are only created once your car reports the data. Download the diagnostics from the device page and check `unmapped_signals` for data no entity reads yet.
 - **Logging:** under **Configure**, tick *Enable redacted API logging*, reproduce the problem, then find the `Deepal` lines in **Settings -> System -> Logs**. Tokens, PINs, keys, VIN, plate and location are filtered, but check before sharing.
 - **`APIGW_-1_7_01_004 invalided token` on an S05:** the cloud rejected the token for the MQTT setup. The integration tries the other token it knows about, then falls back to the REST condition (which may show less data) and retries MQTT every few minutes. If it persists, download the diagnostics (they show `mqtt_last_error`) and open an issue.
+- **"The Deepal API rate limited the request":** the cloud asked the integration to slow down. It stops calling the API for the time the gateway asks (at least a minute) and carries on by itself; no action is needed.
 - **`APP_1_1_02_005 ... logged in on another device`:** the official app or another client signed in with the same account. Use a separate Deepal account for Home Assistant, shared from your main account, and avoid repeated login attempts, which can trigger a rate limit.
 - **"Power is not off" (result code 1032):** the car is powered on and refuses the remote command. Check the Power Status entity; switch the car off, or wait for it to power down, and try again.
 - **Commands fail while data still updates:** use *Reauthenticate now* under **Configure** to register a fresh command-signing key.
+- **Testing the location option:** turn on *Fetch the vehicle location (experimental)* under **Configure**, wait for one update, then look for a `Deepal location:` line in **Settings -> System -> Logs**. It says whether a position was found and where (key names only, never coordinates). If it says none was found, your car or region does not report one.
 - **Reporting a new model or region:** please attach the diagnostics file (while the car is charging if it is a charging problem) to a GitHub issue.
 
 ## Notes

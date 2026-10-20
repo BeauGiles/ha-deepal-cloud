@@ -15,7 +15,14 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .api import DeepalApiError, DeepalAuthError, DeepalClient, add_seat_roles
+from .api import (
+    DeepalApiError,
+    DeepalAuthError,
+    DeepalClient,
+    DeepalRateLimitError,
+    DeepalSessionInvalidated,
+    add_seat_roles,
+)
 from .const import (
     CONF_ACCESS_TOKEN,
     CONF_ACTIVE_REFRESH_INTERVAL,
@@ -28,6 +35,9 @@ from .const import (
     MAX_QUEUED_COMMANDS,
     MQTT_BACKOFF_BASE,
     MQTT_BACKOFF_MAX,
+    RATE_LIMIT_MAX_BACKOFF,
+    RATE_LIMIT_MIN_BACKOFF,
+    SESSION_REFRESH_MIN_INTERVAL,
     WAKE_COOLDOWN,
     WAKE_POLL_INTERVAL,
     WAKE_REPORT_TIMEOUT,
@@ -80,24 +90,64 @@ class DeepalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._mqtt_next_attempt = 0.0
         self._mqtt_last_error: DeepalApiError | None = None
         self.mqtt_fallback_active = False
+        self._rate_limited_until = 0.0
+        self._last_session_refresh: float | None = None
         self._wake_lock = asyncio.Lock()
 
+    def _start_rate_limit_backoff(self, err: DeepalRateLimitError) -> float:
+        """Stop calling the API for the gateway's Retry-After (bounded); return the delay."""
+        delay = min(RATE_LIMIT_MAX_BACKOFF, max(err.retry_after or 0, RATE_LIMIT_MIN_BACKOFF))
+        self._rate_limited_until = time.monotonic() + delay
+        _LOGGER.warning("The Deepal API rate limited the request; not calling it again for %.0f s", delay)
+        return delay
+
+    async def _async_refresh_and_persist_tokens(self) -> None:
+        """Refresh the session tokens and store them in the config entry."""
+        tokens = await self.client.refresh_tokens()
+        new_data = dict(self.entry.data)
+        new_data[CONF_ACCESS_TOKEN] = tokens.access_token
+        if tokens.refresh_token:
+            new_data[CONF_REFRESH_TOKEN] = tokens.refresh_token
+        self.hass.config_entries.async_update_entry(self.entry, data=new_data)
+
+    async def _async_refresh_session_once(self) -> bool:
+        """Refresh the session after a session-invalid answer, at most once per interval.
+
+        Returns whether a refresh happened. Failures never raise: this must not
+        push an account the CA gateway rejects into a re-login flow.
+        """
+        now = time.monotonic()
+        if self._last_session_refresh is not None and now - self._last_session_refresh < SESSION_REFRESH_MIN_INTERVAL:
+            return False
+        self._last_session_refresh = now
+        try:
+            await self._async_refresh_and_persist_tokens()
+        except DeepalApiError as err:  # includes auth and rate-limit errors
+            _LOGGER.debug("Session refresh after a session-invalid answer failed: %s", err)
+            return False
+        return True
+
     async def _async_update_data(self) -> dict[str, Any]:
+        remaining = self._rate_limited_until - time.monotonic()
+        if remaining > 0:
+            raise UpdateFailed(f"The Deepal API rate limited the request; waiting {remaining:.0f} s before the next one")
         try:
             vehicles, condition = await self._async_fetch()
         except DeepalAuthError as err:
             try:
-                tokens = await self.client.refresh_tokens()
-                new_data = dict(self.entry.data)
-                new_data[CONF_ACCESS_TOKEN] = tokens.access_token
-                if tokens.refresh_token:
-                    new_data[CONF_REFRESH_TOKEN] = tokens.refresh_token
-                self.hass.config_entries.async_update_entry(self.entry, data=new_data)
+                await self._async_refresh_and_persist_tokens()
                 vehicles, condition = await self._async_fetch()
+            except DeepalRateLimitError as limited:
+                # A rate limit is not an authentication failure: never start a re-login flow for it.
+                self._start_rate_limit_backoff(limited)
+                self._record_refresh_failure(limited)
+                raise UpdateFailed(str(limited)) from limited
             except (DeepalApiError, DeepalAuthError) as refresh_err:
                 self._record_refresh_failure(refresh_err)
                 raise ConfigEntryAuthFailed(f"Authentication failed: {refresh_err}") from refresh_err
         except DeepalApiError as err:
+            if isinstance(err, DeepalRateLimitError):
+                self._start_rate_limit_backoff(err)
             self._record_refresh_failure(err)
             raise UpdateFailed(str(err)) from err
 
@@ -113,7 +163,14 @@ class DeepalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 _LOGGER.debug("Deepal: failed to fetch OTA status: %s", err)
                 ota = None
         condition = add_seat_roles(condition, (vehicle or {}).get("driveSeatPosition"))
-        return {"vehicles": vehicles, "vehicle": vehicle or {}, "condition": condition, "ota": ota}
+        position = getattr(self.client, "last_position", None)
+        return {
+            "vehicles": vehicles,
+            "vehicle": vehicle or {},
+            "condition": condition,
+            "ota": ota,
+            "position": {"latitude": position[0], "longitude": position[1]} if position else None,
+        }
 
     async def _async_fetch(self) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         """Fetch vehicle metadata and condition."""
@@ -138,8 +195,8 @@ class DeepalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         now = time.monotonic()
         if now >= self._mqtt_next_attempt:
             try:
-                condition = await self.client.mqtt_condition(self.vehicle_id)
-            except DeepalAuthError:
+                condition = await self._async_read_mqtt()
+            except (DeepalAuthError, DeepalRateLimitError):
                 raise
             except DeepalApiError as err:
                 self._mqtt_failures += 1
@@ -166,6 +223,15 @@ class DeepalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self.mqtt_fallback_active = True
             return rest
         raise self._mqtt_last_error or DeepalApiError("MQTT telemetry is unavailable")
+
+    async def _async_read_mqtt(self) -> dict[str, Any]:
+        """Read MQTT telemetry; if the gateway says the session is invalid, refresh it once and retry."""
+        try:
+            return await self.client.mqtt_condition(self.vehicle_id)
+        except DeepalSessionInvalidated:
+            if not await self._async_refresh_session_once():
+                raise
+            return await self.client.mqtt_condition(self.vehicle_id)
 
     async def _async_usable_rest_condition(self) -> dict[str, Any] | None:
         """Return the REST condition if it carries data (it may be partial), else None."""
