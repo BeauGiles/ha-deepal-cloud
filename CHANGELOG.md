@@ -82,6 +82,10 @@ first: some changes break automations.**
   everything for up to 30 s until the vehicle data matched. After a short grace
   period the integration asks the car for fresh data once and stops waiting,
   logging a warning if the data still shows the old state.
+- **Fewer cloud calls for MQTT vehicles:** the CA connection configuration is
+  reused for 11 minutes and the MQTT auth token for 1 minute, instead of both
+  being fetched on every MQTT session (every poll). The cache is dropped as soon
+  as an MQTT exchange fails.
 - MQTT code is named generically (`mqtt_*` rather than `s05_*`): it is chosen by
   the vehicle's `protocolType`, not its model.
 - Setup and reauthentication no longer force remote commands off for MQTT vehicles.
@@ -97,6 +101,24 @@ first: some changes break automations.**
   values are now unknown, as in the new Any Window sensor.
 - **Remaining Charge Time** showed 8191 ("no estimate") on the S07 and on MQTT/SDA
   cars; it now shows unknown.
+- **Rejected CA bootstrap (`invalided token`):** if the legacy `getConnConf` /
+  `getAuthTokenByUserId` routes are rejected, the app's alternate routes
+  (`appGetCarConfFunc`, and the `app-apigw/vot-auth` token route) are tried once
+  (the alternate configuration is only used if it carries the connection info).
+  A message saying the session token is invalid or expired refreshes the session
+  once per hour (and saves the new tokens), then falls back to the REST
+  condition. It never starts a re-login flow, which could trigger login rate
+  limits. Routes from Sunek0/ha-deepal-alternative (MIT); untested on an
+  affected account.
+- **HTTP 429 rate limits:** the integration now stops calling the API for the
+  gateway's `Retry-After` (seconds or an HTTP date; at least 1 minute, at most
+  1 hour) instead of retrying every poll. A rate limit during a token refresh no
+  longer turns into a re-login prompt.
+- **Malformed MQTT packets** (truncated topic or packet id, bad text, a payload
+  that is not a JSON object) are skipped instead of aborting the exchange.
+- Command results with code `"00000"` (the REST success code) count as success.
+- **REST cabin humidity** uses the tenths-of-a-percent rule already applied to
+  MQTT (a raw 453 is 45.3%, not 453%).
 - **"Power is not off" (result code 1032):** the car refuses some remote
   commands (seen with turning the air conditioner off, and with windows) while it
   is powered on. The error now says so and what to do (switch the car off or wait

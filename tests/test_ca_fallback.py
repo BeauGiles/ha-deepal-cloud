@@ -140,6 +140,8 @@ def make(client):
     coordinator._mqtt_next_attempt = 0.0
     coordinator._mqtt_last_error = None
     coordinator.mqtt_fallback_active = False
+    coordinator._rate_limited_until = 0.0
+    coordinator._last_session_refresh = None
     return coordinator
 
 

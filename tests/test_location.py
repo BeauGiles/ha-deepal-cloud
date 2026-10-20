@@ -172,6 +172,8 @@ def make_coordinator(position):
     coordinator._mqtt_next_attempt = 0.0
     coordinator._mqtt_last_error = None
     coordinator.mqtt_fallback_active = False
+    coordinator._rate_limited_until = 0.0
+    coordinator._last_session_refresh = None
     coordinator._next_active_refresh_at = 0.0
     coordinator._async_maybe_active_condition_refresh = lambda: asyncio.sleep(0)
     return coordinator

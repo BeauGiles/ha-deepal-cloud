@@ -94,6 +94,18 @@ AC_MAX_TEMP_C = 32.0
 MQTT_BACKOFF_BASE = 60  # seconds after the first failure; doubles each time
 MQTT_BACKOFF_MAX = 600  # seconds
 
+# The CA bootstrap is per vehicle and practically static, and the auth token is
+# account level, so both are reused instead of fetched on every MQTT session.
+MQTT_CONFIG_TTL = 660  # seconds (about two default poll cycles)
+MQTT_TOKEN_TTL = 60  # seconds
+
+# After an HTTP 429 the integration stops calling the API for the gateway's
+# Retry-After (at least the minimum, at most the maximum) instead of retrying.
+RATE_LIMIT_MIN_BACKOFF = 60  # seconds
+RATE_LIMIT_MAX_BACKOFF = 3600  # seconds
+# A session-invalid answer from the CA gateway refreshes the session at most this often.
+SESSION_REFRESH_MIN_INTERVAL = 3600  # seconds
+
 WAKE_STALE_AFTER = 120  # seconds since the last report before a refresh wakes the car
 WAKE_COOLDOWN = 300  # minimum seconds between wakes
 WAKE_REPORT_TIMEOUT = 60  # seconds to wait for a fresh report after a wake
