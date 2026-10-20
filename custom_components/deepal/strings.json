@@ -74,7 +74,6 @@
           "control_pin": "Control PIN",
           "enable_commands": "Enable remote commands",
           "enable_api_logging": "Enable redacted API logging",
-          "fetch_location": "Fetch the vehicle location (experimental)",
           "reauthenticate": "Reauthenticate now"
         },
         "data_description": {
@@ -83,7 +82,6 @@
           "control_pin": "The same PIN used for remote controls in the official Deepal app. Required when remote commands are enabled.",
           "enable_commands": "Allow Home Assistant to send signed commands such as refresh, lock, climate, charging, windows, boot, seat and steering wheel heating, lights, and horn. MQTT vehicles (e.g. S05) support lock, windows and boot only.",
           "enable_api_logging": "Write redacted Deepal API requests and responses to the Home Assistant log for troubleshooting. Tokens, PINs, signatures, keys, and account identifiers are filtered, but vehicle data may still appear. Leave disabled unless debugging.",
-          "fetch_location": "Ask the cloud for the car's position and show it as a Location tracker. Experimental: many cars and regions report no position, and then no tracker is created. Off by default; the position is never written to logs or diagnostics.",
           "reauthenticate": "Logs in again to get a fresh command-signing key, without deleting or re-adding the integration. Use this if remote commands (lock, windows, boot, climate, charging, lights, horn) fail outright while vehicle data still updates normally. Any other changes made in this same submission are ignored - reopen this dialog afterward for those."
         }
       }
@@ -377,11 +375,6 @@
     "image": {
       "vehicle_image": {
         "name": "Vehicle Image"
-      }
-    },
-    "device_tracker": {
-      "location": {
-        "name": "Location"
       }
     }
   }

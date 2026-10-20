@@ -29,7 +29,6 @@ from .const import (
     CONF_DEVICE_ID,
     CONF_EMAIL,
     CONF_ENABLE_API_LOGGING,
-    CONF_FETCH_LOCATION,
     CONF_ENABLE_COMMANDS,
     CONF_LANGUAGE,
     CONF_LOGIN_METHOD,
@@ -490,7 +489,6 @@ class DeepalOptionsFlow(config_entries.OptionsFlow):
                 vol.Optional(CONF_CONTROL_PIN, default=data.get(CONF_CONTROL_PIN, "")): str,
                 vol.Optional(CONF_ENABLE_COMMANDS, default=data.get(CONF_ENABLE_COMMANDS, False)): bool,
                 vol.Optional(CONF_ENABLE_API_LOGGING, default=data.get(CONF_ENABLE_API_LOGGING, False)): bool,
-                vol.Optional(CONF_FETCH_LOCATION, default=data.get(CONF_FETCH_LOCATION, False)): bool,
                 vol.Optional("reauthenticate", default=False): bool,
             }
         )
