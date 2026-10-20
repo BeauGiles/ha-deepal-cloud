@@ -23,6 +23,7 @@ from cryptography.hazmat.primitives import hashes, padding as symmetric_padding,
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
+from .location import find_location, location_paths
 from .const import (
     BASE_URL,
     CA_BASE_URL,
@@ -972,6 +973,7 @@ class DeepalClient:
         private_key_pem: str | None = None,
         enable_commands: bool = False,
         enable_api_logging: bool = False,
+        fetch_location: bool = False,
         rc_token: str | None = None,
         control_pin: str | None = None,
         cac_token: str | None = None,
@@ -991,6 +993,10 @@ class DeepalClient:
         self.device_id = device_id
         self.enable_commands = enable_commands
         self.enable_api_logging = enable_api_logging
+        # Experimental, opt-in: ask the cloud for the vehicle position.
+        self.fetch_location = fetch_location
+        self.last_position: tuple[float, float] | None = None
+        self._location_state: str | None = None
         self.rc_token = rc_token
         self.control_pin = control_pin
         self.cac_token = cac_token
@@ -1342,8 +1348,35 @@ class DeepalClient:
             },
             "vehicleId": vehicle_id,
         }
+        if self.fetch_location:
+            payload["vechileCriteria"]["location"] = "1"
         data = await self._post("/intl-app-gw/intl-app-car-condition/api/vehicle/condition", payload)
-        return data if isinstance(data, dict) else {}
+        data = data if isinstance(data, dict) else {}
+        self._note_location(data)
+        return data
+
+    def _note_location(self, data: dict[str, Any]) -> None:
+        """Remember the latest position and log, once per change, whether one was found.
+
+        Only key names are logged, never coordinates, so the line is safe to share.
+        """
+        if not self.fetch_location:
+            return
+        found = find_location(data)
+        if found is not None:
+            self.last_position = found  # kept while the car does not report a newer fix
+        state = "found" if found is not None else "missing"
+        if state == self._location_state:
+            return
+        self._location_state = state
+        if found is not None:
+            _LOGGER.info("Deepal location: a position was found at %s", location_paths(data))
+        else:
+            _LOGGER.info(
+                "Deepal location: requested, but the condition response carried no position "
+                "(top-level keys: %s); this model or region may not report one",
+                sorted(data),
+            )
 
     async def ota_status(self, vehicle_id: str) -> dict[str, Any]:
         """Fetch OTA (over-the-air) firmware update status. Ported from the

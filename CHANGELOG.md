@@ -53,6 +53,14 @@ first: some changes break automations.**
   vehicle whose last report is over 2 minutes old wakes it and waits up to 60 s
   for fresh data, at most once per 5 minutes. The periodic poll never wakes the
   car. Not used for E07 (REST).
+- **Experimental, opt-in vehicle location.** *Fetch the vehicle location
+  (experimental)* in **Configure** asks the cloud for the car's position (REST
+  vehicles, e.g. S07) and, only if a position comes back, adds a **Location**
+  device tracker that keeps the last known fix while the car sleeps. Many cars
+  and regions report no position, so it may stay absent; with the option on, one
+  log line says whether a position was found and where (key names only). Off by
+  default; coordinates are never written to logs or diagnostics. The search for
+  latitude/longitude keys follows Sunek0/ha-deepal-alternative (MIT).
 - **Any Window** binary sensor (on if any window is open), alongside Any Door.
 - **Remaining Charge Time (H:MM)** sensor for dashboards.
 - **Vehicle image fallback:** the picture is fetched in the background, and if it

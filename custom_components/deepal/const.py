@@ -18,6 +18,7 @@ PLATFORMS: list[Platform] = [
     Platform.SWITCH,
     Platform.TIME,
     Platform.IMAGE,
+    Platform.DEVICE_TRACKER,
 ]
 
 
@@ -57,6 +58,7 @@ CONF_PRIVATE_KEY = "private_key_pem"
 CONF_LOGIN_METHOD = "login_method"
 CONF_ENABLE_COMMANDS = "enable_commands"
 CONF_ENABLE_API_LOGGING = "enable_api_logging"
+CONF_FETCH_LOCATION = "fetch_location"
 CONF_ACTIVE_REFRESH_INTERVAL = "active_refresh_interval"
 CONF_RC_TOKEN = "rc_token"
 CONF_CONTROL_PIN = "control_pin"
