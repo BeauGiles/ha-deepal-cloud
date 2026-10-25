@@ -10,11 +10,11 @@ Custom Home Assistant integration for the Changan Deepal cloud API.
 
 It supports the **Deepal S07** (telemetry and remote controls), the **Deepal S05** (MQTT telemetry, with opt-in lock, window and boot controls) and the **Deepal E07** (telemetry only). See [Supported Vehicles](#supported-vehicles) for what has actually been tested on each.
 
-> **Upgrading from 0.3.x?** Windows and Boot are now buttons instead of covers, and sensors are only created for data your car reports. See the [0.4.0 upgrade notes](CHANGELOG.md#040---unreleased) before updating.
+> **Upgrading from 0.3.x?** Windows and Boot are now buttons instead of covers, and sensors are only created for data your car reports. See the [0.4.0 upgrade notes](CHANGELOG.md#040---2026-10-25) before updating.
 
 ## About This Fork
 
-This repo is rebased on [danperks/ha-deepal](https://github.com/danperks/ha-deepal), which brought account-based login, full remote vehicle control, and Deepal S05 support — a big step up from the earlier version of this integration, which was read-only and required manually capturing tokens with a proxy tool. Credit to danperks for that work; also thanks to [DylanTusler's fork](https://github.com/DylanTusler/ha-deepal) for the Australia region addition on top of it.
+This repo is rebased on [danperks/ha-deepal](https://github.com/danperks/ha-deepal), which brought account-based login, full remote vehicle control, and Deepal S05 support — a big step up from the earlier version of this integration, which was read-only and required manually capturing tokens with a proxy tool.
 
 On top of that base, this fork:
 
@@ -85,6 +85,7 @@ Commands run one at a time in order (up to four queued). Open/closed buttons hav
 
 - **E07:** No remote controls. The app sends them over a separate MQTT broker that is not implemented. Tyre pressures, outside temperature and humidity are not mapped yet, and the charging-state mapping is inferred from one car's report.
 - **S05:** The MQTT telemetry changes (including the charging-state mapping), the wake and the lock/window/boot commands in this fork have not been tested on a real S05. The command protocol comes from [kobizz/ha-deepal](https://github.com/kobizz/ha-deepal), validated there on an Israel-market S05.
+- **New in 0.4.0, not yet tested on a real car:** the Lower/Raise Windows and Open/Close Boot buttons and the command queue. Please report any problems.
 - **Other regions and models** are unverified (see above).
 - Only the data the cloud provides is available; some cars report only while awake.
 
