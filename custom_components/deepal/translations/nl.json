@@ -1,0 +1,106 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Inlogmethode",
+        "description": "Kies dezelfde inlogmethode als in de officiële Deepal-app. Inloggen met een e-mailcode wordt aanbevolen als inloggen via telefoon/sms het account niet vindt.",
+        "data": {
+          "login_method": "Inlogmethode"
+        }
+      },
+      "email": {
+        "title": "Inloggen met e-mail",
+        "description": "Voer het e-mailadres in dat in de officiële Deepal-app wordt gebruikt. Changan/Deepal stuurt een eenmalige verificatiecode naar dit adres.",
+        "data": {
+          "country": "Land/regio",
+          "email": "E-mailadres"
+        }
+      },
+      "email_code": {
+        "title": "Voer de e-mailcode in",
+        "description": "Voer de verificatiecode in die Changan/Deepal heeft gestuurd. De code kan snel verlopen, vraag dus een nieuwe aan als deze wordt geweigerd.",
+        "data": {
+          "auth_code": "E-mailcode"
+        }
+      },
+      "phone": {
+        "title": "Inloggen met telefoon/sms",
+        "description": "Log in met hetzelfde telefoonnummer dat je in de Deepal-app gebruikt. Kies je land/regio en voer het lokale nummer in zoals het in de officiële app is geregistreerd, zonder internationaal voorvoegsel.",
+        "data": {
+          "country": "Land/regio",
+          "mobile": "Mobiel nummer"
+        }
+      },
+      "sms": {
+        "title": "Voer de sms-code in",
+        "description": "Voer de verificatiecode in die Changan/Deepal heeft gestuurd. De code kan snel verlopen, vraag dus een nieuwe aan als deze wordt geweigerd.",
+        "data": {
+          "auth_code": "Sms-code"
+        }
+      },
+      "commands": {
+        "title": "Opdrachten op afstand",
+        "description": "Met opdrachten op afstand kan Home Assistant dingen bedienen zoals de klimaatregeling, het laden, de sloten en de ramen. Laat ze uitgeschakeld als je alleen voertuiggegevens wilt lezen. De bedieningspincode is dezelfde pincode die je voor de bediening op afstand in de Deepal-app gebruikt.",
+        "data": {
+          "enable_commands": "Opdrachten op afstand inschakelen",
+          "control_pin": "Bedieningspincode"
+        }
+      }
+    },
+    "error": {
+      "send_code_failed": "Kon geen sms-code aanvragen. Controleer het telefoonnummer en het land/de regio.",
+      "send_email_code_failed": "Kon geen e-mailcode aanvragen. Controleer het e-mailadres en het land/de regio.",
+      "account_not_registered": "Deepal meldt dat dit account niet is geregistreerd voor het geselecteerde land/de geselecteerde regio. Kies de regio van het account in de officiële app of probeer de andere inlogmethode.",
+      "login_failed": "Inloggen mislukt. Controleer de verificatiecode en de accountgegevens.",
+      "bad_sms_code": "De sms-code is geweigerd of verlopen. Vraag een nieuwe code aan en probeer het opnieuw.",
+      "bad_email_code": "De e-mailcode is geweigerd of verlopen. Vraag een nieuwe code aan en probeer het opnieuw.",
+      "too_many_codes": "Te veel verificatiepogingen. Wacht even voordat je een nieuwe code aanvraagt.",
+      "no_vehicles": "Inloggen is gelukt, maar er zijn geen voertuigen teruggegeven.",
+      "wrong_account": "Inloggen is gelukt, maar dit account heeft het voertuig dat al in Home Assistant is geconfigureerd niet teruggegeven.",
+      "pin_required": "Voer je bedieningspincode in of laat opdrachten op afstand uitgeschakeld."
+    },
+    "abort": {
+      "reauth_successful": "Deepal is weer verbonden. Home Assistant gaat de gegevens van je voertuig weer verversen."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opties voor Changan Deepal Cloud",
+        "description": "Stel in hoe vaak Home Assistant de gecachte clouddata leest en hoe vaak het nieuwe gegevens bij het voertuig opvraagt. Opdrachten op afstand vereisen de bedieningspincode uit de Deepal-app.",
+        "data": {
+          "scan_interval": "Interval voor statusopvraag",
+          "active_refresh_interval": "Interval voor voertuigverversing",
+          "control_pin": "Bedieningspincode",
+          "enable_commands": "Opdrachten op afstand inschakelen",
+          "enable_api_logging": "Geredigeerde API-logging inschakelen",
+          "reauthenticate": "Nu opnieuw authenticeren"
+        },
+        "data_description": {
+          "scan_interval": "Hoe vaak Home Assistant de gecachte cloudstatus opvraagt. Dit is licht en maakt de auto niet wakker en vraagt de auto niet actief iets.",
+          "active_refresh_interval": "Hoe vaak Home Assistant het ondertekende verversingscommando verstuurt waarmee de cloud of auto om nieuwere voertuiggegevens wordt gevraagd. Wordt alleen gebruikt als opdrachten op afstand zijn ingeschakeld.",
+          "control_pin": "Dezelfde pincode die je gebruikt voor de bediening op afstand in de officiële Deepal-app. Vereist als opdrachten op afstand zijn ingeschakeld.",
+          "enable_commands": "Laat Home Assistant ondertekende opdrachten sturen, zoals verversen, vergrendelen, klimaat, laden, ramen, kofferbak, stoel- en stuurverwarming, verlichting en claxon. MQTT-voertuigen (bijv. S05) ondersteunen alleen vergrendelen, ramen en kofferbak.",
+          "enable_api_logging": "Schrijf geredigeerde Deepal API-verzoeken en -antwoorden naar het Home Assistant-logboek voor probleemoplossing. Tokens, pincodes, handtekeningen, sleutels en accountidentificatoren worden gefilterd, maar voertuiggegevens kunnen nog zichtbaar zijn. Laat dit uitgeschakeld, tenzij je aan het debuggen bent.",
+          "reauthenticate": "Logt opnieuw in om een nieuwe sleutel voor het ondertekenen van opdrachten te krijgen, zonder de integratie te verwijderen of opnieuw toe te voegen. Gebruik dit als opdrachten op afstand (vergrendelen, ramen, kofferbak, klimaat, laden, verlichting, claxon) volledig mislukken terwijl de voertuiggegevens normaal blijven bijwerken. Andere wijzigingen in dezelfde opslag worden genegeerd; open dit venster daarna opnieuw om die door te voeren."
+        }
+      }
+    },
+    "abort": {
+      "reauth_triggered": "Opnieuw authenticeren wordt gestart. Home Assistant toont een melding om het opnieuw inloggen te voltooien; doe dat om de nieuwe sleutel voor het ondertekenen van opdrachten te registreren."
+    }
+  },
+  "issues": {
+    "command_reauth": {
+      "title": "Opdrachten op afstand van Deepal moeten opnieuw worden geauthenticeerd",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Opdrachten op afstand van Deepal moeten opnieuw worden geauthenticeerd",
+            "description": "Hiermee log je opnieuw in om een nieuwe sleutel voor het ondertekenen van opdrachten te registreren. Na je bevestiging toont Home Assistant een melding om het inloggen te voltooien."
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,106 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Método de início de sessão",
+        "description": "Escolha o mesmo método de início de sessão que usa na app oficial da Deepal. O início de sessão com código por email é recomendado quando o início de sessão por telefone/SMS não encontra a conta.",
+        "data": {
+          "login_method": "Método de início de sessão"
+        }
+      },
+      "email": {
+        "title": "Início de sessão por email",
+        "description": "Introduza o endereço de email usado na app oficial da Deepal. A Changan/Deepal enviará um código de verificação de utilização única para este endereço.",
+        "data": {
+          "country": "País/região",
+          "email": "Endereço de email"
+        }
+      },
+      "email_code": {
+        "title": "Introduza o código do email",
+        "description": "Introduza o código de verificação enviado pela Changan/Deepal. O código pode expirar rapidamente, por isso peça um novo se for rejeitado.",
+        "data": {
+          "auth_code": "Código do email"
+        }
+      },
+      "phone": {
+        "title": "Início de sessão por telefone/SMS",
+        "description": "Inicie sessão com o mesmo número de telefone que usa na app da Deepal. Escolha o seu país/região e introduza o número local exatamente como está registado na app oficial, sem o prefixo internacional.",
+        "data": {
+          "country": "País/região",
+          "mobile": "Número de telemóvel"
+        }
+      },
+      "sms": {
+        "title": "Introduza o código SMS",
+        "description": "Introduza o código de verificação enviado pela Changan/Deepal. O código pode expirar rapidamente, por isso peça um novo se for rejeitado.",
+        "data": {
+          "auth_code": "Código SMS"
+        }
+      },
+      "commands": {
+        "title": "Comandos remotos",
+        "description": "Os comandos remotos permitem ao Home Assistant controlar coisas como o clima, o carregamento, as fechaduras e os vidros. Deixe-os desativados se quiser apenas dados do veículo só de leitura. O PIN de controlo é o mesmo PIN usado para os controlos remotos na app da Deepal.",
+        "data": {
+          "enable_commands": "Ativar comandos remotos",
+          "control_pin": "PIN de controlo"
+        }
+      }
+    },
+    "error": {
+      "send_code_failed": "Não foi possível pedir um código SMS. Verifique o número de telefone e o país/região.",
+      "send_email_code_failed": "Não foi possível pedir um código por email. Verifique o endereço de email e o país/região.",
+      "account_not_registered": "A Deepal indica que esta conta não está registada no país/região selecionado. Escolha a região usada pela conta da app oficial ou experimente o outro método de início de sessão.",
+      "login_failed": "Falha no início de sessão. Verifique o código de verificação e os dados da conta.",
+      "bad_sms_code": "O código SMS foi rejeitado ou expirou. Peça um novo código e tente novamente.",
+      "bad_email_code": "O código do email foi rejeitado ou expirou. Peça um novo código e tente novamente.",
+      "too_many_codes": "Demasiadas tentativas de verificação. Aguarde um pouco antes de pedir outro código.",
+      "no_vehicles": "O início de sessão foi bem-sucedido, mas não foi devolvido nenhum veículo.",
+      "wrong_account": "O início de sessão foi bem-sucedido, mas esta conta não devolveu o veículo já configurado no Home Assistant.",
+      "pin_required": "Introduza o seu PIN de controlo ou deixe os comandos remotos desativados."
+    },
+    "abort": {
+      "reauth_successful": "A Deepal está ligada novamente. O Home Assistant vai retomar a atualização dos dados do seu veículo."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opções do Changan Deepal Cloud",
+        "description": "Ajuste a frequência com que o Home Assistant lê os dados em cache da nuvem e com que pede dados novos ao veículo. Os comandos remotos requerem o PIN de controlo da app da Deepal.",
+        "data": {
+          "scan_interval": "Intervalo de consulta do estado",
+          "active_refresh_interval": "Intervalo de atualização do veículo",
+          "control_pin": "PIN de controlo",
+          "enable_commands": "Ativar comandos remotos",
+          "enable_api_logging": "Ativar o registo da API com dados ocultados",
+          "reauthenticate": "Autenticar novamente agora"
+        },
+        "data_description": {
+          "scan_interval": "Com que frequência o Home Assistant consulta o estado em cache da nuvem. É uma operação leve e não acorda nem consulta ativamente o carro.",
+          "active_refresh_interval": "Com que frequência o Home Assistant envia o comando de atualização assinado que pede à nuvem ou ao carro dados mais recentes. Só é usado quando os comandos remotos estão ativados.",
+          "control_pin": "O mesmo PIN usado para os controlos remotos na app oficial da Deepal. Obrigatório quando os comandos remotos estão ativados.",
+          "enable_commands": "Permite que o Home Assistant envie comandos assinados como atualizar, trancar, clima, carregamento, vidros, mala, aquecimento dos bancos e do volante, luzes e buzina. Os veículos MQTT (p. ex., S05) só suportam fechadura, vidros e mala.",
+          "enable_api_logging": "Escreve no registo do Home Assistant os pedidos e as respostas da API da Deepal com dados ocultados, para resolução de problemas. Tokens, PIN, assinaturas, chaves e identificadores de conta são filtrados, mas podem ainda aparecer dados do veículo. Deixe desativado, a menos que esteja a depurar.",
+          "reauthenticate": "Volta a iniciar sessão para obter uma nova chave de assinatura de comandos, sem eliminar nem voltar a adicionar a integração. Use isto se os comandos remotos (fechadura, vidros, mala, clima, carregamento, luzes, buzina) falharem por completo enquanto os dados do veículo continuam a atualizar normalmente. Quaisquer outras alterações feitas neste mesmo envio são ignoradas; volte a abrir esta caixa depois para as aplicar."
+        }
+      }
+    },
+    "abort": {
+      "reauth_triggered": "A iniciar a reautenticação. O Home Assistant vai mostrar uma notificação para terminar o novo início de sessão; conclua-o para registar a nova chave de assinatura de comandos."
+    }
+  },
+  "issues": {
+    "command_reauth": {
+      "title": "Os comandos remotos da Deepal precisam de reautenticação",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Os comandos remotos da Deepal precisam de reautenticação",
+            "description": "Isto volta a iniciar sessão para registar uma nova chave de assinatura de comandos. O Home Assistant vai mostrar uma notificação para terminar o início de sessão depois de confirmar."
+          }
+        }
+      }
+    }
+  }
+}

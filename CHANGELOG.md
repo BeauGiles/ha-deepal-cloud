@@ -2,6 +2,16 @@
 
 All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
+## [Unreleased]
+
+### Added
+
+- **Spanish, Portuguese, Italian and Dutch translations** for the setup and options screens and the repair dialog. Entity names stay in English on purpose, so entity IDs and the documented dashboard cards are the same in every language. These are first drafts and have not been checked by native speakers; corrections are welcome. Home Assistant uses them when your language is set to one of these, and falls back to English otherwise.
+
+### Fixed
+
+- The English options and remote-command descriptions no longer say S05 support is read-only, and the "Deepal remote commands need reauthentication" repair dialog shows its title instead of a raw translation key.
+
 ## [0.4.0] - 2026-10-25
 
 Adds **Deepal E07 support (telemetry)**, **opt-in remote controls for MQTT
