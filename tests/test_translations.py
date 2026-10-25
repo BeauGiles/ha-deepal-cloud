@@ -27,15 +27,18 @@ def test_expected_languages_present():
 
 @pytest.mark.parametrize("language", LANGUAGES)
 def test_same_keys_as_english(language):
-    english = dict(flatten(load("en")))
-    translated = dict(flatten(load(language)))
-    assert set(translated) == set(english)
+    # Entity names are deliberately left in English (Home Assistant falls back
+    # to en.json) so entity IDs and documented cards stay the same everywhere.
+    english = {k for k, _ in flatten(load("en")) if not k.startswith("entity.")}
+    translated = {k for k, _ in flatten(load(language))}
+    assert translated == english
 
 
 @pytest.mark.parametrize("language", LANGUAGES)
 def test_placeholders_and_references_preserved(language):
     english = dict(flatten(load("en")))
     for key, text in flatten(load(language)):
+        assert key in english, key
         assert isinstance(text, str) and text.strip(), key
         assert "[%key" not in text, key
         assert sorted(re.findall(r"\{[^}]*\}", text)) == sorted(
