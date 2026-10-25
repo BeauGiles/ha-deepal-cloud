@@ -1,0 +1,381 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Metodo di accesso",
+        "description": "Scegli lo stesso metodo di accesso che usi nell'app Deepal ufficiale. L'accesso con codice via email è consigliato quando l'accesso con telefono/SMS non trova l'account.",
+        "data": {
+          "login_method": "Metodo di accesso"
+        }
+      },
+      "email": {
+        "title": "Accesso con email",
+        "description": "Inserisci l'indirizzo email usato nell'app Deepal ufficiale. Changan/Deepal invierà un codice di verifica monouso a questo indirizzo.",
+        "data": {
+          "country": "Paese/regione",
+          "email": "Indirizzo email"
+        }
+      },
+      "email_code": {
+        "title": "Inserisci il codice email",
+        "description": "Inserisci il codice di verifica inviato da Changan/Deepal. Il codice può scadere rapidamente, quindi richiedine uno nuovo se viene rifiutato.",
+        "data": {
+          "auth_code": "Codice email"
+        }
+      },
+      "phone": {
+        "title": "Accesso con telefono/SMS",
+        "description": "Accedi con lo stesso numero di telefono che usi nell'app Deepal. Scegli il tuo paese/regione, poi inserisci il numero locale esattamente come registrato nell'app ufficiale, senza il prefisso internazionale.",
+        "data": {
+          "country": "Paese/regione",
+          "mobile": "Numero di cellulare"
+        }
+      },
+      "sms": {
+        "title": "Inserisci il codice SMS",
+        "description": "Inserisci il codice di verifica inviato da Changan/Deepal. Il codice può scadere rapidamente, quindi richiedine uno nuovo se viene rifiutato.",
+        "data": {
+          "auth_code": "Codice SMS"
+        }
+      },
+      "commands": {
+        "title": "Comandi remoti",
+        "description": "I comandi remoti permettono a Home Assistant di controllare funzioni come clima, ricarica, serrature e finestrini. Lasciali disattivati se vuoi solo i dati del veicolo in sola lettura. Il PIN di controllo è lo stesso PIN usato per i controlli remoti nell'app Deepal.",
+        "data": {
+          "enable_commands": "Attiva i comandi remoti",
+          "control_pin": "PIN di controllo"
+        }
+      }
+    },
+    "error": {
+      "send_code_failed": "Impossibile richiedere un codice SMS. Controlla il numero di telefono e il paese/regione.",
+      "send_email_code_failed": "Impossibile richiedere un codice email. Controlla l'indirizzo email e il paese/regione.",
+      "account_not_registered": "Deepal indica che questo account non è registrato per il paese/regione selezionato. Scegli la regione usata dall'account dell'app ufficiale, oppure prova l'altro metodo di accesso.",
+      "login_failed": "Accesso non riuscito. Controlla il codice di verifica e i dati dell'account.",
+      "bad_sms_code": "Il codice SMS è stato rifiutato o è scaduto. Richiedi un nuovo codice e riprova.",
+      "bad_email_code": "Il codice email è stato rifiutato o è scaduto. Richiedi un nuovo codice e riprova.",
+      "too_many_codes": "Troppi tentativi di verifica. Attendi un po' prima di richiedere un altro codice.",
+      "no_vehicles": "Accesso riuscito, ma non è stato restituito alcun veicolo.",
+      "wrong_account": "Accesso riuscito, ma questo account non ha restituito il veicolo già configurato in Home Assistant.",
+      "pin_required": "Inserisci il tuo PIN di controllo oppure lascia disattivati i comandi remoti."
+    },
+    "abort": {
+      "reauth_successful": "Deepal è di nuovo connesso. Home Assistant riprenderà ad aggiornare i dati del tuo veicolo."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opzioni di Changan Deepal Cloud",
+        "description": "Regola la frequenza con cui Home Assistant legge i dati nella cache del cloud e con cui chiede dati aggiornati al veicolo. I comandi remoti richiedono il PIN di controllo dell'app Deepal.",
+        "data": {
+          "scan_interval": "Intervallo di polling dello stato",
+          "active_refresh_interval": "Intervallo di aggiornamento del veicolo",
+          "control_pin": "PIN di controllo",
+          "enable_commands": "Attiva i comandi remoti",
+          "enable_api_logging": "Attiva il log API oscurato",
+          "reauthenticate": "Riautentica ora"
+        },
+        "data_description": {
+          "scan_interval": "Con quale frequenza Home Assistant interroga lo stato nella cache del cloud. È un'operazione leggera e non risveglia né interroga attivamente l'auto.",
+          "active_refresh_interval": "Con quale frequenza Home Assistant invia il comando di aggiornamento firmato che chiede al cloud o all'auto dati più recenti. Viene usato solo quando i comandi remoti sono attivi.",
+          "control_pin": "Lo stesso PIN usato per i controlli remoti nell'app Deepal ufficiale. Obbligatorio quando i comandi remoti sono attivi.",
+          "enable_commands": "Consente a Home Assistant di inviare comandi firmati come aggiornamento, blocco, clima, ricarica, finestrini, bagagliaio, riscaldamento di sedili e volante, luci e clacson. I veicoli MQTT (ad es. S05) supportano solo serrature, finestrini e bagagliaio.",
+          "enable_api_logging": "Scrive nel log di Home Assistant le richieste e le risposte dell'API Deepal con i dati oscurati, per la risoluzione dei problemi. Token, PIN, firme, chiavi e identificativi dell'account vengono filtrati, ma i dati del veicolo potrebbero comunque comparire. Lascialo disattivato se non stai eseguendo il debug.",
+          "reauthenticate": "Esegue di nuovo l'accesso per ottenere una nuova chiave di firma dei comandi, senza eliminare né riaggiungere l'integrazione. Usalo se i comandi remoti (serrature, finestrini, bagagliaio, clima, ricarica, luci, clacson) falliscono del tutto mentre i dati del veicolo si aggiornano normalmente. Qualsiasi altra modifica fatta nello stesso invio viene ignorata: riapri questa finestra dopo per applicarle."
+        }
+      }
+    },
+    "abort": {
+      "reauth_triggered": "Avvio della riautenticazione. Home Assistant mostrerà una notifica per completare di nuovo l'accesso: completala per registrare la nuova chiave di firma dei comandi."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "soc": {
+        "name": "Stato di carica"
+      },
+      "drv_mileage": {
+        "name": "Autonomia stimata"
+      },
+      "total_mileage": {
+        "name": "Contachilometri"
+      },
+      "speed": {
+        "name": "Velocità"
+      },
+      "last_updated_at": {
+        "name": "Data dei dati del veicolo"
+      },
+      "inside_temp": {
+        "name": "Temperatura interna"
+      },
+      "outside_temp": {
+        "name": "Temperatura esterna"
+      },
+      "ac_status": {
+        "name": "Modalità clima abitacolo"
+      },
+      "inside_humidity": {
+        "name": "Umidità abitacolo"
+      },
+      "inside_pm25": {
+        "name": "PM2.5 abitacolo"
+      },
+      "inside_air_quality_level": {
+        "name": "Livello qualità dell'aria abitacolo"
+      },
+      "charge_status": {
+        "name": "Stato della ricarica"
+      },
+      "charge_current": {
+        "name": "Corrente di ricarica riportata"
+      },
+      "ac_charge_current": {
+        "name": "Corrente di ricarica CA"
+      },
+      "dc_charge_current": {
+        "name": "Corrente di ricarica CC"
+      },
+      "remain_charge_time": {
+        "name": "Tempo di ricarica rimanente"
+      },
+      "remain_charge_time_hhmm": {
+        "name": "Tempo di ricarica rimanente (H:MM)"
+      },
+      "max_soc_percent": {
+        "name": "Limite massimo di carica"
+      },
+      "charge_plan_start_time": {
+        "name": "Ora di inizio della ricarica programmata"
+      },
+      "charge_plan_end_time": {
+        "name": "Ora di fine della ricarica programmata"
+      },
+      "tire_front_left_pressure": {
+        "name": "Pressione pneumatico anteriore sinistro"
+      },
+      "tire_front_right_pressure": {
+        "name": "Pressione pneumatico anteriore destro"
+      },
+      "tire_rear_left_pressure": {
+        "name": "Pressione pneumatico posteriore sinistro"
+      },
+      "tire_rear_right_pressure": {
+        "name": "Pressione pneumatico posteriore destro"
+      },
+      "driver_seat_heater_level": {
+        "name": "Livello riscaldamento sedile guida"
+      },
+      "front_passenger_seat_heater_level": {
+        "name": "Livello riscaldamento sedile passeggero anteriore"
+      },
+      "rear_left_seat_heater_level": {
+        "name": "Livello riscaldamento sedile posteriore sinistro"
+      },
+      "rear_right_seat_heater_level": {
+        "name": "Livello riscaldamento sedile posteriore destro"
+      },
+      "steering_wheel_heater": {
+        "name": "Riscaldamento del volante"
+      },
+      "vehicle_status": {
+        "name": "Stato del veicolo"
+      },
+      "power_status": {
+        "name": "Stato di alimentazione"
+      },
+      "img_url": {
+        "name": "URL dell'immagine del veicolo"
+      },
+      "gear_signal": {
+        "name": "Segnale marcia"
+      },
+      "epb_sts": {
+        "name": "Stato del freno di stazionamento elettronico"
+      },
+      "refresh_failure_count": {
+        "name": "Conteggio errori di aggiornamento"
+      },
+      "ota_status": {
+        "name": "Stato OTA"
+      },
+      "raw_condition": {
+        "name": "Dati di stato grezzi"
+      }
+    },
+    "binary_sensor": {
+      "any_door_open": {
+        "name": "Qualsiasi porta"
+      },
+      "any_window_open": {
+        "name": "Qualsiasi finestrino"
+      },
+      "front_left_door_open": {
+        "name": "Porta anteriore sinistra"
+      },
+      "front_right_door_open": {
+        "name": "Porta anteriore destra"
+      },
+      "rear_left_door_open": {
+        "name": "Porta posteriore sinistra"
+      },
+      "rear_right_door_open": {
+        "name": "Porta posteriore destra"
+      },
+      "trunk": {
+        "name": "Bagagliaio"
+      },
+      "driver_lock": {
+        "name": "Porta guidatore bloccata"
+      },
+      "passenger_lock": {
+        "name": "Porta passeggero bloccata"
+      },
+      "front_left_window_open": {
+        "name": "Finestrino anteriore sinistro"
+      },
+      "front_right_window_open": {
+        "name": "Finestrino anteriore destro"
+      },
+      "rear_left_window_open": {
+        "name": "Finestrino posteriore sinistro"
+      },
+      "rear_right_window_open": {
+        "name": "Finestrino posteriore destro"
+      },
+      "charge_con_status": {
+        "name": "Cavo di ricarica"
+      },
+      "dc_charge_gun_connect_status": {
+        "name": "Connettore di ricarica CC"
+      },
+      "charge_status": {
+        "name": "In ricarica"
+      },
+      "charge_schedule_enabled": {
+        "name": "Ricarica programmata attiva"
+      },
+      "defrost_status": {
+        "name": "Stato sbrinamento"
+      },
+      "connect_status": {
+        "name": "Veicolo connesso"
+      },
+      "engine_sts": {
+        "name": "Motore acceso"
+      },
+      "high_beam": {
+        "name": "Abbaglianti"
+      },
+      "low_beam": {
+        "name": "Anabbaglianti"
+      },
+      "position_lamp": {
+        "name": "Luce di posizione"
+      },
+      "left_turn": {
+        "name": "Freccia sinistra"
+      },
+      "right_turn": {
+        "name": "Freccia destra"
+      },
+      "driver_seat_heater_on": {
+        "name": "Riscaldamento sedile guida attivo"
+      },
+      "front_passenger_seat_heater_on": {
+        "name": "Riscaldamento sedile passeggero anteriore attivo"
+      },
+      "driver_seat_ventilation_on": {
+        "name": "Ventilazione sedile guida attiva"
+      },
+      "front_passenger_seat_ventilation_on": {
+        "name": "Ventilazione sedile passeggero anteriore attiva"
+      }
+    },
+    "lock": {
+      "doors": {
+        "name": "Porte"
+      }
+    },
+    "button": {
+      "refresh": {
+        "name": "Aggiorna dati del veicolo"
+      },
+      "flash_lights": {
+        "name": "Lampeggia luci"
+      },
+      "honk_horn": {
+        "name": "Suona il clacson"
+      },
+      "windows_lower": {
+        "name": "Abbassa finestrini"
+      },
+      "windows_raise": {
+        "name": "Alza finestrini"
+      },
+      "boot_open": {
+        "name": "Apri bagagliaio"
+      },
+      "boot_close": {
+        "name": "Chiudi bagagliaio"
+      }
+    },
+    "climate": {
+      "cabin_climate": {
+        "name": "Clima abitacolo"
+      }
+    },
+    "number": {
+      "charge_limit_control": {
+        "name": "Limite di carica"
+      },
+      "driver_seat_heating_control": {
+        "name": "Riscaldamento sedile guida"
+      },
+      "front_passenger_seat_heating_control": {
+        "name": "Riscaldamento sedile passeggero anteriore"
+      },
+      "driver_seat_ventilation_control": {
+        "name": "Ventilazione sedile guida"
+      },
+      "front_passenger_seat_ventilation_control": {
+        "name": "Ventilazione sedile passeggero anteriore"
+      }
+    },
+    "switch": {
+      "charge_schedule_control": {
+        "name": "Ricarica programmata"
+      },
+      "steering_wheel_heating_control": {
+        "name": "Riscaldamento del volante"
+      }
+    },
+    "time": {
+      "charge_schedule_start_time": {
+        "name": "Inizio ricarica programmata"
+      },
+      "charge_schedule_end_time": {
+        "name": "Fine ricarica programmata"
+      }
+    },
+    "image": {
+      "vehicle_image": {
+        "name": "Immagine del veicolo"
+      }
+    }
+  },
+  "issues": {
+    "command_reauth": {
+      "title": "I comandi remoti di Deepal richiedono la riautenticazione",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "I comandi remoti di Deepal richiedono la riautenticazione",
+            "description": "Questo esegue di nuovo l'accesso per registrare una nuova chiave di firma dei comandi. Dopo la conferma, Home Assistant mostrerà una notifica per completare l'accesso."
+          }
+        }
+      }
+    }
+  }
+}

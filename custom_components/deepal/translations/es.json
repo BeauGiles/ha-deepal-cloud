@@ -1,0 +1,381 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Método de inicio de sesión",
+        "description": "Elige el mismo método de inicio de sesión que usas en la app oficial de Deepal. Se recomienda el inicio de sesión con código por correo cuando el inicio de sesión por teléfono/SMS no encuentra la cuenta.",
+        "data": {
+          "login_method": "Método de inicio de sesión"
+        }
+      },
+      "email": {
+        "title": "Inicio de sesión con correo",
+        "description": "Introduce la dirección de correo que usas en la app oficial de Deepal. Changan/Deepal enviará un código de verificación de un solo uso a esta dirección.",
+        "data": {
+          "country": "País/región",
+          "email": "Dirección de correo electrónico"
+        }
+      },
+      "email_code": {
+        "title": "Introduce el código del correo",
+        "description": "Introduce el código de verificación enviado por Changan/Deepal. El código puede caducar rápido, así que solicita uno nuevo si es rechazado.",
+        "data": {
+          "auth_code": "Código del correo"
+        }
+      },
+      "phone": {
+        "title": "Inicio de sesión con teléfono/SMS",
+        "description": "Inicia sesión con el mismo número de teléfono que usas en la app de Deepal. Elige tu país/región y luego introduce el número local exactamente como está registrado en la app oficial, sin el prefijo internacional.",
+        "data": {
+          "country": "País/región",
+          "mobile": "Número de móvil"
+        }
+      },
+      "sms": {
+        "title": "Introduce el código SMS",
+        "description": "Introduce el código de verificación enviado por Changan/Deepal. El código puede caducar rápido, así que solicita uno nuevo si es rechazado.",
+        "data": {
+          "auth_code": "Código SMS"
+        }
+      },
+      "commands": {
+        "title": "Comandos remotos",
+        "description": "Los comandos remotos permiten a Home Assistant controlar cosas como el clima, la carga, las cerraduras y las ventanillas. Déjalos desactivados si solo quieres datos del vehículo de solo lectura. El PIN de control es el mismo PIN que se usa para los controles remotos en la app de Deepal.",
+        "data": {
+          "enable_commands": "Activar comandos remotos",
+          "control_pin": "PIN de control"
+        }
+      }
+    },
+    "error": {
+      "send_code_failed": "No se pudo solicitar un código SMS. Comprueba el número de teléfono y el país/región.",
+      "send_email_code_failed": "No se pudo solicitar un código por correo. Comprueba la dirección de correo y el país/región.",
+      "account_not_registered": "Deepal indica que esta cuenta no está registrada en el país/región seleccionado. Elige la región usada por la cuenta de la app oficial, o prueba el otro método de inicio de sesión.",
+      "login_failed": "Error al iniciar sesión. Comprueba el código de verificación y los datos de la cuenta.",
+      "bad_sms_code": "El código SMS fue rechazado o ha caducado. Solicita un código nuevo e inténtalo de nuevo.",
+      "bad_email_code": "El código del correo fue rechazado o ha caducado. Solicita un código nuevo e inténtalo de nuevo.",
+      "too_many_codes": "Demasiados intentos de verificación. Espera un rato antes de solicitar otro código.",
+      "no_vehicles": "Inicio de sesión correcto, pero no se devolvió ningún vehículo.",
+      "wrong_account": "Inicio de sesión correcto, pero esta cuenta no devolvió el vehículo ya configurado en Home Assistant.",
+      "pin_required": "Introduce tu PIN de control o deja desactivados los comandos remotos."
+    },
+    "abort": {
+      "reauth_successful": "Deepal está conectado de nuevo. Home Assistant reanudará la actualización de los datos de tu vehículo."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opciones de Changan Deepal Cloud",
+        "description": "Ajusta la frecuencia con la que Home Assistant lee los datos en caché de la nube y con la que pide datos nuevos al vehículo. Los comandos remotos requieren el PIN de control de la app de Deepal.",
+        "data": {
+          "scan_interval": "Intervalo de consulta del estado",
+          "active_refresh_interval": "Intervalo de actualización del vehículo",
+          "control_pin": "PIN de control",
+          "enable_commands": "Activar comandos remotos",
+          "enable_api_logging": "Activar el registro de API con datos ocultos",
+          "reauthenticate": "Volver a autenticar ahora"
+        },
+        "data_description": {
+          "scan_interval": "Con qué frecuencia consulta Home Assistant el estado en caché de la nube. Es una operación ligera y no despierta ni consulta activamente el coche.",
+          "active_refresh_interval": "Con qué frecuencia envía Home Assistant el comando de actualización firmado que pide a la nube o al coche datos más recientes. Solo se usa cuando los comandos remotos están activados.",
+          "control_pin": "El mismo PIN que se usa para los controles remotos en la app oficial de Deepal. Obligatorio cuando los comandos remotos están activados.",
+          "enable_commands": "Permite que Home Assistant envíe comandos firmados como actualizar, bloquear, clima, carga, ventanillas, maletero, calefacción de asientos y del volante, luces y claxon. Los vehículos MQTT (p. ej., S05) solo admiten cerradura, ventanillas y maletero.",
+          "enable_api_logging": "Escribe en el registro de Home Assistant las solicitudes y respuestas de la API de Deepal con datos ocultos, para diagnosticar problemas. Se filtran tokens, PIN, firmas, claves e identificadores de cuenta, pero aún pueden aparecer datos del vehículo. Déjalo desactivado salvo que estés depurando.",
+          "reauthenticate": "Vuelve a iniciar sesión para obtener una clave nueva de firma de comandos, sin eliminar ni volver a añadir la integración. Úsalo si los comandos remotos (cerradura, ventanillas, maletero, clima, carga, luces, claxon) fallan por completo mientras los datos del vehículo se siguen actualizando con normalidad. Cualquier otro cambio hecho en este mismo envío se ignora; vuelve a abrir este cuadro después para aplicarlos."
+        }
+      }
+    },
+    "abort": {
+      "reauth_triggered": "Iniciando la reautenticación. Home Assistant mostrará una notificación para terminar de iniciar sesión de nuevo; complétala para registrar la nueva clave de firma de comandos."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "soc": {
+        "name": "Nivel de batería"
+      },
+      "drv_mileage": {
+        "name": "Autonomía estimada"
+      },
+      "total_mileage": {
+        "name": "Cuentakilómetros"
+      },
+      "speed": {
+        "name": "Velocidad"
+      },
+      "last_updated_at": {
+        "name": "Fecha de los datos del vehículo"
+      },
+      "inside_temp": {
+        "name": "Temperatura interior"
+      },
+      "outside_temp": {
+        "name": "Temperatura exterior"
+      },
+      "ac_status": {
+        "name": "Modo de climatización del habitáculo"
+      },
+      "inside_humidity": {
+        "name": "Humedad del habitáculo"
+      },
+      "inside_pm25": {
+        "name": "PM2.5 del habitáculo"
+      },
+      "inside_air_quality_level": {
+        "name": "Nivel de calidad del aire del habitáculo"
+      },
+      "charge_status": {
+        "name": "Estado de la carga"
+      },
+      "charge_current": {
+        "name": "Corriente de carga notificada"
+      },
+      "ac_charge_current": {
+        "name": "Corriente de carga CA"
+      },
+      "dc_charge_current": {
+        "name": "Corriente de carga CC"
+      },
+      "remain_charge_time": {
+        "name": "Tiempo de carga restante"
+      },
+      "remain_charge_time_hhmm": {
+        "name": "Tiempo de carga restante (H:MM)"
+      },
+      "max_soc_percent": {
+        "name": "Límite máximo de carga"
+      },
+      "charge_plan_start_time": {
+        "name": "Hora de inicio de la carga programada"
+      },
+      "charge_plan_end_time": {
+        "name": "Hora de fin de la carga programada"
+      },
+      "tire_front_left_pressure": {
+        "name": "Presión del neumático delantero izquierdo"
+      },
+      "tire_front_right_pressure": {
+        "name": "Presión del neumático delantero derecho"
+      },
+      "tire_rear_left_pressure": {
+        "name": "Presión del neumático trasero izquierdo"
+      },
+      "tire_rear_right_pressure": {
+        "name": "Presión del neumático trasero derecho"
+      },
+      "driver_seat_heater_level": {
+        "name": "Nivel de calefacción del asiento del conductor"
+      },
+      "front_passenger_seat_heater_level": {
+        "name": "Nivel de calefacción del asiento del acompañante"
+      },
+      "rear_left_seat_heater_level": {
+        "name": "Nivel de calefacción del asiento trasero izquierdo"
+      },
+      "rear_right_seat_heater_level": {
+        "name": "Nivel de calefacción del asiento trasero derecho"
+      },
+      "steering_wheel_heater": {
+        "name": "Calefacción del volante"
+      },
+      "vehicle_status": {
+        "name": "Estado del vehículo"
+      },
+      "power_status": {
+        "name": "Estado de alimentación"
+      },
+      "img_url": {
+        "name": "URL de la imagen del vehículo"
+      },
+      "gear_signal": {
+        "name": "Señal de marcha"
+      },
+      "epb_sts": {
+        "name": "Estado del freno de estacionamiento electrónico"
+      },
+      "refresh_failure_count": {
+        "name": "Recuento de fallos de actualización"
+      },
+      "ota_status": {
+        "name": "Estado de OTA"
+      },
+      "raw_condition": {
+        "name": "Datos de estado sin procesar"
+      }
+    },
+    "binary_sensor": {
+      "any_door_open": {
+        "name": "Cualquier puerta"
+      },
+      "any_window_open": {
+        "name": "Cualquier ventanilla"
+      },
+      "front_left_door_open": {
+        "name": "Puerta delantera izquierda"
+      },
+      "front_right_door_open": {
+        "name": "Puerta delantera derecha"
+      },
+      "rear_left_door_open": {
+        "name": "Puerta trasera izquierda"
+      },
+      "rear_right_door_open": {
+        "name": "Puerta trasera derecha"
+      },
+      "trunk": {
+        "name": "Maletero"
+      },
+      "driver_lock": {
+        "name": "Puerta del conductor bloqueada"
+      },
+      "passenger_lock": {
+        "name": "Puerta del acompañante bloqueada"
+      },
+      "front_left_window_open": {
+        "name": "Ventanilla delantera izquierda"
+      },
+      "front_right_window_open": {
+        "name": "Ventanilla delantera derecha"
+      },
+      "rear_left_window_open": {
+        "name": "Ventanilla trasera izquierda"
+      },
+      "rear_right_window_open": {
+        "name": "Ventanilla trasera derecha"
+      },
+      "charge_con_status": {
+        "name": "Cable de carga"
+      },
+      "dc_charge_gun_connect_status": {
+        "name": "Pistola de carga CC"
+      },
+      "charge_status": {
+        "name": "Cargando"
+      },
+      "charge_schedule_enabled": {
+        "name": "Carga programada activada"
+      },
+      "defrost_status": {
+        "name": "Estado del desempañado"
+      },
+      "connect_status": {
+        "name": "Vehículo conectado"
+      },
+      "engine_sts": {
+        "name": "Motor encendido"
+      },
+      "high_beam": {
+        "name": "Luces largas"
+      },
+      "low_beam": {
+        "name": "Luces de cruce"
+      },
+      "position_lamp": {
+        "name": "Luz de posición"
+      },
+      "left_turn": {
+        "name": "Intermitente izquierdo"
+      },
+      "right_turn": {
+        "name": "Intermitente derecho"
+      },
+      "driver_seat_heater_on": {
+        "name": "Calefacción del asiento del conductor activada"
+      },
+      "front_passenger_seat_heater_on": {
+        "name": "Calefacción del asiento del acompañante activada"
+      },
+      "driver_seat_ventilation_on": {
+        "name": "Ventilación del asiento del conductor activada"
+      },
+      "front_passenger_seat_ventilation_on": {
+        "name": "Ventilación del asiento del acompañante activada"
+      }
+    },
+    "lock": {
+      "doors": {
+        "name": "Puertas"
+      }
+    },
+    "button": {
+      "refresh": {
+        "name": "Actualizar datos del vehículo"
+      },
+      "flash_lights": {
+        "name": "Parpadear luces"
+      },
+      "honk_horn": {
+        "name": "Tocar el claxon"
+      },
+      "windows_lower": {
+        "name": "Bajar ventanillas"
+      },
+      "windows_raise": {
+        "name": "Subir ventanillas"
+      },
+      "boot_open": {
+        "name": "Abrir maletero"
+      },
+      "boot_close": {
+        "name": "Cerrar maletero"
+      }
+    },
+    "climate": {
+      "cabin_climate": {
+        "name": "Climatización del habitáculo"
+      }
+    },
+    "number": {
+      "charge_limit_control": {
+        "name": "Límite de carga"
+      },
+      "driver_seat_heating_control": {
+        "name": "Calefacción del asiento del conductor"
+      },
+      "front_passenger_seat_heating_control": {
+        "name": "Calefacción del asiento del acompañante"
+      },
+      "driver_seat_ventilation_control": {
+        "name": "Ventilación del asiento del conductor"
+      },
+      "front_passenger_seat_ventilation_control": {
+        "name": "Ventilación del asiento del acompañante"
+      }
+    },
+    "switch": {
+      "charge_schedule_control": {
+        "name": "Carga programada"
+      },
+      "steering_wheel_heating_control": {
+        "name": "Calefacción del volante"
+      }
+    },
+    "time": {
+      "charge_schedule_start_time": {
+        "name": "Inicio de la carga programada"
+      },
+      "charge_schedule_end_time": {
+        "name": "Fin de la carga programada"
+      }
+    },
+    "image": {
+      "vehicle_image": {
+        "name": "Imagen del vehículo"
+      }
+    }
+  },
+  "issues": {
+    "command_reauth": {
+      "title": "Los comandos remotos de Deepal necesitan reautenticación",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Los comandos remotos de Deepal necesitan reautenticación",
+            "description": "Esto inicia sesión de nuevo para registrar una clave nueva de firma de comandos. Home Assistant mostrará una notificación para terminar de iniciar sesión cuando confirmes."
+          }
+        }
+      }
+    }
+  }
+}
