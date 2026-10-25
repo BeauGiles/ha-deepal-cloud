@@ -2,7 +2,7 @@
 
 All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
-## [0.4.0] - unreleased
+## [0.4.0] - 2026-10-25
 
 Adds **Deepal E07 support (telemetry)**, **opt-in remote controls for MQTT
 vehicles (S05)**, new **S07 seat and steering-wheel controls**, a **diagnostics
@@ -30,6 +30,19 @@ first: some changes break automations.**
 - **MQTT (S05) setups can now enable remote commands.** They stay off until you
   enable them with the control PIN; lock and the window/boot buttons only appear
   once commands are enabled.
+
+### Known limitations
+
+- **S05 remains untested.** The MQTT telemetry changes, the wake and the
+  lock/window/boot commands have not been tried on a real S05 by anyone. The
+  command protocol comes from kobizz's fork, where it was validated on an
+  Israel-market S05. If you own an S05, please report how it behaves.
+- **The Lower/Raise Windows and Open/Close Boot buttons, and the command queue,
+  have not yet been tested on a real car.** The same commands worked as covers
+  on the S07 before, and the queue is covered by unit tests, but nobody has used
+  the new buttons end to end.
+- **E07 is telemetry only**, and its charging-state mapping is inferred from one
+  car's report.
 
 ### Added
 
