@@ -18,8 +18,9 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
   (states 0 and 5) the raw connection fields decide, because they stay set with the
   cable in. Negative charge currents (DC charging can read about -60.5 A) are shown
   as positive amps, and the 2538 A glitch is still dropped whichever sign it has.
-- **S05 outside temperature** is now read from MQTT (`outsideTemperature` or
-  `externalTemperature`), so the sensor is no longer empty.
+- **S05 outside temperature** is now mapped if the car reports it over MQTT
+  (`outsideTemperature` or `externalTemperature`). Spanish S05 testing suggests the
+  S05 may not send it at all, in which case the sensor simply does not appear.
 - The English options and remote-command descriptions no longer say S05 support is read-only, and the "Deepal remote commands need reauthentication" repair dialog shows its title instead of a raw translation key.
 
 ## [0.4.0] - 2026-10-25
