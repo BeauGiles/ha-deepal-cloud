@@ -4,20 +4,28 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
 ## [Unreleased]
 
+### Upgrade notes
+
+- **Requires Home Assistant 2026.3.0 or newer** (was 2025.1.0 in `hacs.json`, which was never tested). 2026.3 is when Home Assistant started reading an integration's own brand icons. If you are on an older version, HACS will stop offering updates until you upgrade Home Assistant.
+
 ### Added
 
 - **Hint on the SMS code step** to cancel and use email login if no SMS arrives. A Spanish integration reports Deepal stopped delivering login SMS codes in September 2026 (European gateway; not confirmed for other regions). Phone login is kept.
 - **Spanish, Portuguese, Italian and Dutch translations** for the setup and options screens and the repair dialog. Entity names stay in English on purpose, so entity IDs and the documented dashboard cards are the same in every language. These are first drafts and have not been checked by native speakers; corrections are welcome. Home Assistant uses them when your language is set to one of these, and falls back to English otherwise.
 
+### Changed
+
+- A test for the diagnostics download checks that tokens, PIN, keys, device/user/vehicle ids, VIN, plate, image URL, email and coordinates never appear in it. Issue templates now ask for the details needed to debug a report, and ruff runs in CI.
+
 ### Fixed
 
 - **S05 charging (untested on a real S05; from Sunek0's v1.6.0 findings).** A new
   **charge stopped** state (`ChrgSts=5`, seen with the wallbox disabled and the
-  cable still plugged in) now shows as Not Charging instead of unknown. A plugged
-  cable is no longer reported as unplugged: a raw connection value of `1` means the
-  AC gun is connected (only `0` means not connected), and while the car is idle
-  (states 0 and 5) the raw connection fields decide, because they stay set with the
-  cable in. Negative charge currents (DC charging can read about -60.5 A) are shown
+  cable still plugged in) now shows as Not Charging instead of unknown. State 5 now counts the cable as
+  connected. A raw connection value of `1` is treated as unknown rather than
+  plugged or unplugged, because forks disagree about it (one saw a live S05 report
+  `1` with the cable in, another documents `1` as unplugged, and a PHEV can keep a
+  stale `1`); `0` is not connected and `2` or more is connected. Negative charge currents (DC charging can read about -60.5 A) are shown
   as positive amps, and the 2538 A glitch is still dropped whichever sign it has.
 - **S05 outside temperature** is now mapped if the car reports it over MQTT
   (`outsideTemperature` or `externalTemperature`). Spanish S05 testing suggests the

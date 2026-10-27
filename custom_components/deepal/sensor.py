@@ -6,7 +6,12 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorEntityDescription, SensorStateClass
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntity,
+    SensorEntityDescription,
+    SensorStateClass,
+)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import PERCENTAGE, UnitOfLength, UnitOfTemperature
 from homeassistant.core import HomeAssistant
@@ -390,7 +395,7 @@ def _condition(data: dict[str, Any]) -> dict[str, Any]:
     return data.get("condition") or {}
 
 
-def _sensor_supported(description: "DeepalSensorDescription"):
+def _sensor_supported(description: DeepalSensorDescription):
     """Return a predicate telling whether the vehicle reports this sensor's data."""
     key = description.key
     if key in ALWAYS_SENSORS:

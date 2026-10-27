@@ -9,8 +9,10 @@ from custom_components.deepal.api import (
     _humidity_percent,
     _mqtt_charge_currents,
     _mqtt_charge_status,
-    _mqtt_condition_from_params as mqtt,
     _mqtt_gun_flags,
+)
+from custom_components.deepal.api import (
+    _mqtt_condition_from_params as mqtt,
 )
 
 
@@ -42,18 +44,25 @@ class TestGunFlags:
         # Authoritative even when the raw fields disagree.
         assert _mqtt_gun_flags(state, 0, 0) == (ac, dc)
 
-    @pytest.mark.parametrize("state", [0, 5])
-    def test_idle_states_defer_to_the_raw_fields(self, state):
-        # Not charging / charge stopped do not say which gun: a connected cable
-        # keeps its raw field set (1 on a live S05), so it must not read unplugged.
-        assert _mqtt_gun_flags(state, 1, 0) == (True, False)
-        assert _mqtt_gun_flags(state, 0, 3) == (False, True)
-        assert _mqtt_gun_flags(state, 0, 0) == (False, False)
-        assert _mqtt_gun_flags(state, None, None) == (None, None)
+    def test_state_0_defers_to_the_raw_fields(self):
+        assert _mqtt_gun_flags(0, 0, 0) == (False, False)
+        assert _mqtt_gun_flags(0, 3, 0) == (True, False)
+        assert _mqtt_gun_flags(0, 0, 3) == (False, True)
+        assert _mqtt_gun_flags(0, None, None) == (None, None)
+
+    def test_a_raw_one_is_ambiguous_not_a_guess(self):
+        # Forks disagree whether 1 is plugged (a live S05) or unplugged (a stale PHEV
+        # value), so when the state does not identify the gun it reads unknown.
+        assert _mqtt_gun_flags(0, 1, 0) == (None, False)
+        assert _mqtt_gun_flags(None, 1, 1) == (None, None)
+
+    def test_charge_stopped_means_a_cable_is_in(self):
+        assert _mqtt_gun_flags(5, 0, 0) == (True, False)  # AC unless the DC field says DC
+        assert _mqtt_gun_flags(5, 1, None) == (True, False)
+        assert _mqtt_gun_flags(5, None, 3) == (False, True)
 
     def test_raw_fields_are_used_when_the_state_is_unknown(self):
         assert _mqtt_gun_flags(None, 3, 0) == (True, False)
-        assert _mqtt_gun_flags(None, 1, 1) == (True, True)  # only 0 means not connected
         assert _mqtt_gun_flags(None, 0, 0) == (False, False)
         assert _mqtt_gun_flags(None, None, None) == (None, None)
 
@@ -137,14 +146,17 @@ class TestWholeReport:
         assert charge["dcChargeCurrent"] == 0.0  # the 2538 glitch is dropped
         assert charge["chargeCurrent"] == 0.0
 
-    def test_cable_connected_but_not_charging(self):
-        # Wallbox disabled with the cable still plugged in: ChrgSts 0 and 5 both
-        # keep acChargeGunConnectionState=1 on a live S05.
-        for state in (0, 5):
-            charge = mqtt({"ChrgSts": state, "BattACChrgInCurr": 0, "acChargeGunConnectionState": 1})["charge"]
-            assert charge["chargeStatus"] == 1
-            assert charge["chargeConStatus"] == 3
-            assert charge["chargeCurrent"] == 0.0
+    def test_cable_connected_with_charge_stopped(self):
+        # Wallbox disabled, cable still in: ChrgSts 5 counts the cable as connected.
+        charge = mqtt({"ChrgSts": 5, "BattACChrgInCurr": 0, "acChargeGunConnectionState": 1})["charge"]
+        assert charge["chargeStatus"] == 1
+        assert charge["chargeConStatus"] == 3
+        assert charge["chargeCurrent"] == 0.0
+
+    def test_idle_with_an_ambiguous_raw_one_is_unknown(self):
+        charge = mqtt({"ChrgSts": 0, "acChargeGunConnectionState": 1})["charge"]
+        assert charge["chargeStatus"] == 1
+        assert charge["chargeConStatus"] is None
 
     def test_charge_stopped_has_no_current(self):
         charge = mqtt({"ChrgSts": 5, "BattACChrgInCurr": 0, "BattDCChrgInCurr": 0})["charge"]

@@ -1,0 +1,65 @@
+name: Bug report
+description: Something is missing, wrong, or failing (sensors, login, commands).
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. The details below save a lot of back-and-forth.
+        **Never paste tokens, your control PIN, your VIN or your email.**
+  - type: input
+    id: version
+    attributes:
+      label: Integration version
+      description: Shown in HACS, or in the diagnostics file.
+      placeholder: "0.4.0"
+    validations:
+      required: true
+  - type: input
+    id: ha_version
+    attributes:
+      label: Home Assistant version
+      placeholder: "2026.10.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: model
+    attributes:
+      label: Vehicle model
+      options: [Deepal S07, Deepal S05, Deepal E07, Other / not sure]
+    validations:
+      required: true
+  - type: input
+    id: region
+    attributes:
+      label: Country / region you log in with
+      placeholder: "Australia, Spain, ..."
+    validations:
+      required: true
+  - type: dropdown
+    id: login
+    attributes:
+      label: Login method
+      options: [Email code, Phone / SMS code, Not applicable]
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+      description: Include any error message shown on screen.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: |
+        Settings > Devices & services > Changan Deepal Cloud > three-dot menu > **Download diagnostics**, then attach the file here.
+        It is redacted, but please skim it first. For a charging problem, download it while the car is charging.
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log lines (optional)
+      description: Enable debug logging for `custom_components.deepal`, reproduce the problem, and paste the relevant lines.
+      render: text

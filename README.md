@@ -48,7 +48,8 @@ The integration chooses its behaviour from the `protocolType` the cloud reports 
 
 ## Supported Regions
 * **Confirmed working:** United Kingdom, Israel, Portugal, and Australia.
-* **Added but unverified:** Spain, Italy and the Netherlands (default European cluster), plus New Zealand, Singapore, Malaysia, Thailand, Vietnam, Hong Kong, Macau, Indonesia, Philippines, and Mongolia (assumed to share Australia's Singapore cluster).
+* **Spain:** the Spanish community integration [manuelem1984/dec_deepal](https://github.com/manuelem1984/dec_deepal) reports Spain working with an S05 on the same European cluster this integration uses. It has not been confirmed through this integration yet.
+* **Added but unverified:** Italy and the Netherlands (default European cluster), plus New Zealand, Singapore, Malaysia, Thailand, Vietnam, Hong Kong, Macau, Indonesia, Philippines, and Mongolia (assumed to share Australia's Singapore cluster).
 
 ### Note on Regional Support
 > **Only United Kingdom, Israel, Portugal, and Australia are confirmed working.**
@@ -88,6 +89,11 @@ Commands run one at a time in order (up to four queued). Open/closed buttons hav
 - **New in 0.4.0, not yet tested on a real car:** the Lower/Raise Windows and Open/Close Boot buttons and the command queue. Please report any problems.
 - **Other regions and models** are unverified (see above).
 - Only the data the cloud provides is available; some cars report only while awake.
+
+## Requirements and languages
+
+- **Home Assistant 2026.3.0 or newer.** That is the first version that reads the integration's own brand icons, and the newest releases are what this integration is developed against; older versions are not tested.
+- The setup, options and repair screens are available in English, Spanish, Portuguese, Italian and Dutch (first drafts, not reviewed by native speakers; corrections welcome). Entity names stay in English so entity IDs and the dashboard examples are the same for everyone.
 
 ## Installation
 

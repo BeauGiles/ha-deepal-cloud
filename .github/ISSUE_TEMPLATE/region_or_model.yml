@@ -1,0 +1,25 @@
+name: New region or model
+description: Ask for a country or vehicle to be supported, or confirm one works.
+labels: [enhancement]
+body:
+  - type: input
+    id: what
+    attributes:
+      label: Country and vehicle model
+      placeholder: "Spain, Deepal S05"
+    validations:
+      required: true
+  - type: dropdown
+    id: tried
+    attributes:
+      label: Have you tried the latest version?
+      options: ["Yes, it works", "Yes, login fails", "Yes, it logs in but data is missing or wrong", "Not yet"]
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: |
+        Error message shown on screen, and the diagnostics file (Download diagnostics on the integration page, skim it before attaching).
+        Do not paste tokens, your control PIN, your VIN or your email.

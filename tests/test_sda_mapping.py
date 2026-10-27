@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from custom_components.deepal.api import _sda_charge_status, _sda_condition_from_params as sda
+from custom_components.deepal.api import _sda_charge_status
+from custom_components.deepal.api import _sda_condition_from_params as sda
 
 
 def test_basic_signals_and_conventions():
