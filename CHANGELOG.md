@@ -15,6 +15,7 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
 ### Changed
 
+- Internal: the country list, dial codes and regional gateways now come from one table (`countries.py`) instead of three places, and a test fails if `hacs.json` or the README disagree with it. No behaviour change.
 - A test for the diagnostics download checks that tokens, PIN, keys, device/user/vehicle ids, VIN, plate, image URL, email and coordinates never appear in it. Issue templates now ask for the details needed to debug a report, and ruff runs in CI.
 
 ### Fixed

@@ -6,6 +6,8 @@ from typing import Any
 
 from homeassistant.const import Platform
 
+from .countries import COUNTRIES, REGION_APAC
+
 DOMAIN = "deepal"
 PLATFORMS: list[Platform] = [
     Platform.SENSOR,
@@ -139,19 +141,7 @@ _APAC_REGION = {
     "gateway": "/appgw",
 }
 
-REGION_GATEWAYS = {
-    "AU": _APAC_REGION,
-    "NZ": _APAC_REGION,
-    "SG": _APAC_REGION,
-    "MY": _APAC_REGION,
-    "TH": _APAC_REGION,
-    "VN": _APAC_REGION,
-    "HK": _APAC_REGION,
-    "MO": _APAC_REGION,
-    "ID": _APAC_REGION,
-    "PH": _APAC_REGION,
-    "MN": _APAC_REGION,
-}
+REGION_GATEWAYS = {code: _APAC_REGION for code, country in COUNTRIES.items() if country.region == REGION_APAC}
 
 # 2048-bit RSA public key used by the app to encrypt mobile/password/control PIN fields.
 # Extracted from the live app's Dalvik heap and validated against send-auth-code:
