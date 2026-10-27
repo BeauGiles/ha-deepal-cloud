@@ -6,7 +6,7 @@ from typing import Any
 
 from homeassistant.const import Platform
 
-from .countries import COUNTRIES, REGION_APAC
+from .countries import COUNTRIES, REGION_APAC, REGION_EUROPE
 
 DOMAIN = "deepal"
 PLATFORMS: list[Platform] = [
@@ -141,7 +141,23 @@ _APAC_REGION = {
     "gateway": "/appgw",
 }
 
-REGION_GATEWAYS = {code: _APAC_REGION for code, country in COUNTRIES.items() if country.region == REGION_APAC}
+_EUROPE_REGION = {
+    "base_url": BASE_URL,
+    "sda_base_url": SDA_BASE_URL,
+    "gateway": DEFAULT_GATEWAY,
+}
+
+#: Hosts and gateway prefix of each cluster, keyed by ``Country.region``.
+REGIONS = {
+    REGION_EUROPE: _EUROPE_REGION,
+    REGION_APAC: _APAC_REGION,
+}
+
+
+def region_for_country(country: str | None) -> dict[str, str]:
+    """Return the cluster that homes ``country`` (the European default if unknown)."""
+    entry = COUNTRIES.get((country or "").upper())
+    return REGIONS[entry.region] if entry else _EUROPE_REGION
 
 # 2048-bit RSA public key used by the app to encrypt mobile/password/control PIN fields.
 # Extracted from the live app's Dalvik heap and validated against send-auth-code:

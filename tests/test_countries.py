@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from custom_components.deepal.const import DEFAULT_COUNTRY, REGION_GATEWAYS
+from custom_components.deepal.const import BASE_URL, DEFAULT_COUNTRY, REGIONS, region_for_country
 from custom_components.deepal.countries import COUNTRIES, REGION_APAC, REGION_EUROPE
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -24,8 +24,23 @@ def test_table_is_well_formed():
         assert country.label == f"{country.name} (+{country.dial_code})"
 
 
-def test_only_apac_countries_get_the_regional_gateway():
-    assert set(REGION_GATEWAYS) == {c for c, v in COUNTRIES.items() if v.region == REGION_APAC}
+def test_every_region_used_has_hosts():
+    assert {c.region for c in COUNTRIES.values()} <= set(REGIONS)
+    for region in REGIONS.values():
+        assert set(region) == {"base_url", "sda_base_url", "gateway"}
+
+
+def test_routing_follows_the_table():
+    assert region_for_country("GB")["base_url"] == BASE_URL
+    assert region_for_country("au") == REGIONS[REGION_APAC]  # case-insensitive
+    assert region_for_country("AU")["gateway"] == "/appgw"
+    for code, country in COUNTRIES.items():
+        assert region_for_country(code) == REGIONS[country.region]
+
+
+def test_unknown_or_missing_country_uses_the_default_cluster():
+    assert region_for_country(None) == region_for_country("") == region_for_country("ZZ")
+    assert region_for_country("ZZ")["base_url"] == BASE_URL
 
 
 def test_hacs_json_lists_exactly_these_countries():
