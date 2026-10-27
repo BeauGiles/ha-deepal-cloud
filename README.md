@@ -10,6 +10,8 @@ Custom Home Assistant integration for the Changan Deepal cloud API.
 
 It supports the **Deepal S07** (telemetry and remote controls), the **Deepal S05** (MQTT telemetry, with opt-in lock, window and boot controls) and the **Deepal E07** (telemetry only). See [Supported Vehicles](#supported-vehicles) for what has actually been tested on each.
 
+> **Upgrading from 0.3.x?** Windows and Boot are now buttons instead of covers, and sensors are only created for data your car reports. See the [0.4.0 upgrade notes](CHANGELOG.md#040---2026-10-25) before updating.
+
 ## About This Fork
 
 This repo is rebased on [danperks/ha-deepal](https://github.com/danperks/ha-deepal), which brought account-based login, full remote vehicle control, and Deepal S05 support — a big step up from the earlier version of this integration, which was read-only and required manually capturing tokens with a proxy tool.
@@ -50,6 +52,7 @@ The integration chooses its behaviour from the `protocolType` the cloud reports 
 * **Added but unverified, European cluster:** Austria, Belgium, France, Germany, Greece, Ireland, Italy, Luxembourg, the Netherlands and Switzerland (default European cluster; other integrations list them, nobody has confirmed a login here).
 * **Added but unverified, Singapore cluster:** Hong Kong, Indonesia, Macau, Malaysia, Mongolia, New Zealand, the Philippines, Singapore, Thailand and Vietnam (assumed to share Australia's Singapore cluster).
 
+If login fails for a region, the account may be homed on a different cluster: please open an issue with the country and the diagnostics file.
 
 ## Current Features
 
