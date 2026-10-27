@@ -43,48 +43,12 @@ from .const import (
     vehicle_supports_mqtt_commands,
     vehicle_uses_mqtt,
 )
+from .countries import COUNTRIES
 
 _LOGGER = logging.getLogger(__name__)
 
-COUNTRY_OPTIONS = {
-    "GB": "United Kingdom (+44)",
-    "IL": "Israel (+972)",
-    "PT": "Portugal (+351)",
-    "ES": "Spain (+34)",
-    "IT": "Italy (+39)",
-    "NL": "Netherlands (+31)",
-    "AU": "Australia (+61)",
-    "NZ": "New Zealand (+64)",
-    "SG": "Singapore (+65)",
-    "MY": "Malaysia (+60)",
-    "TH": "Thailand (+66)",
-    "VN": "Vietnam (+84)",
-    "HK": "Hong Kong (+852)",
-    "MO": "Macau (+853)",
-    "ID": "Indonesia (+62)",
-    "PH": "Philippines (+63)",
-    "MN": "Mongolia (+976)",
-}
-
-COUNTRY_DIAL_CODES = {
-    "GB": "44",
-    "IL": "972",
-    "PT": "351",
-    "ES": "34",
-    "IT": "39",
-    "NL": "31",
-    "AU": "61",
-    "NZ": "64",
-    "SG": "65",
-    "MY": "60",
-    "TH": "66",
-    "VN": "84",
-    "HK": "852",
-    "MO": "853",
-    "ID": "62",
-    "PH": "63",
-    "MN": "976",
-}
+COUNTRY_OPTIONS = {code: country.label for code, country in COUNTRIES.items()}
+COUNTRY_DIAL_CODES = {code: country.dial_code for code, country in COUNTRIES.items()}
 
 LOGIN_METHOD_EMAIL = "email"
 LOGIN_METHOD_PHONE = "phone"

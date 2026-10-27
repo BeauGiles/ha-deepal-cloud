@@ -47,9 +47,10 @@ Full details are in [CHANGELOG.md](CHANGELOG.md).
 The integration chooses its behaviour from the `protocolType` the cloud reports for your car, not from its model name, so other models may work if they report one of these types. They are untested.
 
 ## Supported Regions
-* **Confirmed working:** United Kingdom, Israel, Portugal, and Australia.
+* **Confirmed working:** Australia, Israel, Portugal, and the United Kingdom.
 * **Spain:** the Spanish community integration [manuelem1984/dec_deepal](https://github.com/manuelem1984/dec_deepal) reports Spain working with an S05 on the same European cluster this integration uses. It has not been confirmed through this integration yet.
-* **Added but unverified:** Italy and the Netherlands (default European cluster), plus New Zealand, Singapore, Malaysia, Thailand, Vietnam, Hong Kong, Macau, Indonesia, Philippines, and Mongolia (assumed to share Australia's Singapore cluster).
+* **Added but unverified, European cluster:** Austria, Belgium, France, Germany, Greece, Ireland, Italy, Luxembourg, the Netherlands and Switzerland (default European cluster; other integrations list them, nobody has confirmed a login here).
+* **Added but unverified, Singapore cluster:** Hong Kong, Indonesia, Macau, Malaysia, Mongolia, New Zealand, the Philippines, Singapore, Thailand and Vietnam (assumed to share Australia's Singapore cluster).
 
 ### Note on Regional Support
 > **Only United Kingdom, Israel, Portugal, and Australia are confirmed working.**

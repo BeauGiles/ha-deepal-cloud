@@ -29,14 +29,12 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from .const import (
     AC_MAX_TEMP_C,
     AC_MIN_TEMP_C,
-    BASE_URL,
     CA_BASE_URL,
     DEFAULT_GATEWAY,
     MQTT_CONFIG_TTL,
     MQTT_TOKEN_TTL,
-    REGION_GATEWAYS,
     REQUEST_ENCRYPTION_PUBLIC_KEY,
-    SDA_BASE_URL,
+    region_for_country,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -1088,10 +1086,10 @@ class DeepalClient:
         self.country = country
         # Route requests to the cluster that homes this account. Non-default
         # regions (e.g. AU -> Singapore) also use a different gateway prefix.
-        region = REGION_GATEWAYS.get((country or "").upper())
-        self.base_url = region["base_url"] if region else BASE_URL
-        self.sda_base_url = region["sda_base_url"] if region else SDA_BASE_URL
-        self.gateway_prefix = region["gateway"] if region else DEFAULT_GATEWAY
+        region = region_for_country(country)
+        self.base_url = region["base_url"]
+        self.sda_base_url = region["sda_base_url"]
+        self.gateway_prefix = region["gateway"]
         self.language = language
         self.app_version = app_version
         self.device_id = device_id
