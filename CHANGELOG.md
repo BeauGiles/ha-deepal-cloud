@@ -15,6 +15,7 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
 ### Changed
 
+- The Lower/Raise Windows and Open/Close Boot buttons are now confirmed working on an S07 (the 0.4.0 notes listed them as untested).
 - A test for the diagnostics download checks that tokens, PIN, keys, device/user/vehicle ids, VIN, plate, image URL, email and coordinates never appear in it. Issue templates now ask for the details needed to debug a report, and ruff runs in CI.
 
 ### Fixed
