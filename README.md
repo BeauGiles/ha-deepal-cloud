@@ -49,7 +49,7 @@ The integration chooses its behaviour from the `protocolType` the cloud reports 
 ## Supported Regions
 * **Confirmed working:** United Kingdom, Israel, Portugal, and Australia.
 * **Spain:** the Spanish community integration [manuelem1984/dec_deepal](https://github.com/manuelem1984/dec_deepal) reports Spain working with an S05 on the same European cluster this integration uses. It has not been confirmed through this integration yet.
-* **Added but unverified:** Italy and the Netherlands (default European cluster), plus New Zealand, Singapore, Malaysia, Thailand, Vietnam, Hong Kong, Macau, Indonesia, Philippines, and Mongolia (assumed to share Australia's Singapore cluster).
+* **Added but unverified:** Italy, the Netherlands, Ireland, France, Germany, Greece, Belgium, Luxembourg, Switzerland and Austria (default European cluster; other integrations list them, nobody has confirmed a login here), plus New Zealand, Singapore, Malaysia, Thailand, Vietnam, Hong Kong, Macau, Indonesia, Philippines, and Mongolia (assumed to share Australia's Singapore cluster).
 
 ### Note on Regional Support
 > **Only United Kingdom, Israel, Portugal, and Australia are confirmed working.**
