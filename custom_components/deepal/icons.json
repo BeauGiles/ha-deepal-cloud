@@ -54,6 +54,24 @@
       },
       "raw_condition": {
         "default": "mdi:code-json"
+      },
+      "tire_front_left_pressure": {
+        "default": "mdi:tire"
+      },
+      "tire_front_right_pressure": {
+        "default": "mdi:tire"
+      },
+      "tire_rear_left_pressure": {
+        "default": "mdi:tire"
+      },
+      "tire_rear_right_pressure": {
+        "default": "mdi:tire"
+      },
+      "ac_charge_current": {
+        "default": "mdi:current-ac"
+      },
+      "dc_charge_current": {
+        "default": "mdi:current-dc"
       }
     },
     "binary_sensor": {
@@ -84,10 +102,18 @@
         "default": "mdi:car-parking-lights"
       },
       "left_turn": {
-        "default": "mdi:arrow-left-bold"
+        "default": "mdi:arrow-left-bold-circle-outline",
+        "state": {
+          "on": "mdi:arrow-left-bold-circle",
+          "off": "mdi:arrow-left-bold-circle-outline"
+        }
       },
       "right_turn": {
-        "default": "mdi:arrow-right-bold"
+        "default": "mdi:arrow-right-bold-circle-outline",
+        "state": {
+          "on": "mdi:arrow-right-bold-circle",
+          "off": "mdi:arrow-right-bold-circle-outline"
+        }
       },
       "driver_seat_heater_on": {
         "default": "mdi:car-seat",
@@ -115,6 +141,48 @@
         "state": {
           "on": "mdi:car-seat-cooler",
           "off": "mdi:car-seat"
+        }
+      },
+      "driver_lock": {
+        "default": "mdi:car-door-lock",
+        "state": {
+          "on": "mdi:car-door-lock",
+          "off": "mdi:car-door-lock-open"
+        }
+      },
+      "passenger_lock": {
+        "default": "mdi:car-door-lock",
+        "state": {
+          "on": "mdi:car-door-lock",
+          "off": "mdi:car-door-lock-open"
+        }
+      },
+      "front_left_window_open": {
+        "default": "mdi:car-windshield",
+        "state": {
+          "on": "mdi:window-open-variant",
+          "off": "mdi:window-closed-variant"
+        }
+      },
+      "front_right_window_open": {
+        "default": "mdi:car-windshield",
+        "state": {
+          "on": "mdi:window-open-variant",
+          "off": "mdi:window-closed-variant"
+        }
+      },
+      "rear_left_window_open": {
+        "default": "mdi:car-windshield",
+        "state": {
+          "on": "mdi:window-open-variant",
+          "off": "mdi:window-closed-variant"
+        }
+      },
+      "rear_right_window_open": {
+        "default": "mdi:car-windshield",
+        "state": {
+          "on": "mdi:window-open-variant",
+          "off": "mdi:window-closed-variant"
         }
       }
     },

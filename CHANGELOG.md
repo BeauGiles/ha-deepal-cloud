@@ -15,6 +15,7 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
 ### Changed
 
+- **Icons follow the state** for the lock sensors (locked/unlocked), the four window sensors (open/closed) and the turn signals (on/off), plus tyre icons for the tyre pressures and AC/DC icons for the charge currents. Icon choices borrowed from manuelem1984/dec_deepal's icon registry (MDI names only).
 - The Lower/Raise Windows and Open/Close Boot buttons are now confirmed working on an S07 (the 0.4.0 notes listed them as untested).
 - **Icons for more entities** via `icons.json` (charging, seat and steering heating, lamps, indicators, engine, defrost, schedule, gear and brake status and others), with on/off variants where a good icon exists. Entities that already set an icon in code are unchanged.
 - **Eight more European countries** can be selected at login: Ireland, France, Germany, Greece, Belgium, Luxembourg, Switzerland and Austria. They use the default European cluster, as listed by other integrations, and are unverified; please report whether login works.
