@@ -15,6 +15,7 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
 ### Changed
 
+- **Icons for more entities** via `icons.json` (charging, seat and steering heating, lamps, indicators, engine, defrost, schedule, gear and brake status and others), with on/off variants where a good icon exists. Entities that already set an icon in code are unchanged.
 - **Eight more European countries** can be selected at login: Ireland, France, Germany, Greece, Belgium, Luxembourg, Switzerland and Austria. They use the default European cluster, as listed by other integrations, and are unverified; please report whether login works.
 - Internal: the country list, dial codes and regional gateways now come from one table (`countries.py`) instead of three places, and a test fails if `hacs.json` or the README disagree with it. No behaviour change.
 - A test for the diagnostics download checks that tokens, PIN, keys, device/user/vehicle ids, VIN, plate, image URL, email and coordinates never appear in it. Issue templates now ask for the details needed to debug a report, and ruff runs in CI.
