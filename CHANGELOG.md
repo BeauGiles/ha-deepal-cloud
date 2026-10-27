@@ -10,6 +10,16 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
 ### Fixed
 
+- **S05 charging (untested on a real S05; from Sunek0's v1.6.0 findings).** A new
+  **charge stopped** state (`ChrgSts=5`, seen with the wallbox disabled and the
+  cable still plugged in) now shows as Not Charging instead of unknown. A plugged
+  cable is no longer reported as unplugged: a raw connection value of `1` means the
+  AC gun is connected (only `0` means not connected), and while the car is idle
+  (states 0 and 5) the raw connection fields decide, because they stay set with the
+  cable in. Negative charge currents (DC charging can read about -60.5 A) are shown
+  as positive amps, and the 2538 A glitch is still dropped whichever sign it has.
+- **S05 outside temperature** is now read from MQTT (`outsideTemperature` or
+  `externalTemperature`), so the sensor is no longer empty.
 - The English options and remote-command descriptions no longer say S05 support is read-only, and the "Deepal remote commands need reauthentication" repair dialog shows its title instead of a raw translation key.
 
 ## [0.4.0] - 2026-10-25

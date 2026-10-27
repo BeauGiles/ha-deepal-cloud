@@ -575,7 +575,8 @@ def _sda_lock(value: Any) -> int | None:
     return 0 if parsed == 2 else 1
 
 
-def _sda_tenths(value: Any) -> float | None:
+def _tenths(value: Any) -> float | None:
+    """Celsius from the car as the tenths of a degree the shared condition uses."""
     parsed = _as_float(value)
     return parsed * 10 if parsed is not None else None
 
@@ -663,8 +664,8 @@ def _sda_condition_from_params(params: dict[str, Any], drive_side: str | None = 
             ],
         },
         "hvac": {
-            "insideTemp": _sda_tenths(params.get("ITMSAcIntT")),
-            "remoteTemp": _sda_tenths(params.get("ITMSDrvrAutT")),
+            "insideTemp": _tenths(params.get("ITMSAcIntT")),
+            "remoteTemp": _tenths(params.get("ITMSDrvrAutT")),
             "acStatus": _as_int(params.get("ITMSACOnOff")),
             "insidePm25": _as_float(params.get("ITMSPm25InCarDens")),
             "insideAirQualityLevel": _as_int(params.get("ITMSAirQlyInCarLvl")),
@@ -726,8 +727,10 @@ def unmapped_signal_keys(raw: dict[str, Any], *, sda: bool) -> list[str]:
 
 # S05 ChrgSts charging states, observed live on an S05 by moving the gun through
 # every state (as documented by Sunek0/ha-deepal-alternative, MIT). Any other
-# value is unknown and must not be translated into one.
-_CHARGE_STATES = (0, 1, 2, 3, 4)  # 0 not charging, 1 AC plugged, 2 DC plugged, 3 AC charging, 4 DC charging
+# value is unknown and must not be translated into one. State 5 was seen with the
+# wallbox disabled and the cable still connected: zero current, no estimate, so
+# the charge stopped and the car is not charging.
+_CHARGE_STATES = (0, 1, 2, 3, 4, 5)  # 0 not charging, 1 AC plugged, 2 DC plugged, 3 AC charging, 4 DC charging, 5 charge stopped
 _CHARGING_STATES = frozenset({3, 4})
 _AC_GUN_STATES = frozenset({1, 3})
 _DC_GUN_STATES = frozenset({2, 4})
@@ -737,7 +740,7 @@ _MAX_CHARGE_CURRENT_A = 600.0
 
 
 def _charge_state(value: Any) -> int | None:
-    """Return the S05 charging state (0-4), or None when it is not one."""
+    """Return the S05 charging state (0-5), or None when it is not one."""
     parsed = _as_int(value)
     return parsed if parsed in _CHARGE_STATES else None
 
@@ -750,18 +753,22 @@ def _mqtt_charge_status(state: int | None) -> int | None:
 
 
 def _gun_code_connected(value: Any) -> bool | None:
-    """A raw gun field: 0 and 1 mean not connected, higher values a plugged gun."""
+    """A raw gun field: 0 means not connected, any other value a plugged gun.
+
+    A live S05 reports 1 while the AC gun is connected, so 1 is not "unplugged".
+    """
     code = _as_int(value)
-    return None if code is None else code not in (0, 1)
+    return None if code is None else code != 0
 
 
 def _mqtt_gun_flags(state: int | None, ac_raw: Any, dc_raw: Any) -> tuple[bool | None, bool | None]:
     """Return (AC gun connected, DC gun connected).
 
-    A recognised charging state identifies the gun, so a stale raw field cannot
-    keep a gun "plugged" after unplugging; without one, fall back to the raw fields.
+    States 1-4 identify the gun and are authoritative. States 0 (not charging) and
+    5 (charge stopped) do not say which gun, and the car keeps the cable's raw
+    connection field set in both, so the raw fields decide (as does an unknown state).
     """
-    if state is not None:
+    if state in _AC_GUN_STATES | _DC_GUN_STATES:
         return state in _AC_GUN_STATES, state in _DC_GUN_STATES
     return _gun_code_connected(ac_raw), _gun_code_connected(dc_raw)
 
@@ -772,11 +779,15 @@ def _gun_value(connected: bool | None) -> int | None:
 
 
 def _clean_charge_current(value: Any) -> float | None:
-    """Return a believable current in amps, or None for a glitch."""
+    """Return a believable current as a positive magnitude in amps, or None for a glitch.
+
+    The car uses the battery sign convention, so charging can read negative
+    (e.g. -60.5 A on DC). The 2538 glitch is dropped whichever sign it has.
+    """
     current = _as_float(value)
-    if current is None or not 0 <= current <= _MAX_CHARGE_CURRENT_A:
+    if current is None or abs(current) > _MAX_CHARGE_CURRENT_A:
         return None
-    return current
+    return abs(current)
 
 
 def _mqtt_charge_currents(
@@ -879,6 +890,7 @@ def _mqtt_condition_from_params(params: dict[str, Any], drive_side: str | None =
             if _as_float(params.get("vehicleTemperature")) is not None
             else None,
             "insideHumidity": _humidity_percent(params.get("innerHumidity")),
+            "outsideTemp": _tenths(_first(params, "outsideTemperature", "externalTemperature")),
             "remoteTemp": _as_float(params.get("airConditioningSetTemperature")) * 10
             if _as_float(params.get("airConditioningSetTemperature")) is not None
             else None,
