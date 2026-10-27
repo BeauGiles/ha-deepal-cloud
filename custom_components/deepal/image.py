@@ -18,7 +18,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -85,7 +85,7 @@ class DeepalVehicleImage(DeepalEntity, ImageEntity):
         self._failed_at: float | None = None
         self._fetch_task: asyncio.Task[bytes | None] | None = None
         self._warned = False
-        self._attr_image_last_updated = datetime.now(timezone.utc)
+        self._attr_image_last_updated = datetime.now(UTC)
         # Deliberately NOT setting image_url: HA's own fetch path enforces a strict
         # image/* Content-Type header that this CDN doesn't reliably send. We fetch
         # and sniff bytes ourselves in async_image() instead.
@@ -115,7 +115,7 @@ class DeepalVehicleImage(DeepalEntity, ImageEntity):
             self._last_url = current_url
             self._image_bytes = None  # force a re-fetch on next async_image()
             self._failed_at = None
-            self._attr_image_last_updated = datetime.now(timezone.utc)
+            self._attr_image_last_updated = datetime.now(UTC)
             self._async_start_fetch()
         super()._handle_coordinator_update()
 
@@ -129,7 +129,7 @@ class DeepalVehicleImage(DeepalEntity, ImageEntity):
                 return None
         if self._attr_content_type != FALLBACK_CONTENT_TYPE:
             self._attr_content_type = FALLBACK_CONTENT_TYPE
-            self._attr_image_last_updated = datetime.now(timezone.utc)
+            self._attr_image_last_updated = datetime.now(UTC)
         return self._fallback_bytes
 
     def _async_start_fetch(self) -> None:
@@ -167,7 +167,7 @@ class DeepalVehicleImage(DeepalEntity, ImageEntity):
         self._failed_at = None
         self._warned = False
         self._attr_content_type = content_type
-        self._attr_image_last_updated = datetime.now(timezone.utc)
+        self._attr_image_last_updated = datetime.now(UTC)
         if self.hass is not None and self.entity_id:
             self.async_write_ha_state()
         return data

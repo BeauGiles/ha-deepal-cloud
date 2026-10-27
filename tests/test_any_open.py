@@ -7,8 +7,15 @@ from pathlib import Path
 
 import pytest
 
-from custom_components.deepal.api import _mqtt_condition_from_params, _sda_condition_from_params
-from custom_components.deepal.binary_sensor import BINARY_SENSORS, _any_open, _binary_supported
+from custom_components.deepal.api import (
+    _mqtt_condition_from_params,
+    _sda_condition_from_params,
+)
+from custom_components.deepal.binary_sensor import (
+    BINARY_SENSORS,
+    _any_open,
+    _binary_supported,
+)
 
 FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "s07_au.json").read_text())
 

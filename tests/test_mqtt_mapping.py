@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from custom_components.deepal.api import _iso_to_millis, _mqtt_condition_from_params as mqtt
+from custom_components.deepal.api import _iso_to_millis
+from custom_components.deepal.api import _mqtt_condition_from_params as mqtt
 
 
 @pytest.mark.parametrize(

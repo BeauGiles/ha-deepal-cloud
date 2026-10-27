@@ -19,9 +19,9 @@ from homeassistant.loader import async_get_integration
 from .api import _redact_for_log, _redact_signals, unmapped_signal_keys
 from .const import (
     CONF_ACCESS_TOKEN,
+    CONF_CA_USER_ID,
     CONF_CAC_TOKEN,
     CONF_CAC_USER_ID,
-    CONF_CA_USER_ID,
     CONF_CONTROL_PIN,
     CONF_DEVICE_ID,
     CONF_PRIVATE_KEY,

@@ -10,11 +10,11 @@ from .api import DeepalClient
 from .const import (
     CONF_ACCESS_TOKEN,
     CONF_APP_VERSION,
+    CONF_CA_USER_ID,
     CONF_CAC_TOKEN,
     CONF_CAC_USER_ID,
-    CONF_CA_USER_ID,
-    CONF_COUNTRY,
     CONF_CONTROL_PIN,
+    CONF_COUNTRY,
     CONF_DEVICE_ID,
     CONF_ENABLE_API_LOGGING,
     CONF_ENABLE_COMMANDS,
@@ -27,7 +27,6 @@ from .const import (
     DEFAULT_APP_VERSION,
     DEFAULT_COUNTRY,
     DEFAULT_LANGUAGE,
-    DOMAIN,
     PLATFORMS,
 )
 from .coordinator import DeepalDataUpdateCoordinator

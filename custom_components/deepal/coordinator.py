@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Callable
-from datetime import timedelta
 import logging
 import time
+from collections.abc import Awaitable, Callable
+from datetime import timedelta
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -24,12 +24,12 @@ from .api import (
     add_seat_roles,
 )
 from .const import (
+    COMMAND_INQUIRY_WAIT,
+    COMMAND_SUCCESS_GRACE,
     CONF_ACCESS_TOKEN,
     CONF_ACTIVE_REFRESH_INTERVAL,
     CONF_REFRESH_TOKEN,
     DEFAULT_ACTIVE_REFRESH_INTERVAL,
-    COMMAND_INQUIRY_WAIT,
-    COMMAND_SUCCESS_GRACE,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     MAX_QUEUED_COMMANDS,
@@ -133,7 +133,7 @@ class DeepalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             raise UpdateFailed(f"The Deepal API rate limited the request; waiting {remaining:.0f} s before the next one")
         try:
             vehicles, condition = await self._async_fetch()
-        except DeepalAuthError as err:
+        except DeepalAuthError:
             try:
                 await self._async_refresh_and_persist_tokens()
                 vehicles, condition = await self._async_fetch()

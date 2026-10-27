@@ -6,7 +6,6 @@ import ast
 import asyncio
 import base64
 import binascii
-from datetime import UTC, datetime
 import email.utils
 import gzip
 import hashlib
@@ -18,24 +17,26 @@ import ssl
 import struct
 import time
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 
 from aiohttp import ClientError, ClientResponseError, ClientSession
-from cryptography.hazmat.primitives import hashes, padding as symmetric_padding, serialization
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives import padding as symmetric_padding
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 from .const import (
+    AC_MAX_TEMP_C,
+    AC_MIN_TEMP_C,
     BASE_URL,
     CA_BASE_URL,
     DEFAULT_GATEWAY,
-    AC_MAX_TEMP_C,
-    AC_MIN_TEMP_C,
-    REGION_GATEWAYS,
-    SDA_BASE_URL,
-    REQUEST_ENCRYPTION_PUBLIC_KEY,
     MQTT_CONFIG_TTL,
     MQTT_TOKEN_TTL,
+    REGION_GATEWAYS,
+    REQUEST_ENCRYPTION_PUBLIC_KEY,
+    SDA_BASE_URL,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -753,23 +754,32 @@ def _mqtt_charge_status(state: int | None) -> int | None:
 
 
 def _gun_code_connected(value: Any) -> bool | None:
-    """A raw gun field: 0 means not connected, any other value a plugged gun.
+    """A raw gun field: 0 not connected, 2+ connected, 1 ambiguous (returns None).
 
-    A live S05 reports 1 while the AC gun is connected, so 1 is not "unplugged".
+    Forks disagree about 1. One saw a live S05 report 1 with the cable in; another
+    documents 1 as unplugged, and a PHEV can keep a stale 1 after unplugging. When
+    the charging state does not identify the gun, treat 1 as unknown rather than
+    guess either way.
     """
     code = _as_int(value)
-    return None if code is None else code != 0
+    if code is None or code == 1:
+        return None
+    return code != 0
 
 
 def _mqtt_gun_flags(state: int | None, ac_raw: Any, dc_raw: Any) -> tuple[bool | None, bool | None]:
     """Return (AC gun connected, DC gun connected).
 
-    States 1-4 identify the gun and are authoritative. States 0 (not charging) and
-    5 (charge stopped) do not say which gun, and the car keeps the cable's raw
-    connection field set in both, so the raw fields decide (as does an unknown state).
+    States 1-4 identify the gun and are authoritative. State 5 (charge stopped)
+    means a cable is connected: DC if the raw DC field says so, otherwise AC. State
+    0 (not charging) and an unknown state do not say which gun, so the raw fields
+    decide (see _gun_code_connected for the ambiguous 1).
     """
     if state in _AC_GUN_STATES | _DC_GUN_STATES:
         return state in _AC_GUN_STATES, state in _DC_GUN_STATES
+    if state == 5:
+        dc = _gun_code_connected(dc_raw)
+        return (False, True) if dc else (True, False)
     return _gun_code_connected(ac_raw), _gun_code_connected(dc_raw)
 
 

@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
-from homeassistant.components.binary_sensor import BinarySensorDeviceClass, BinarySensorEntity, BinarySensorEntityDescription
+from homeassistant.components.binary_sensor import (
+    BinarySensorDeviceClass,
+    BinarySensorEntity,
+    BinarySensorEntityDescription,
+)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityCategory
@@ -307,7 +312,7 @@ BINARY_SENSORS: tuple[DeepalBinarySensorDescription, ...] = (
 )
 
 
-def _binary_supported(description: "DeepalBinarySensorDescription"):
+def _binary_supported(description: DeepalBinarySensorDescription):
     """Return a predicate telling whether the vehicle reports this sensor's data."""
     return lambda data: description.value_fn(data.get("condition") or {}) is not None
 
