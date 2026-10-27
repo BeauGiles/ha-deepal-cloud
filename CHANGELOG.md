@@ -2,7 +2,9 @@
 
 All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
-## [Unreleased]
+## [0.4.1] - 2026-10-27
+
+Adds **Spanish, Portuguese, Italian and Dutch** setup screens, **eight more European countries**, **more and state-aware icons**, S05 charging fixes, and a test that keeps the diagnostics download free of secrets. **Requires Home Assistant 2026.3.0 or newer.**
 
 ### Upgrade notes
 
