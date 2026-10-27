@@ -10,8 +10,6 @@ Custom Home Assistant integration for the Changan Deepal cloud API.
 
 It supports the **Deepal S07** (telemetry and remote controls), the **Deepal S05** (MQTT telemetry, with opt-in lock, window and boot controls) and the **Deepal E07** (telemetry only). See [Supported Vehicles](#supported-vehicles) for what has actually been tested on each.
 
-> **Upgrading from 0.3.x?** Windows and Boot are now buttons instead of covers, and sensors are only created for data your car reports. See the [0.4.0 upgrade notes](CHANGELOG.md#040---2026-10-25) before updating.
-
 ## About This Fork
 
 This repo is rebased on [danperks/ha-deepal](https://github.com/danperks/ha-deepal), which brought account-based login, full remote vehicle control, and Deepal S05 support — a big step up from the earlier version of this integration, which was read-only and required manually capturing tokens with a proxy tool.
@@ -51,13 +49,6 @@ The integration chooses its behaviour from the `protocolType` the cloud reports 
 * **Spain:** the Spanish community integration [manuelem1984/dec_deepal](https://github.com/manuelem1984/dec_deepal) reports Spain working with an S05 on the same European cluster this integration uses. It has not been confirmed through this integration yet.
 * **Added but unverified, European cluster:** Austria, Belgium, France, Germany, Greece, Ireland, Italy, Luxembourg, the Netherlands and Switzerland (default European cluster; other integrations list them, nobody has confirmed a login here).
 * **Added but unverified, Singapore cluster:** Hong Kong, Indonesia, Macau, Malaysia, Mongolia, New Zealand, the Philippines, Singapore, Thailand and Vietnam (assumed to share Australia's Singapore cluster).
-
-### Note on Regional Support
-> **Only United Kingdom, Israel, Portugal, and Australia are confirmed working.**
-> 
-> The other Asia-Pacific countries assume they're homed on the same Singapore cluster/gateway (`m.iov.changanauto.sg`, `/appgw`) as Australia, on the basis that the original (pre-rebase) `BeauGiles/ha-deepal` integration worked for all of them against a single shared endpoint. 
-> 
-> That integration used a different, simpler auth model (manually captured bearer tokens) that didn't distinguish between regional clusters the way this one does, so the assumption hasn't been independently verified per-country here. If login fails for one of these regions, it likely means that account is actually homed on a different cluster—flag it with the failing country and, if possible, a packet capture of the login request/response.
 
 
 ## Current Features
