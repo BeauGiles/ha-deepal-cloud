@@ -33,7 +33,7 @@
       },
       "sms": {
         "title": "Inserisci il codice SMS",
-        "description": "Inserisci il codice di verifica inviato da Changan/Deepal. Il codice può scadere rapidamente, quindi richiedine uno nuovo se viene rifiutato.",
+        "description": "Inserisci il codice di verifica inviato da Changan/Deepal. Il codice può scadere rapidamente, quindi richiedine uno nuovo se viene rifiutato. Se non arriva nessun SMS, annulla e ricomincia con l'accesso via email.",
         "data": {
           "auth_code": "Codice SMS"
         }
