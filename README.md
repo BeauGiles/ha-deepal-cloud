@@ -52,13 +52,7 @@ The integration chooses its behaviour from the `protocolType` the cloud reports 
 * **Added but unverified, European cluster:** Austria, Belgium, France, Germany, Greece, Ireland, Italy, Luxembourg, the Netherlands and Switzerland (default European cluster; other integrations list them, nobody has confirmed a login here).
 * **Added but unverified, Singapore cluster:** Hong Kong, Indonesia, Macau, Malaysia, Mongolia, New Zealand, the Philippines, Singapore, Thailand and Vietnam (assumed to share Australia's Singapore cluster).
 
-### Note on Regional Support
-> **Only United Kingdom, Israel, Portugal, and Australia are confirmed working.**
-> 
-> The other Asia-Pacific countries assume they're homed on the same Singapore cluster/gateway (`m.iov.changanauto.sg`, `/appgw`) as Australia, on the basis that the original (pre-rebase) `BeauGiles/ha-deepal` integration worked for all of them against a single shared endpoint. 
-> 
-> That integration used a different, simpler auth model (manually captured bearer tokens) that didn't distinguish between regional clusters the way this one does, so the assumption hasn't been independently verified per-country here. If login fails for one of these regions, it likely means that account is actually homed on a different cluster—flag it with the failing country and, if possible, a packet capture of the login request/response.
-
+If login fails for a region, the account may be homed on a different cluster: please open an issue with the country and the diagnostics file.
 
 ## Current Features
 
