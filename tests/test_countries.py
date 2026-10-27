@@ -43,9 +43,14 @@ def test_unknown_or_missing_country_uses_the_default_cluster():
     assert region_for_country("ZZ")["base_url"] == BASE_URL
 
 
-def test_hacs_json_lists_exactly_these_countries():
+def test_table_is_alphabetical_by_name():
+    names = [country.name for country in COUNTRIES.values()]
+    assert names == sorted(names)
+
+
+def test_hacs_json_lists_exactly_these_countries_in_table_order():
     hacs = json.loads((ROOT / "hacs.json").read_text(encoding="utf-8"))
-    assert set(hacs["country"]) == set(COUNTRIES)
+    assert hacs["country"] == list(COUNTRIES)
 
 
 @pytest.mark.parametrize("country", list(COUNTRIES.values()), ids=list(COUNTRIES))
