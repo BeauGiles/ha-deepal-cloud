@@ -33,7 +33,7 @@
       },
       "sms": {
         "title": "Voer de sms-code in",
-        "description": "Voer de verificatiecode in die Changan/Deepal heeft gestuurd. De code kan snel verlopen, vraag dus een nieuwe aan als deze wordt geweigerd.",
+        "description": "Voer de verificatiecode in die Changan/Deepal heeft gestuurd. De code kan snel verlopen, vraag dus een nieuwe aan als deze wordt geweigerd. Komt er geen sms aan, annuleer dan en begin opnieuw met inloggen via e-mail.",
         "data": {
           "auth_code": "Sms-code"
         }

@@ -113,7 +113,7 @@ Once installed in HACS or manually:
 
 You can also configure it manually from **Settings -> Devices & services -> Add integration**, then search for **Changan Deepal Cloud**.
 
-During setup, choose the same login method you use in the official Deepal app. If phone/SMS login says the account is not registered, try email-code login instead. You can choose whether to enable remote commands; they require the same control PIN used by the official Deepal app.
+During setup, choose the same login method you use in the official Deepal app. If phone/SMS login says the account is not registered, try email-code login instead. If no SMS code ever arrives (Spanish testers report Deepal stopped delivering them in September 2026), cancel and start again with email-code login. You can choose whether to enable remote commands; they require the same control PIN used by the official Deepal app.
 
 ## Troubleshooting
 
