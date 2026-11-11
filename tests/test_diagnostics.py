@@ -51,6 +51,7 @@ def _entry():
             sda_base_url="https://prod-m.sda.changanauto.sg",
             gateway_prefix="/appgw",
             # As produced by DeepalClient._mqtt_topic_summary (device ids already hidden).
+            last_mqtt_model_code="SC6464AAKBEV",
             last_mqtt_topics=[{"msgType": "properties", "pub": ["$vdp/[redacted]/properties/get/req"], "sub": []}],
         ),
         data={
@@ -129,5 +130,6 @@ def test_still_useful_for_debugging(report):
     assert report["integration_version"] == "0.4.0"
     assert report["detection"]["protocol_type"] == "SDA-MQTT"
     assert report["detection"]["country"] == "AU"
+    assert report["detection"]["mqtt_model_code"] == "SC6464AAKBEV"  # a model code, not an identifier
     assert report["raw_sda"]["BcuSoc"] == 61  # harmless signals are kept
     assert "SomeUnknownSignal" in report["unmapped_signals"]

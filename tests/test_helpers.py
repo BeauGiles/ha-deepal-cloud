@@ -9,6 +9,7 @@ from custom_components.deepal.api import (
     _charge_minutes,
     _front_pair,
     _mqtt_command_result_error,
+    _mqtt_model_code,
     _redact_for_log,
     _redact_signals,
     add_seat_roles,
@@ -124,3 +125,24 @@ class TestSeatPayload:
 def test_unmapped_signal_keys_only_lists_unread_signals():
     unmapped = unmapped_signal_keys({"BcuSocDisp": 1, "DrvrDoorSts": 2, "SomethingNew": 3}, sda=True)
     assert unmapped == ["SomethingNew"]
+
+
+class TestMqttModelCode:
+    @pytest.mark.parametrize(
+        ("payload", "expected"),
+        [
+            ({"b": {"mc": "SC6464AAKBEV"}}, "SC6464AAKBEV"),
+            ({"b": {"modelCode": "SC6460AAAA7HEV"}}, "SC6460AAAA7HEV"),
+            ({"b": {"mc": "A", "modelCode": "B"}}, "A"),
+            ({"b": {"ruid": "x"}}, None),
+            ({"b": {"mc": ""}}, None),
+            ({"b": "text"}, None),
+            ({"b": None}, None),
+            ({}, None),
+        ],
+    )
+    def test_reads_the_code_from_the_envelope(self, payload, expected):
+        assert _mqtt_model_code(payload) == expected
+
+    def test_non_string_code_is_returned_as_text(self):
+        assert _mqtt_model_code({"b": {"mc": 123}}) == "123"

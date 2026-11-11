@@ -6,6 +6,7 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
 ### Added
 
+- **Model code in the diagnostics download** (`detection.mqtt_model_code`), read from the MQTT message envelope of S05-style cars. It tells an S05 EV (code ending `BEV`) from a PHEV (`HEV`) in bug reports. It is only recorded; nothing acts on it. Empty when the car sends none.
 - **Plainer messages when a remote command fails.** When the vehicle rejects a command with only a numeric result code and no text, the error now says what the code means (for example "Previous Command is executing; please try again later (3006)"). The wording comes from the official app's own English strings (v1.12.0): about 40 vehicle result codes and 50 vehicle-related cloud error codes. The vehicle's own message always wins, the code is always shown, and unknown codes behave as before. **These meanings are not yet confirmed against live responses from a car**, so please report any code that looks wrong.
 
 ## [0.4.1] - 2026-10-27

@@ -262,6 +262,20 @@ def _mqtt_parse_publish(first: int, body: bytes) -> tuple[str, dict[str, Any], i
     return topic, payload, packet_id
 
 
+def _mqtt_model_code(payload: dict[str, Any]) -> str | None:
+    """Return the vehicle model code from an MQTT envelope, if it carries one.
+
+    The envelope's ``b`` block can hold the model code (``mc``, or ``modelCode``).
+    dec_deepal reports codes such as ``SC6464AAKBEV`` (S05 EV) and
+    ``SC6460AAAA7HEV`` (S05 PHEV); this is only recorded for diagnostics.
+    """
+    basic = payload.get("b")
+    if not isinstance(basic, dict):
+        return None
+    code = basic.get("mc") or basic.get("modelCode")
+    return str(code) if code else None
+
+
 def _mqtt_try_parse_publish(first: int, body: bytes) -> tuple[str, dict[str, Any], int | None] | None:
     """Parse a PUBLISH packet, or return None for a malformed one.
 
@@ -1103,6 +1117,7 @@ class DeepalClient:
         self.cac_token = cac_token
         self.user_id = user_id
         self.last_mqtt_topics: list[dict[str, Any]] | None = None
+        self.last_mqtt_model_code: str | None = None
         self._ca_tsp_token: str | None = None  # token the CA gateway accepted last
         # CA bootstrap results reused across MQTT sessions (see MQTT_*_TTL).
         self._mqtt_config_cache: dict[str, tuple[dict[str, Any], float]] = {}
@@ -1964,6 +1979,8 @@ class DeepalClient:
                 if packet_id is not None:
                     writer.write(bytes([0x40, 0x02]) + struct.pack("!H", packet_id))
                     await writer.drain()
+
+                self.last_mqtt_model_code = _mqtt_model_code(payload) or self.last_mqtt_model_code
 
                 if not secret_key:
                     secret_key = self._mqtt_secret_from_payload(payload)
