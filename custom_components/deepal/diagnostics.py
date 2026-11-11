@@ -92,6 +92,9 @@ async def async_get_config_entry_diagnostics(
             "base_url": client.base_url,
             "sda_base_url": client.sda_base_url,
             "gateway_prefix": client.gateway_prefix,
+            # Model code from the MQTT message envelope (diagnostic only). Tells an
+            # S05 EV (...BEV) from a PHEV (...HEV); None if the car sends none.
+            "mqtt_model_code": getattr(client, "last_mqtt_model_code", None),
         },
         "refresh": {
             "last_update_success": coordinator.last_update_success,
