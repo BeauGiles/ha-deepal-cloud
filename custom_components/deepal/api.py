@@ -36,6 +36,7 @@ from .const import (
     REQUEST_ENCRYPTION_PUBLIC_KEY,
     region_for_country,
 )
+from .error_codes import describe_vehicle_code
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -365,6 +366,8 @@ def _mqtt_command_result_error(
                     )
                     if match:
                         detail_code, detail = match
+                if detail is None and not message:
+                    detail = describe_vehicle_code(code)
                 if detail:
                     return f"{detail} ({detail_code})"
                 return str(message or f"result code {code}")
