@@ -132,6 +132,7 @@ During setup, choose the same login method you use in the official Deepal app. I
 - The integration polls cached cloud status every minute. S07 can also ask for refreshed vehicle data every 5 minutes when remote commands are enabled. MQTT vehicles read refreshed MQTT telemetry and do a fresh read after an acknowledged command.
 - After a command is accepted, the integration polls for the command result and refreshed vehicle state. It stops waiting once the cloud reports success, asking the car for fresh data once.
 - If the account is used elsewhere, Home Assistant may need reauthentication.
+- Developer notes on what the official app reveals about the E07 (SDA) interface: [docs/sda-app-findings.md](docs/sda-app-findings.md). Names only, unverified.
 
 ## Credits
 
