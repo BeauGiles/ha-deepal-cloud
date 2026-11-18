@@ -4,6 +4,10 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Home Assistant 2026.11 deprecation warning for the cabin climate entity.** Home Assistant now wants `native_temperature_unit`, `native_current_temperature` and `native_target_temperature` and will stop accepting the plain names in 2027.11. The climate entity uses the native names on Home Assistant 2026.11 or newer and keeps the plain names on older versions, so the minimum Home Assistant version is unchanged. No change to behaviour or entity IDs.
+
 ### Added
 
 - **Model code in the diagnostics download** (`detection.mqtt_model_code`), read from the MQTT message envelope of S05-style cars. It tells an S05 EV (code ending `BEV`) from a PHEV (`HEV`) in bug reports. It is only recorded; nothing acts on it. Empty when the car sends none.
