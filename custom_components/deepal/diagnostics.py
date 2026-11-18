@@ -19,9 +19,12 @@ from homeassistant.loader import async_get_integration
 from .api import (
     SDA_PROBE_PATHS,
     SDA_SHAPE_ONLY_PROBES,
+    SDA_TRIMMED_PROBES,
     _redact_for_log,
     _redact_signals,
     shape_of,
+    strip_url_queries,
+    trim_lists,
     unmapped_signal_keys,
 )
 from .const import (
@@ -91,11 +94,13 @@ async def _run_sda_probes(client: Any, vehicle_id: str) -> dict[str, Any]:
     for name, path in SDA_PROBE_PATHS.items():
         try:
             data = await client.probe_sda(vehicle_id, path)
-            results[name] = {
-                "ok": True,
-                "shape_only": name in SDA_SHAPE_ONLY_PROBES,
-                "data": shape_of(data) if name in SDA_SHAPE_ONLY_PROBES else data,
-            }
+            if name in SDA_SHAPE_ONLY_PROBES:
+                data = shape_of(data)
+            else:
+                data = strip_url_queries(data)
+                if name in SDA_TRIMMED_PROBES:
+                    data = trim_lists(data)
+            results[name] = {"ok": True, "shape_only": name in SDA_SHAPE_ONLY_PROBES, "data": data}
         except Exception as err:  # noqa: BLE001 - diagnostics must never fail
             results[name] = {"ok": False, "error": f"{type(err).__name__}: {err}"}
     return results

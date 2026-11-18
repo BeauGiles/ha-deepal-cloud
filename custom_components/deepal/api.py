@@ -503,9 +503,41 @@ SDA_PROBE_PATHS = {
     "function_list": "/app-apigw/sda-app-control/api/v1/sda-app/app-func/get-function",
     "last_event": "/app-apigw/sda-app-control/api/v1/sda-app/car-event/last",
     "mqtt_server_config": "/app-apigw/sda-app-control/api/v1/sda-app/car-ctrl/get-mqtt-server-config",
+    # The app's firmware-upgrade screen (car-info-api); the E07 has no OTA status today.
+    "ota_task": "/app-apigw/car-info-api/api/v1/sda-app/ota/get-task",
+    "ota_progress": "/app-apigw/car-info-api/api/v1/sda-app/ota/get-progress",
+    "ota_history": "/app-apigw/car-info-api/api/v1/sda-app/ota/get-upgrade-history",
 }
 # Probes whose values could hold credentials or location: report structure only.
 SDA_SHAPE_ONLY_PROBES = frozenset({"last_event", "mqtt_server_config"})
+# Probes that can return a long history: keep the first few entries only.
+SDA_TRIMMED_PROBES = frozenset({"ota_history"})
+
+
+def trim_lists(value: Any, limit: int = 5) -> Any:
+    """Return ``value`` with every list cut to ``limit`` entries and a note on the rest."""
+    if isinstance(value, dict):
+        return {key: trim_lists(item, limit) for key, item in value.items()}
+    if isinstance(value, list):
+        kept = [trim_lists(item, limit) for item in value[:limit]]
+        if len(value) > limit:
+            kept.append(f"... {len(value) - limit} more not shown")
+        return kept
+    return value
+
+
+def strip_url_queries(value: Any) -> Any:
+    """Return ``value`` with the query string and fragment removed from every URL string.
+
+    Signed download links carry their credentials in the query.
+    """
+    if isinstance(value, dict):
+        return {key: strip_url_queries(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [strip_url_queries(item) for item in value]
+    if isinstance(value, str) and value.startswith(("http://", "https://")):
+        return value.split("?", 1)[0].split("#", 1)[0]
+    return value
 
 
 def shape_of(value: Any) -> Any:

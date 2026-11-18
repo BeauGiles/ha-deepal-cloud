@@ -193,7 +193,14 @@ def test_s07_probes_not_run_for_e07(monkeypatch):
         return {}
 
     report = _run(monkeypatch, _sda_entry({"probe_function_config": boom, "probe_condition_v2": boom, "probe_sda": probe_sda}))
-    assert set(report["endpoint_probes"]) == {"function_list", "last_event", "mqtt_server_config"}
+    assert set(report["endpoint_probes"]) == {
+        "function_list",
+        "last_event",
+        "mqtt_server_config",
+        "ota_task",
+        "ota_progress",
+        "ota_history",
+    }
 
 
 def test_e07_probes_report_function_list_but_only_shape_of_sensitive_ones(monkeypatch):
@@ -221,3 +228,36 @@ def test_shape_of_hides_values():
     from custom_components.deepal.api import shape_of
 
     assert shape_of({"a": [{"b": 1}, {"b": 2}], "c": None, "d": []}) == {"a": [{"b": "int"}], "c": "NoneType", "d": []}
+
+
+def test_e07_ota_probes_report_values_trim_history_and_strip_url_queries(monkeypatch):
+    calls = []
+
+    async def probe_sda(vehicle_id, path):
+        calls.append(path)
+        if path.endswith("ota/get-task"):
+            return {"upgradeStatus": 2, "version": "1.2.3", "vin": SECRETS["vin"], "pkg": "https://cdn.example.com/p.zip?sign=SIGNEDSECRET#frag"}
+        if path.endswith("ota/get-progress"):
+            return {"progress": 40}
+        if path.endswith("ota/get-upgrade-history"):
+            return {"records": [{"version": f"v{n}"} for n in range(12)]}
+        return {}
+
+    report = _run(monkeypatch, _sda_entry({"probe_sda": probe_sda}))
+    probes = report["endpoint_probes"]
+    assert probes["ota_task"]["data"]["upgradeStatus"] == 2  # real values, so enums can be learned
+    assert probes["ota_task"]["data"]["pkg"] == "https://cdn.example.com/p.zip"
+    assert probes["ota_progress"]["data"] == {"progress": 40}
+    records = probes["ota_history"]["data"]["records"]
+    assert len(records) == 6 and records[-1] == "... 7 more not shown"
+    assert any(path.endswith("ota/get-task") for path in calls)
+    text = json.dumps(report, default=str)
+    assert "SIGNEDSECRET" not in text and SECRETS["vin"] not in text
+
+
+def test_trim_lists_and_strip_url_queries():
+    from custom_components.deepal.api import strip_url_queries, trim_lists
+
+    assert trim_lists([1, 2, 3], limit=5) == [1, 2, 3]
+    assert trim_lists({"a": [1, 2, 3, 4]}, limit=2) == {"a": [1, 2, "... 2 more not shown"]}
+    assert strip_url_queries({"u": ["http://x/y?a=1", "not a url?x=1", 5]}) == {"u": ["http://x/y", "not a url?x=1", 5]}
