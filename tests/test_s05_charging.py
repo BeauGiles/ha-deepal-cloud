@@ -111,7 +111,7 @@ class TestCurrents:
 class TestHumidity:
     @pytest.mark.parametrize(
         ("value", "expected"),
-        [(61, 61.0), (0, 0.0), (100, 100.0), (453, 45.3), (1000, 100.0), (None, None), ("x", None), (-5, None), (1500, None)],
+        [(61, 61.0), (0, None), (100, 100.0), (453, 45.3), (1000, 100.0), (None, None), ("x", None), (-5, None), (1500, None)],
     )
     def test_percent_or_tenths(self, value, expected):
         assert _humidity_percent(value) == expected

@@ -6,6 +6,7 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
 ### Fixed
 
+- **One impossible reading no longer risks a whole refresh.** A value of `NaN` or `Infinity` in a report is now unknown (before, `Infinity` could raise an error while reading an integer), and a state of charge or charge target outside 0-100 (such as the `255` "invalid" marker) is unknown instead of 255 %. On the E07, an invalid `VIUSocDisp` now falls back to `BcuSocDisp`. Cabin humidity of exactly 0 is treated as "no reading" (Sunek0 saw this alternate with real values on a parked PHEV); a real cabin is never at 0 %. These are precautions based on another integration's observations, not something seen on an S07 or E07 here.
 - **Home Assistant 2026.11 deprecation warning for the cabin climate entity.** Home Assistant now wants `native_temperature_unit`, `native_current_temperature` and `native_target_temperature` and will stop accepting the plain names in 2027.11. The climate entity uses the native names on Home Assistant 2026.11 or newer and keeps the plain names on older versions, so the minimum Home Assistant version is unchanged. No change to behaviour or entity IDs.
 
 ### Added

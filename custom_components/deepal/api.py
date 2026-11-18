@@ -449,17 +449,25 @@ def _as_int(value: Any) -> int | None:
         return None
     try:
         return int(float(value))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
+        # OverflowError: an "Infinity" in a payload; NaN raises ValueError.
         return None
 
 
 def _as_float(value: Any) -> float | None:
+    """Return a finite float, or None for anything else (including NaN and Infinity)."""
     if value is None:
         return None
     try:
-        return float(value)
+        number = float(value)
     except (TypeError, ValueError):
         return None
+    return number if math.isfinite(number) else None
+
+
+def _percent_or_none(value: int | None) -> int | None:
+    """Return a percentage only if it is 0-100; markers such as 255 mean "invalid"."""
+    return value if value is not None and 0 <= value <= 100 else None
 
 
 def _iso_to_millis(value: Any) -> int | None:
@@ -604,10 +612,10 @@ def _sda_condition_from_params(params: dict[str, Any], drive_side: str | None = 
     documented in Sunek0/ha-deepal-alternative (MIT): status 2 means closed,
     lock 2 means locked, window positions are percentages with 0 closed.
     """
-    soc = _as_int(params.get("VIUSocDisp"))
+    soc = _percent_or_none(_as_int(params.get("VIUSocDisp")))
     if soc is None:
         raw_soc = _as_float(params.get("BcuSocDisp"))
-        soc = round(raw_soc) if raw_soc is not None else None
+        soc = _percent_or_none(round(raw_soc)) if raw_soc is not None else None
     ac_connected = _as_int(params.get("AcChrgCnctrSts"))
     dc_connected = _as_int(params.get("DcChrgCnctrSts"))
     battery_amps = _as_float(params.get("BcuBattI"))
@@ -657,7 +665,7 @@ def _sda_condition_from_params(params: dict[str, Any], drive_side: str | None = 
             "acChargeCurrent": ac_amps,
             "dcChargeCurrent": dc_amps,
             "remainChargeTime": charge_minutes,
-            "maxSocPercent": _as_int(params.get("TboxSocChrgTarSet")),
+            "maxSocPercent": _percent_or_none(_as_int(params.get("TboxSocChrgTarSet"))),
         },
         "door": {
             "doors": [
@@ -844,13 +852,17 @@ def _mqtt_charge_currents(
 
 
 def _humidity_percent(value: Any) -> float | None:
-    """Cabin humidity in percent. The S05 sends a percentage or tenths of a percent."""
+    """Cabin humidity in percent. The S05 sends a percentage or tenths of a percent.
+
+    Zero is the car's "no reading" placeholder (Sunek0 saw it alternate with real
+    values on a parked PHEV), and a cabin is never at 0%, so it is unknown.
+    """
     humidity = _as_float(value)
     if humidity is None:
         return None
     if humidity > 100:
         humidity /= 10
-    return humidity if 0 <= humidity <= 100 else None
+    return humidity if 0 < humidity <= 100 else None
 
 
 def clamp_ac_temperature(target_c: float) -> float:
@@ -900,7 +912,7 @@ def _mqtt_condition_from_params(params: dict[str, Any], drive_side: str | None =
     condition: dict[str, Any] = {
         "lastUpdatedAt": _iso_to_millis(latest) or int(time.time() * 1000),
         "vehicleStatus": {
-            "soc": _as_int(_first(params, "soc", "socDsp", "remainPower")),
+            "soc": _percent_or_none(_as_int(_first(params, "soc", "socDsp", "remainPower"))),
             "drvMileage": _as_int(_first(params, "remainedPowerMile", "totalResidualMileage")),
             "totalMileage": _as_float(params.get("totalOdometer")),
             "engineSts": _as_int(params.get("engineStatus")),
