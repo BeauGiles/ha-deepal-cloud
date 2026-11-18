@@ -133,3 +133,61 @@ def test_still_useful_for_debugging(report):
     assert report["detection"]["mqtt_model_code"] == "SC6464AAKBEV"  # a model code, not an identifier
     assert report["raw_sda"]["BcuSoc"] == 61  # harmless signals are kept
     assert "SomeUnknownSignal" in report["unmapped_signals"]
+
+
+def _rest_entry(client_extra):
+    entry = _entry()
+    coordinator = entry.runtime_data
+    coordinator.vehicle_id = SECRETS["vehicle"]
+    coordinator.data["vehicle"] = {"protocolType": "REST", "carId": SECRETS["car_id"], "vin": SECRETS["vin"]}
+    coordinator.data["condition"] = {"vehicleStatus": {"soc": 61}}
+    for name, value in client_extra.items():
+        setattr(coordinator.client, name, value)
+    return entry
+
+
+def _run(monkeypatch, entry):
+    async def get_integration(hass, domain):
+        return SimpleNamespace(version="0.4.0")
+
+    monkeypatch.setattr(diagnostics, "async_redact_data", _redact_data)
+    monkeypatch.setattr(diagnostics, "async_get_integration", get_integration)
+    return asyncio.run(diagnostics.async_get_config_entry_diagnostics(None, entry))
+
+
+def test_probes_report_data_and_failures_without_leaking(monkeypatch):
+    async def function_config(vehicle_id, v2=False):
+        if v2:
+            raise RuntimeError("Deepal API error: APP_X_1 not found")
+        return {"functions": ["seat_heat"], "vin": SECRETS["vin"]}
+
+    async def condition_v2(vehicle_id):
+        return {"vehicleStatus": {"soc": 61}, "vehicleId": SECRETS["vehicle"]}
+
+    entry = _rest_entry({"probe_function_config": function_config, "probe_condition_v2": condition_v2})
+    report = _run(monkeypatch, entry)
+    probes = report["endpoint_probes"]
+    assert probes["function_config"]["ok"] is True
+    assert probes["function_config"]["data"]["functions"] == ["seat_heat"]
+    assert probes["function_config_v2"]["ok"] is False
+    assert "RuntimeError" in probes["function_config_v2"]["error"]
+    assert probes["condition_v2"]["ok"] is True
+    text = json.dumps(report, default=str)
+    assert SECRETS["vin"] not in text
+    assert SECRETS["vehicle"] not in text
+
+
+def test_probes_skipped_for_non_rest_vehicles(monkeypatch):
+    async def boom(*a, **k):
+        raise AssertionError("must not be called")
+
+    report = _run(monkeypatch, _sda_entry(boom))
+    assert "skipped" in report["endpoint_probes"]
+
+
+def _sda_entry(fn):
+    entry = _entry()
+    entry.runtime_data.vehicle_id = SECRETS["vehicle"]
+    entry.runtime_data.client.probe_function_config = fn
+    entry.runtime_data.client.probe_condition_v2 = fn
+    return entry

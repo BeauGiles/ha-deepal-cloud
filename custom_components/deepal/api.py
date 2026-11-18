@@ -1487,6 +1487,31 @@ class DeepalClient:
             hvac["insideHumidity"] = _humidity_percent(hvac["insideHumidity"])
         return data
 
+    async def probe_function_config(self, vehicle_id: str, *, v2: bool = False) -> Any:
+        """Read-only probe of the app's per-vehicle feature list (diagnostics only).
+
+        The official app (v1.12.0) calls ``vehicle/function-config`` and a ``/v2``
+        variant, which look like the list of functions a car supports. The request
+        body is a best guess (same ``vehicleId`` the other intl endpoints take) and
+        the response shape is unconfirmed, so the result is only reported in the
+        diagnostics download and nothing in the integration acts on it.
+        """
+        path = "/intl-app-gw/intl-app-user/api/vehicle/function-config" + ("/v2" if v2 else "")
+        return await self._post(path, {"vehicleId": vehicle_id})
+
+    async def probe_condition_v2(self, vehicle_id: str) -> Any:
+        """Read-only probe of ``vehicle/condition`` v2 (diagnostics only).
+
+        The app ships a v2 of the condition endpoint next to the one used here.
+        Same body as v1 is assumed. Reported so v1 and v2 can be compared; the
+        coordinator never uses it.
+        """
+        payload = {
+            "vechileCriteria": {k: "1" for k in ("seat", "door", "hvac", "charge", "lamp", "window", "tire", "vehicleStatus")},
+            "vehicleId": vehicle_id,
+        }
+        return await self._post("/intl-app-gw/intl-app-car-condition/api/v2/vehicle/condition", payload)
+
     async def ota_status(self, vehicle_id: str) -> dict[str, Any]:
         """Fetch OTA (over-the-air) firmware update status. Ported from the
         original BeauGiles/ha-deepal repo's get_ota_status."""
