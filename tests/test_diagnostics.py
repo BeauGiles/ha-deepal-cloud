@@ -133,3 +133,91 @@ def test_still_useful_for_debugging(report):
     assert report["detection"]["mqtt_model_code"] == "SC6464AAKBEV"  # a model code, not an identifier
     assert report["raw_sda"]["BcuSoc"] == 61  # harmless signals are kept
     assert "SomeUnknownSignal" in report["unmapped_signals"]
+
+
+def _rest_entry(client_extra):
+    entry = _entry()
+    coordinator = entry.runtime_data
+    coordinator.vehicle_id = SECRETS["vehicle"]
+    coordinator.data["vehicle"] = {"protocolType": "REST", "carId": SECRETS["car_id"], "vin": SECRETS["vin"]}
+    coordinator.data["condition"] = {"vehicleStatus": {"soc": 61}}
+    for name, value in client_extra.items():
+        setattr(coordinator.client, name, value)
+    return entry
+
+
+def _run(monkeypatch, entry):
+    async def get_integration(hass, domain):
+        return SimpleNamespace(version="0.4.0")
+
+    monkeypatch.setattr(diagnostics, "async_redact_data", _redact_data)
+    monkeypatch.setattr(diagnostics, "async_get_integration", get_integration)
+    return asyncio.run(diagnostics.async_get_config_entry_diagnostics(None, entry))
+
+
+def test_probes_report_data_and_failures_without_leaking(monkeypatch):
+    async def function_config(vehicle_id, v2=False):
+        if v2:
+            raise RuntimeError("Deepal API error: APP_X_1 not found")
+        return {"functions": ["seat_heat"], "vin": SECRETS["vin"]}
+
+    async def condition_v2(vehicle_id):
+        return {"vehicleStatus": {"soc": 61}, "vehicleId": SECRETS["vehicle"]}
+
+    entry = _rest_entry({"probe_function_config": function_config, "probe_condition_v2": condition_v2})
+    report = _run(monkeypatch, entry)
+    probes = report["endpoint_probes"]
+    assert probes["function_config"]["ok"] is True
+    assert probes["function_config"]["data"]["functions"] == ["seat_heat"]
+    assert probes["function_config_v2"]["ok"] is False
+    assert "RuntimeError" in probes["function_config_v2"]["error"]
+    assert probes["condition_v2"]["ok"] is True
+    text = json.dumps(report, default=str)
+    assert SECRETS["vin"] not in text
+    assert SECRETS["vehicle"] not in text
+
+
+def _sda_entry(client_extra):
+    entry = _entry()
+    entry.runtime_data.vehicle_id = SECRETS["vehicle"]
+    for name, value in client_extra.items():
+        setattr(entry.runtime_data.client, name, value)
+    return entry
+
+
+def test_s07_probes_not_run_for_e07(monkeypatch):
+    async def boom(*a, **k):
+        raise AssertionError("S07 probes must not run for an E07")
+
+    async def probe_sda(vehicle_id, path):
+        return {}
+
+    report = _run(monkeypatch, _sda_entry({"probe_function_config": boom, "probe_condition_v2": boom, "probe_sda": probe_sda}))
+    assert set(report["endpoint_probes"]) == {"function_list", "last_event", "mqtt_server_config"}
+
+
+def test_e07_probes_report_function_list_but_only_shape_of_sensitive_ones(monkeypatch):
+    async def probe_sda(vehicle_id, path):
+        if path.endswith("get-function"):
+            return {"functions": ["window", "trunk"], "vin": SECRETS["vin"]}
+        if path.endswith("get-mqtt-server-config"):
+            return {"host": "broker.example.com", "password": "BROKERPASSWORD123", "port": 8883}
+        raise RuntimeError("404 not found")
+
+    report = _run(monkeypatch, _sda_entry({"probe_sda": probe_sda}))
+    probes = report["endpoint_probes"]
+    assert probes["function_list"]["data"]["functions"] == ["window", "trunk"]
+    assert probes["mqtt_server_config"]["shape_only"] is True
+    shape = probes["mqtt_server_config"]["data"]
+    assert shape["host"] == "str" and shape["port"] == "int"  # types only, never values
+    assert "password" in shape
+    assert probes["last_event"]["ok"] is False
+    text = json.dumps(report, default=str)
+    for secret in ("BROKERPASSWORD123", "broker.example.com", SECRETS["vin"]):
+        assert secret not in text
+
+
+def test_shape_of_hides_values():
+    from custom_components.deepal.api import shape_of
+
+    assert shape_of({"a": [{"b": 1}, {"b": 2}], "c": None, "d": []}) == {"a": [{"b": "int"}], "c": "NoneType", "d": []}

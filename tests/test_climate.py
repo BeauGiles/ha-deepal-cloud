@@ -40,3 +40,36 @@ def test_command_sends_a_clamped_target_in_tenths(requested, payload_value):
     client._signed_command = fake_signed_command
     asyncio.run(client.control_air_conditioner(vehicle_id="1", enabled=True, target_temp_c=requested))
     assert sent["payload"]["targetTemp"] == payload_value
+
+
+class _FakeCar:
+    """Stands in for DeepalClimate: just the two helpers the mixins read."""
+
+    def _current_temperature_c(self):
+        return 19.5
+
+    def _target_temperature_c(self):
+        return 22.0
+
+
+class TestTemperatureProperties:
+    """Home Assistant 2026.11 wants native_*; older versions only know the plain names."""
+
+    def test_native_variant_uses_native_names_only(self):
+        car = type("Car", (climate._NativeTemperatures, _FakeCar), {})()
+        assert car.native_temperature_unit == climate.UnitOfTemperature.CELSIUS
+        assert car.native_current_temperature == 19.5
+        assert car.native_target_temperature == 22.0
+        for plain in ("temperature_unit", "current_temperature", "target_temperature"):
+            assert not hasattr(climate._NativeTemperatures, plain)
+
+    def test_legacy_variant_uses_plain_names_only(self):
+        car = type("Car", (climate._LegacyTemperatures, _FakeCar), {})()
+        assert car.temperature_unit == climate.UnitOfTemperature.CELSIUS
+        assert car.current_temperature == 19.5
+        assert car.target_temperature == 22.0
+        for native in ("native_temperature_unit", "native_current_temperature", "native_target_temperature"):
+            assert not hasattr(climate._LegacyTemperatures, native)
+
+    def test_entity_uses_one_of_the_two_sets(self):
+        assert issubclass(climate.DeepalClimate, (climate._NativeTemperatures, climate._LegacyTemperatures))

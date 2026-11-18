@@ -450,17 +450,25 @@ def _as_int(value: Any) -> int | None:
         return None
     try:
         return int(float(value))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
+        # OverflowError: an "Infinity" in a payload; NaN raises ValueError.
         return None
 
 
 def _as_float(value: Any) -> float | None:
+    """Return a finite float, or None for anything else (including NaN and Infinity)."""
     if value is None:
         return None
     try:
-        return float(value)
+        number = float(value)
     except (TypeError, ValueError):
         return None
+    return number if math.isfinite(number) else None
+
+
+def _percent_or_none(value: int | None) -> int | None:
+    """Return a percentage only if it is 0-100; markers such as 255 mean "invalid"."""
+    return value if value is not None and 0 <= value <= 100 else None
 
 
 def _iso_to_millis(value: Any) -> int | None:
@@ -490,6 +498,23 @@ def _first(params: dict[str, Any], *keys: str) -> Any:
 
 
 SDA_CONDITION_PATH = "/app-apigw/sda-app-control/api/v1/sda-app/car-ctrl/getCarConditionByCarId"
+# E07 endpoints found in the official app (v1.12.0) and only probed, never used.
+SDA_PROBE_PATHS = {
+    "function_list": "/app-apigw/sda-app-control/api/v1/sda-app/app-func/get-function",
+    "last_event": "/app-apigw/sda-app-control/api/v1/sda-app/car-event/last",
+    "mqtt_server_config": "/app-apigw/sda-app-control/api/v1/sda-app/car-ctrl/get-mqtt-server-config",
+}
+# Probes whose values could hold credentials or location: report structure only.
+SDA_SHAPE_ONLY_PROBES = frozenset({"last_event", "mqtt_server_config"})
+
+
+def shape_of(value: Any) -> Any:
+    """Return ``value`` with every leaf replaced by its type name (no values)."""
+    if isinstance(value, dict):
+        return {key: shape_of(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [shape_of(value[0])] if value else []
+    return type(value).__name__
 _SDA_SIGNAL_KEYS = ("BcuSocDisp", "VIUSocDisp", "VcuResiMilg", "CdcTotMilg", "DrvrDoorSts")
 _CHARGE_TIME_SENTINEL = 8191
 
@@ -605,10 +630,10 @@ def _sda_condition_from_params(params: dict[str, Any], drive_side: str | None = 
     documented in Sunek0/ha-deepal-alternative (MIT): status 2 means closed,
     lock 2 means locked, window positions are percentages with 0 closed.
     """
-    soc = _as_int(params.get("VIUSocDisp"))
+    soc = _percent_or_none(_as_int(params.get("VIUSocDisp")))
     if soc is None:
         raw_soc = _as_float(params.get("BcuSocDisp"))
-        soc = round(raw_soc) if raw_soc is not None else None
+        soc = _percent_or_none(round(raw_soc)) if raw_soc is not None else None
     ac_connected = _as_int(params.get("AcChrgCnctrSts"))
     dc_connected = _as_int(params.get("DcChrgCnctrSts"))
     battery_amps = _as_float(params.get("BcuBattI"))
@@ -658,7 +683,7 @@ def _sda_condition_from_params(params: dict[str, Any], drive_side: str | None = 
             "acChargeCurrent": ac_amps,
             "dcChargeCurrent": dc_amps,
             "remainChargeTime": charge_minutes,
-            "maxSocPercent": _as_int(params.get("TboxSocChrgTarSet")),
+            "maxSocPercent": _percent_or_none(_as_int(params.get("TboxSocChrgTarSet"))),
         },
         "door": {
             "doors": [
@@ -873,13 +898,17 @@ def _mqtt_charge_currents(
 
 
 def _humidity_percent(value: Any) -> float | None:
-    """Cabin humidity in percent. The S05 sends a percentage or tenths of a percent."""
+    """Cabin humidity in percent. The S05 sends a percentage or tenths of a percent.
+
+    Zero is the car's "no reading" placeholder (Sunek0 saw it alternate with real
+    values on a parked PHEV), and a cabin is never at 0%, so it is unknown.
+    """
     humidity = _as_float(value)
     if humidity is None:
         return None
     if humidity > 100:
         humidity /= 10
-    return humidity if 0 <= humidity <= 100 else None
+    return humidity if 0 < humidity <= 100 else None
 
 
 def clamp_ac_temperature(target_c: float) -> float:
@@ -929,7 +958,7 @@ def _mqtt_condition_from_params(params: dict[str, Any], drive_side: str | None =
     condition: dict[str, Any] = {
         "lastUpdatedAt": _iso_to_millis(latest) or int(time.time() * 1000),
         "vehicleStatus": {
-            "soc": _as_int(_first(params, "soc", "socDsp", "remainPower")),
+            "soc": _percent_or_none(_as_int(_first(params, "soc", "socDsp", "remainPower"))),
             "drvMileage": _as_int(_first(params, "remainedPowerMile", "totalResidualMileage")),
             "totalMileage": _as_float(params.get("totalOdometer")),
             "engineSts": _as_int(params.get("engineStatus")),
@@ -1504,6 +1533,31 @@ class DeepalClient:
             hvac["insideHumidity"] = _humidity_percent(hvac["insideHumidity"])
         return data
 
+    async def probe_function_config(self, vehicle_id: str, *, v2: bool = False) -> Any:
+        """Read-only probe of the app's per-vehicle feature list (diagnostics only).
+
+        The official app (v1.12.0) calls ``vehicle/function-config`` and a ``/v2``
+        variant, which look like the list of functions a car supports. The request
+        body is a best guess (same ``vehicleId`` the other intl endpoints take) and
+        the response shape is unconfirmed, so the result is only reported in the
+        diagnostics download and nothing in the integration acts on it.
+        """
+        path = "/intl-app-gw/intl-app-user/api/vehicle/function-config" + ("/v2" if v2 else "")
+        return await self._post(path, {"vehicleId": vehicle_id})
+
+    async def probe_condition_v2(self, vehicle_id: str) -> Any:
+        """Read-only probe of ``vehicle/condition`` v2 (diagnostics only).
+
+        The app ships a v2 of the condition endpoint next to the one used here.
+        Same body as v1 is assumed. Reported so v1 and v2 can be compared; the
+        coordinator never uses it.
+        """
+        payload = {
+            "vechileCriteria": {k: "1" for k in ("seat", "door", "hvac", "charge", "lamp", "window", "tire", "vehicleStatus")},
+            "vehicleId": vehicle_id,
+        }
+        return await self._post("/intl-app-gw/intl-app-car-condition/api/v2/vehicle/condition", payload)
+
     async def ota_status(self, vehicle_id: str) -> dict[str, Any]:
         """Fetch OTA (over-the-air) firmware update status. Ported from the
         original BeauGiles/ha-deepal repo's get_ota_status."""
@@ -1551,6 +1605,25 @@ class DeepalClient:
                 f"top-level keys: {sorted(body) if isinstance(body, dict) else type(body).__name__}"
             )
         raise last_error or DeepalApiError("SDA condition did not return vehicle condition")
+
+    async def probe_sda(self, vehicle_id: str, path: str) -> Any:
+        """Read-only GET probe of an SDA-gateway endpoint (diagnostics only).
+
+        Used for E07 endpoints the official app has but this integration does not
+        use yet. Same host, token handling and ``carId`` query as ``sda_condition``.
+        The HTTP method and query are a best guess; the result is only reported.
+        """
+        token = (self._headers().get("authorization") or "").removeprefix("Bearer ").strip()
+        overrides = {"Accept-Encoding": "identity"}
+        if token:
+            overrides["X-Tsp-User-Token"] = token
+        return await self._post(
+            path,
+            base_url=self.sda_base_url,
+            method="GET",
+            query={"carId": vehicle_id},
+            header_overrides=overrides,
+        )
 
     async def mqtt_condition(self, vehicle_id: str) -> dict[str, Any]:
         """Fetch and decrypt condition data from the MQTT telemetry path."""
