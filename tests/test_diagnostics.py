@@ -177,17 +177,47 @@ def test_probes_report_data_and_failures_without_leaking(monkeypatch):
     assert SECRETS["vehicle"] not in text
 
 
-def test_probes_skipped_for_non_rest_vehicles(monkeypatch):
-    async def boom(*a, **k):
-        raise AssertionError("must not be called")
-
-    report = _run(monkeypatch, _sda_entry(boom))
-    assert "skipped" in report["endpoint_probes"]
-
-
-def _sda_entry(fn):
+def _sda_entry(client_extra):
     entry = _entry()
     entry.runtime_data.vehicle_id = SECRETS["vehicle"]
-    entry.runtime_data.client.probe_function_config = fn
-    entry.runtime_data.client.probe_condition_v2 = fn
+    for name, value in client_extra.items():
+        setattr(entry.runtime_data.client, name, value)
     return entry
+
+
+def test_s07_probes_not_run_for_e07(monkeypatch):
+    async def boom(*a, **k):
+        raise AssertionError("S07 probes must not run for an E07")
+
+    async def probe_sda(vehicle_id, path):
+        return {}
+
+    report = _run(monkeypatch, _sda_entry({"probe_function_config": boom, "probe_condition_v2": boom, "probe_sda": probe_sda}))
+    assert set(report["endpoint_probes"]) == {"function_list", "last_event", "mqtt_server_config"}
+
+
+def test_e07_probes_report_function_list_but_only_shape_of_sensitive_ones(monkeypatch):
+    async def probe_sda(vehicle_id, path):
+        if path.endswith("get-function"):
+            return {"functions": ["window", "trunk"], "vin": SECRETS["vin"]}
+        if path.endswith("get-mqtt-server-config"):
+            return {"host": "broker.example.com", "password": "BROKERPASSWORD123", "port": 8883}
+        raise RuntimeError("404 not found")
+
+    report = _run(monkeypatch, _sda_entry({"probe_sda": probe_sda}))
+    probes = report["endpoint_probes"]
+    assert probes["function_list"]["data"]["functions"] == ["window", "trunk"]
+    assert probes["mqtt_server_config"]["shape_only"] is True
+    shape = probes["mqtt_server_config"]["data"]
+    assert shape["host"] == "str" and shape["port"] == "int"  # types only, never values
+    assert "password" in shape
+    assert probes["last_event"]["ok"] is False
+    text = json.dumps(report, default=str)
+    for secret in ("BROKERPASSWORD123", "broker.example.com", SECRETS["vin"]):
+        assert secret not in text
+
+
+def test_shape_of_hides_values():
+    from custom_components.deepal.api import shape_of
+
+    assert shape_of({"a": [{"b": 1}, {"b": 2}], "c": None, "d": []}) == {"a": [{"b": "int"}], "c": "NoneType", "d": []}
