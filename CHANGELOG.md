@@ -4,6 +4,10 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
 ## [Unreleased]
 
+## [0.4.2-beta1] - 2026-11-19
+
+**Beta.** Mostly groundwork for the E07 (diagnostics probes and a sensor that lists signals nothing reads yet), plus a Home Assistant 2026.11 deprecation fix and some hardening. Install it from HACS with **Redownload → Show beta versions**. **E07 owners:** please press **Download diagnostics** on the Deepal integration page after updating (ideally while the car is charging, and again just after a drive) and attach the file to your issue. It is redacted, but please skim it first. Home Assistant 2026.3.0 or newer is still required.
+
 ### Fixed
 
 - **One impossible reading no longer risks a whole refresh.** A value of `NaN` or `Infinity` in a report is now unknown (before, `Infinity` could raise an error while reading an integer), and a state of charge or charge target outside 0-100 (such as the `255` "invalid" marker) is unknown instead of 255 %. On the E07, an invalid `VIUSocDisp` now falls back to `BcuSocDisp`. Cabin humidity of exactly 0 is treated as "no reading" (Sunek0 saw this alternate with real values on a parked PHEV); a real cabin is never at 0 %. These are precautions based on another integration's observations, not something seen on an S07 or E07 here.
