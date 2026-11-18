@@ -7,6 +7,7 @@ import asyncio
 import base64
 import binascii
 import email.utils
+import functools
 import gzip
 import hashlib
 import inspect
@@ -758,6 +759,34 @@ def _signal_keys_used(function: Any) -> frozenset[str]:
             continue
         keys.update(a.value for a in args if isinstance(a, ast.Constant) and isinstance(a.value, str))
     return frozenset(keys)
+
+
+# Attribute names Home Assistant itself writes on a state; a signal with one of
+# these names is skipped rather than allowed to overwrite it.
+_RESERVED_ATTRIBUTES = frozenset(
+    {"friendly_name", "icon", "entity_picture", "unit_of_measurement", "device_class", "state_class", "supported_features", "attribution"}
+)
+
+
+@functools.cache
+def _sda_mapped_keys() -> frozenset[str]:
+    return _signal_keys_used(_sda_condition_from_params)
+
+
+def sda_unmapped_attributes(raw: Any) -> dict[str, Any]:
+    """Return the raw SDA signals no entity reads yet, as flat name -> value pairs.
+
+    VIN, plate, location and ids are redacted. Used by the "SDA Data" sensor so
+    signals that are not mapped yet are still visible in Home Assistant.
+    """
+    if not isinstance(raw, dict):
+        return {}
+    redacted = _redact_signals(raw)
+    return {
+        str(key): redacted[key]
+        for key in sorted(set(raw) - _sda_mapped_keys(), key=str)
+        if str(key) not in _RESERVED_ATTRIBUTES
+    }
 
 
 def unmapped_signal_keys(raw: dict[str, Any], *, sda: bool) -> list[str]:

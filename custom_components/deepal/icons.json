@@ -55,6 +55,9 @@
       "raw_condition": {
         "default": "mdi:code-json"
       },
+      "sda_data": {
+        "default": "mdi:database-eye-outline"
+      },
       "tire_front_left_pressure": {
         "default": "mdi:tire"
       },

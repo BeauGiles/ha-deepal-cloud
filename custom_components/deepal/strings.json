@@ -215,6 +215,9 @@
       },
       "raw_condition": {
         "name": "Raw Condition Data"
+      },
+      "sda_data": {
+        "name": "SDA Data"
       }
     },
     "binary_sensor": {
