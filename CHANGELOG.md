@@ -6,6 +6,7 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
 ### Added
 
+- **Endpoint probes in the diagnostics download (S07 / REST cars only).** The download now includes `endpoint_probes`: read-only calls to the app's `vehicle/function-config`, `function-config/v2` and `vehicle/condition` v2 endpoints, with each result or error. These exist in the official app (v1.12.0) but the request and response shapes are unconfirmed, so nothing in the integration uses them yet; they are only reported so real responses can be collected. Failures never break the download.
 - **Model code in the diagnostics download** (`detection.mqtt_model_code`), read from the MQTT message envelope of S05-style cars. It tells an S05 EV (code ending `BEV`) from a PHEV (`HEV`) in bug reports. It is only recorded; nothing acts on it. Empty when the car sends none.
 - **Plainer messages when a remote command fails.** When the vehicle rejects a command with only a numeric result code and no text, the error now says what the code means (for example "Previous Command is executing; please try again later (3006)"). The wording comes from the official app's own English strings (v1.12.0): about 40 vehicle result codes and 50 vehicle-related cloud error codes. The vehicle's own message always wins, the code is always shown, and unknown codes behave as before. **These meanings are not yet confirmed against live responses from a car**, so please report any code that looks wrong.
 

@@ -58,6 +58,24 @@ TO_REDACT = {
 _RAW_KEYS = ("rawMqtt", "rawSda")
 
 
+async def _run_probes(client: Any, vehicle_id: str, *, rest: bool) -> dict[str, Any]:
+    """Run the read-only endpoint probes. Never raises; failures are reported as text."""
+    if not rest:
+        return {"skipped": "only run for REST (S07-style) vehicles"}
+    probes = {
+        "function_config": lambda: client.probe_function_config(vehicle_id),
+        "function_config_v2": lambda: client.probe_function_config(vehicle_id, v2=True),
+        "condition_v2": lambda: client.probe_condition_v2(vehicle_id),
+    }
+    results: dict[str, Any] = {}
+    for name, call in probes.items():
+        try:
+            results[name] = {"ok": True, "data": await call()}
+        except Exception as err:  # noqa: BLE001 - diagnostics must never fail
+            results[name] = {"ok": False, "error": f"{type(err).__name__}: {err}"}
+    return results
+
+
 async def async_get_config_entry_diagnostics(
     hass: HomeAssistant, entry: ConfigEntry
 ) -> dict[str, Any]:
@@ -120,6 +138,13 @@ async def async_get_config_entry_diagnostics(
         ),
         "mqtt_topics": client.last_mqtt_topics,
         "ota": data.get("ota"),
+        # Read-only calls to endpoints the official app has but this integration
+        # does not use yet. Reported only, to learn what real cars return.
+        "endpoint_probes": (
+            await _run_probes(client, coordinator.vehicle_id, rest=source == "rest")
+            if hasattr(client, "probe_function_config")
+            else None
+        ),
     }
     # Key-based log redaction for everything except the raw signal dumps (which
     # get exact-key redaction only, above), then the explicit config keys.
