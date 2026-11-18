@@ -30,7 +30,50 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     async_add_entities([DeepalClimate(coordinator)])
 
 
-class DeepalClimate(DeepalEntity, ClimateEntity):
+class _NativeTemperatures:
+    """Temperature properties for Home Assistant 2026.11 and newer.
+
+    Home Assistant renamed the unit and the current/target temperature
+    properties to ``native_*`` and deprecated the plain names (removal 2027.11).
+    """
+
+    @property
+    def native_temperature_unit(self) -> str:
+        return UnitOfTemperature.CELSIUS
+
+    @property
+    def native_current_temperature(self) -> float | None:
+        return self._current_temperature_c()
+
+    @property
+    def native_target_temperature(self) -> float | None:
+        return self._target_temperature_c()
+
+
+class _LegacyTemperatures:
+    """Temperature properties for Home Assistant before 2026.11, which only know the plain names."""
+
+    @property
+    def temperature_unit(self) -> str:
+        return UnitOfTemperature.CELSIUS
+
+    @property
+    def current_temperature(self) -> float | None:
+        return self._current_temperature_c()
+
+    @property
+    def target_temperature(self) -> float | None:
+        return self._target_temperature_c()
+
+
+# Defining the plain names on a newer Home Assistant logs a deprecation warning,
+# and the native names do not exist on an older one, so pick one set at import.
+_TemperatureProperties = (
+    _NativeTemperatures if hasattr(ClimateEntity, "native_target_temperature") else _LegacyTemperatures
+)
+
+
+class DeepalClimate(_TemperatureProperties, DeepalEntity, ClimateEntity):
     """Thermostat-style entity for the car-wide HVAC state."""
 
     _attr_translation_key = "cabin_climate"
@@ -43,9 +86,11 @@ class DeepalClimate(DeepalEntity, ClimateEntity):
     def __init__(self, coordinator: DeepalDataUpdateCoordinator) -> None:
         super().__init__(coordinator, "cabin_climate")
 
-    @property
-    def temperature_unit(self) -> str:
-        return UnitOfTemperature.CELSIUS
+    def _current_temperature_c(self) -> float | None:
+        return _tenths_c((self.condition.get("hvac") or {}).get("insideTemp"))
+
+    def _target_temperature_c(self) -> float | None:
+        return _tenths_c((self.condition.get("hvac") or {}).get("remoteTemp"))
 
     @property
     def supported_features(self) -> ClimateEntityFeature:
@@ -62,14 +107,6 @@ class DeepalClimate(DeepalEntity, ClimateEntity):
         if ac_status is None:
             return None
         return HVACMode.HEAT_COOL if ac_status != 0 else HVACMode.OFF
-
-    @property
-    def current_temperature(self) -> float | None:
-        return _tenths_c((self.condition.get("hvac") or {}).get("insideTemp"))
-
-    @property
-    def target_temperature(self) -> float | None:
-        return _tenths_c((self.condition.get("hvac") or {}).get("remoteTemp"))
 
     @property
     def current_humidity(self) -> float | None:
@@ -106,11 +143,11 @@ class DeepalClimate(DeepalEntity, ClimateEntity):
 
     async def async_turn_on(self) -> None:
         self._raise_if_read_only()
-        await self._async_send(enabled=True, target_temperature=self.target_temperature or 21)
+        await self._async_send(enabled=True, target_temperature=self._target_temperature_c() or 21)
 
     async def async_turn_off(self) -> None:
         self._raise_if_read_only()
-        await self._async_send(enabled=False, target_temperature=self.target_temperature or 21)
+        await self._async_send(enabled=False, target_temperature=self._target_temperature_c() or 21)
 
     def _raise_if_read_only(self) -> None:
         if self.coordinator.vehicle_uses_mqtt:
