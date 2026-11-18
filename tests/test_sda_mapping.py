@@ -114,3 +114,16 @@ class TestChargeStatus:
 
     def test_discharging_reports_no_charge_current(self):
         assert sda({"BcuChrgSts": 0, "BcuBattI": 80.0})["charge"]["chargeCurrent"] == 0.0
+
+
+def test_sda_unmapped_attributes_are_flat_redacted_and_exclude_mapped():
+    from custom_components.deepal.api import sda_unmapped_attributes
+
+    attrs = sda_unmapped_attributes(
+        {"BcuSocDisp": 61, "BcuBattTMax": 31, "DcacOutpU": 230, "vin": "LDP0000VINSECRET1", "icon": "x", "friendly_name": "y"}
+    )
+    assert attrs["BcuBattTMax"] == 31 and attrs["DcacOutpU"] == 230
+    assert "BcuSocDisp" not in attrs  # already mapped to an entity
+    assert "icon" not in attrs and "friendly_name" not in attrs  # would overwrite HA's own attributes
+    assert "LDP0000VINSECRET1" not in str(attrs)
+    assert sda_unmapped_attributes(None) == {}

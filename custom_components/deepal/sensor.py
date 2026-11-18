@@ -13,11 +13,13 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import PERCENTAGE, UnitOfLength, UnitOfTemperature
+from homeassistant.const import MATCH_ALL, PERCENTAGE, UnitOfLength, UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from .api import sda_unmapped_attributes
+from .const import vehicle_uses_sda
 from .coordinator import DeepalDataUpdateCoordinator
 from .entity import DeepalEntity
 from .gating import async_add_supported
@@ -416,6 +418,8 @@ def _sensor_supported(description: DeepalSensorDescription):
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     coordinator: DeepalDataUpdateCoordinator = entry.runtime_data
     async_add_entities([DeepalRawConditionSensor(coordinator)])
+    if vehicle_uses_sda((coordinator.data or {}).get("vehicle") or {}):
+        async_add_entities([DeepalSdaDataSensor(coordinator)])
     await async_add_supported(
         hass,
         entry,
@@ -536,6 +540,38 @@ class DeepalRawConditionSensor(DeepalEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         return {"condition": self.condition}
+
+
+class DeepalSdaDataSensor(DeepalEntity, SensorEntity):
+    """E07 signals no entity reads yet, one flat attribute per signal.
+
+    The state is how many such signals the car reported. The attributes change
+    with every report and can be large, so they are kept out of the recorder
+    (they show live but are not written to the database history).
+    """
+
+    _attr_translation_key = "sda_data"
+    _attr_name = "SDA Data"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_entity_registry_enabled_default = False
+    _unrecorded_attributes = frozenset({MATCH_ALL})
+
+    def __init__(self, coordinator: DeepalDataUpdateCoordinator) -> None:
+        super().__init__(coordinator, "sda_data")
+
+    @property
+    def _signals(self) -> dict[str, Any]:
+        return sda_unmapped_attributes(self.condition.get("rawSda"))
+
+    @property
+    def native_value(self) -> int | None:
+        if not isinstance(self.condition.get("rawSda"), dict):
+            return None
+        return len(self._signals)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return self._signals
 
 
 def _steering_wheel_heater_state(data: dict[str, Any]) -> str | None:
