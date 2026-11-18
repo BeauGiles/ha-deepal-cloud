@@ -1,0 +1,124 @@
+{
+  "condition": {
+    "charge": {
+      "acChargeCurrent": 0.0,
+      "chargeConStatus": 1,
+      "chargePlanList": [
+        {
+          "isValid": 0,
+          "planType": 1,
+          "startSwitch": 1
+        }
+      ],
+      "chargeStatus": 1,
+      "dcChargeCurrent": 0.0,
+      "dcChargeGunConnectStatus": 1,
+      "drvMileage": 367.0,
+      "hashCode": 2042242891,
+      "maxSocPercent": 90,
+      "remainChargeTime": 8191.0,
+      "soc": 77
+    },
+    "door": {
+      "doors": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "driverLock": 0,
+      "hashCode": 1236894343,
+      "passengerLock": 0,
+      "trunk": 0
+    },
+    "hvac": {
+      "acStatus": 0,
+      "consTempCockpit": 0,
+      "defrostStatus": 0,
+      "insideHumidity": 43.0,
+      "insideTemp": 230,
+      "remoteTemp": 200
+    },
+    "lamp": {
+      "hashCode": -55186694,
+      "highBeam": 3,
+      "leftTurn": 3,
+      "lowBeam": 3,
+      "positionLamp": 0,
+      "rightTurn": 3
+    },
+    "seat": {
+      "driver": {
+        "heatStatus": 0,
+        "mode": 0,
+        "ventStatus": 0
+      },
+      "hashCode": -28517610,
+      "leftBack": {
+        "mode": 0
+      },
+      "leftFront": {
+        "heatStatus": 0,
+        "mode": 0,
+        "ventStatus": 0
+      },
+      "passenger": {
+        "heatStatus": 0,
+        "mode": 0,
+        "ventStatus": 0
+      },
+      "rightBack": {
+        "mode": 0
+      },
+      "rightFront": {
+        "heatStatus": 0,
+        "mode": 0,
+        "ventStatus": 0
+      }
+    },
+    "tire": {
+      "hashCode": 564974741,
+      "leftBack": {
+        "pressure": 266.0,
+        "status": 0
+      },
+      "leftFront": {
+        "pressure": 262.0,
+        "status": 0
+      },
+      "rightBack": {
+        "pressure": 269.0,
+        "status": 0
+      },
+      "rightFront": {
+        "pressure": 269.0,
+        "status": 0
+      }
+    },
+    "vehicleStatus": {
+      "connectStatus": 1,
+      "drvMileage": 367,
+      "powerStatus": 0,
+      "remoteControlPrivacy": 0,
+      "soc": 77,
+      "status": 2,
+      "steeringWheelHeater": 0,
+      "totalMileage": 17857
+    },
+    "window": {
+      "hashCode": 76509601,
+      "openDegree": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "windows": [
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  }
+}
