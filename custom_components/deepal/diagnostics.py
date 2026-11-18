@@ -16,7 +16,14 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.loader import async_get_integration
 
-from .api import _redact_for_log, _redact_signals, unmapped_signal_keys
+from .api import (
+    SDA_PROBE_PATHS,
+    SDA_SHAPE_ONLY_PROBES,
+    _redact_for_log,
+    _redact_signals,
+    shape_of,
+    unmapped_signal_keys,
+)
 from .const import (
     CONF_ACCESS_TOKEN,
     CONF_CA_USER_ID,
@@ -58,10 +65,12 @@ TO_REDACT = {
 _RAW_KEYS = ("rawMqtt", "rawSda")
 
 
-async def _run_probes(client: Any, vehicle_id: str, *, rest: bool) -> dict[str, Any]:
+async def _run_probes(client: Any, vehicle_id: str, *, source: str) -> dict[str, Any]:
     """Run the read-only endpoint probes. Never raises; failures are reported as text."""
-    if not rest:
-        return {"skipped": "only run for REST (S07-style) vehicles"}
+    if source == "sda-rest":
+        return await _run_sda_probes(client, vehicle_id)
+    if source != "rest":
+        return {"skipped": "only run for REST (S07) and SDA (E07) vehicles"}
     probes = {
         "function_config": lambda: client.probe_function_config(vehicle_id),
         "function_config_v2": lambda: client.probe_function_config(vehicle_id, v2=True),
@@ -71,6 +80,22 @@ async def _run_probes(client: Any, vehicle_id: str, *, rest: bool) -> dict[str, 
     for name, call in probes.items():
         try:
             results[name] = {"ok": True, "data": await call()}
+        except Exception as err:  # noqa: BLE001 - diagnostics must never fail
+            results[name] = {"ok": False, "error": f"{type(err).__name__}: {err}"}
+    return results
+
+
+async def _run_sda_probes(client: Any, vehicle_id: str) -> dict[str, Any]:
+    """E07 probes. Some report structure only, as their values may be sensitive."""
+    results: dict[str, Any] = {}
+    for name, path in SDA_PROBE_PATHS.items():
+        try:
+            data = await client.probe_sda(vehicle_id, path)
+            results[name] = {
+                "ok": True,
+                "shape_only": name in SDA_SHAPE_ONLY_PROBES,
+                "data": shape_of(data) if name in SDA_SHAPE_ONLY_PROBES else data,
+            }
         except Exception as err:  # noqa: BLE001 - diagnostics must never fail
             results[name] = {"ok": False, "error": f"{type(err).__name__}: {err}"}
     return results
@@ -141,8 +166,8 @@ async def async_get_config_entry_diagnostics(
         # Read-only calls to endpoints the official app has but this integration
         # does not use yet. Reported only, to learn what real cars return.
         "endpoint_probes": (
-            await _run_probes(client, coordinator.vehicle_id, rest=source == "rest")
-            if hasattr(client, "probe_function_config")
+            await _run_probes(client, coordinator.vehicle_id, source=source)
+            if hasattr(client, "probe_function_config") or hasattr(client, "probe_sda")
             else None
         ),
     }

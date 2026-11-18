@@ -489,6 +489,23 @@ def _first(params: dict[str, Any], *keys: str) -> Any:
 
 
 SDA_CONDITION_PATH = "/app-apigw/sda-app-control/api/v1/sda-app/car-ctrl/getCarConditionByCarId"
+# E07 endpoints found in the official app (v1.12.0) and only probed, never used.
+SDA_PROBE_PATHS = {
+    "function_list": "/app-apigw/sda-app-control/api/v1/sda-app/app-func/get-function",
+    "last_event": "/app-apigw/sda-app-control/api/v1/sda-app/car-event/last",
+    "mqtt_server_config": "/app-apigw/sda-app-control/api/v1/sda-app/car-ctrl/get-mqtt-server-config",
+}
+# Probes whose values could hold credentials or location: report structure only.
+SDA_SHAPE_ONLY_PROBES = frozenset({"last_event", "mqtt_server_config"})
+
+
+def shape_of(value: Any) -> Any:
+    """Return ``value`` with every leaf replaced by its type name (no values)."""
+    if isinstance(value, dict):
+        return {key: shape_of(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [shape_of(value[0])] if value else []
+    return type(value).__name__
 _SDA_SIGNAL_KEYS = ("BcuSocDisp", "VIUSocDisp", "VcuResiMilg", "CdcTotMilg", "DrvrDoorSts")
 _CHARGE_TIME_SENTINEL = 8191
 
@@ -1547,6 +1564,25 @@ class DeepalClient:
                 f"top-level keys: {sorted(body) if isinstance(body, dict) else type(body).__name__}"
             )
         raise last_error or DeepalApiError("SDA condition did not return vehicle condition")
+
+    async def probe_sda(self, vehicle_id: str, path: str) -> Any:
+        """Read-only GET probe of an SDA-gateway endpoint (diagnostics only).
+
+        Used for E07 endpoints the official app has but this integration does not
+        use yet. Same host, token handling and ``carId`` query as ``sda_condition``.
+        The HTTP method and query are a best guess; the result is only reported.
+        """
+        token = (self._headers().get("authorization") or "").removeprefix("Bearer ").strip()
+        overrides = {"Accept-Encoding": "identity"}
+        if token:
+            overrides["X-Tsp-User-Token"] = token
+        return await self._post(
+            path,
+            base_url=self.sda_base_url,
+            method="GET",
+            query={"carId": vehicle_id},
+            header_overrides=overrides,
+        )
 
     async def mqtt_condition(self, vehicle_id: str) -> dict[str, Any]:
         """Fetch and decrypt condition data from the MQTT telemetry path."""
