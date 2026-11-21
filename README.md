@@ -141,10 +141,12 @@ During setup, choose the same login method you use in the official Deepal app. I
 ## Notes
 
 - The integration polls cached cloud status every minute. S07 can also ask for refreshed vehicle data every 5 minutes when remote commands are enabled. MQTT vehicles read refreshed MQTT telemetry and do a fresh read after an acknowledged command.
+- A state change that both starts and ends between two polls (for example a quick unlock-and-lock) can be missed entirely. If something looks wrong only briefly, check whether it could have happened and reverted inside one polling interval before reporting it as a bug.
 - After a command is accepted, the integration polls for the command result and refreshed vehicle state. It stops waiting once the cloud reports success, asking the car for fresh data once.
 - If the account is used elsewhere, Home Assistant may need reauthentication.
 - Developer notes on what the official app reveals about the E07 (SDA) interface: [docs/sda-app-findings.md](docs/sda-app-findings.md). Names only, unverified.
-- Want your charging status on your iPhone's Lock Screen? [docs/live-activities.md](docs/live-activities.md) has an automation that does it with just the official Home Assistant Companion app, no other integration needed.
+- Want your charging status on your Lock Screen (iOS Live Activities or Android Live Updates)? [docs/live-activities.md](docs/live-activities.md) has an automation that does it with just the official Home Assistant Companion app, no other integration needed.
+- Looking for ideas for alerts (low tyre pressure, a door left open, lights left on, lost cloud connection...)? [docs/example-automations.md](docs/example-automations.md) has several, built on this integration's own entities.
 
 ## Credits
 
