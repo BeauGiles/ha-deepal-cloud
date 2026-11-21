@@ -12,12 +12,13 @@ missing.
 
 ## A reliable "parked" condition
 
-The car does not switch itself off when you walk away, so `power_status`
-(values `Idle` or `Drive`) often stays **Drive** long after you've left.
-Waiting for `Idle` alone means some of these alerts never fire. The fix:
-treat the car as parked when `power_status` is `Idle`, **or** it's `Drive`
-but the odometer hasn't changed for a few minutes (it keeps changing while
-you actually drive).
+> [!TIP]
+> The car does not switch itself off when you walk away, so `power_status`
+> (values `Idle` or `Drive`) often stays **Drive** long after you've left.
+> Waiting for `Idle` alone means some of these alerts never fire. The fix:
+> treat the car as parked when `power_status` is `Idle`, **or** it's `Drive`
+> but the odometer hasn't changed for a few minutes (it keeps changing while
+> you actually drive).
 
 ```yaml
 condition: or
@@ -140,9 +141,10 @@ actions:
 mode: single
 ```
 
-This one checks `power_status` alone, not the full parked condition above:
-seat heating only matters once the car is actually switched off, and the
-odometer side of the parked check would let it fire while briefly stopped.
+> [!NOTE]
+> This one checks `power_status` alone, not the full parked condition above:
+> seat heating only matters once the car is actually switched off, and the
+> odometer side of the parked check would let it fire while briefly stopped.
 
 ## Tyre pressure warning
 
@@ -171,10 +173,11 @@ actions:
 mode: queued
 ```
 
-S07 and E07 cars have no such flag (as far as this integration can tell), so
-there's nothing to turn on for them yet. The workaround that's actually
-running on a real S07 is a plain threshold built on the four raw pressure
-sensors, with no custom code:
+> [!NOTE]
+> S07 and E07 cars have no such flag (as far as this integration can tell), so
+> there's nothing to turn on for them yet. The workaround below, built on the
+> four raw pressure sensors with no custom code, is actually running on a
+> real S07:
 
 1. A **min/max helper** (type: minimum) over the four
    `sensor.<car>_tire_*_pressure` entities, giving one "lowest tyre pressure"
