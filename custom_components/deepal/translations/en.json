@@ -294,6 +294,18 @@
       },
       "front_passenger_seat_ventilation_on": {
         "name": "Front Passenger Seat Ventilation On"
+      },
+      "tire_front_left_warning": {
+        "name": "Front Left Tyre Pressure Warning"
+      },
+      "tire_front_right_warning": {
+        "name": "Front Right Tyre Pressure Warning"
+      },
+      "tire_rear_left_warning": {
+        "name": "Rear Left Tyre Pressure Warning"
+      },
+      "tire_rear_right_warning": {
+        "name": "Rear Right Tyre Pressure Warning"
       }
     },
     "lock": {

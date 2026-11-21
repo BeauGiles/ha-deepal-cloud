@@ -4,6 +4,10 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
 ## [Unreleased]
 
+### Added
+
+- **Tyre-pressure-warning sensors (S05 only).** `api.py` already parsed the car's per-wheel `lfPressureWarning`/`rfPressureWarning`/`lrPressureWarning`/`rrPressureWarning` flags from S05 MQTT telemetry, but nothing read them. Four new binary sensors (Front Left/Right and Rear Left/Right Tyre Pressure Warning) expose them. They stay hidden on S07 and E07 cars, whose condition data has no such field; those models only have the four raw pressure sensors.
+
 ## [0.4.2-beta1] - 2026-11-19
 
 **Beta.** Mostly groundwork for the E07 (diagnostics probes and a sensor that lists signals nothing reads yet), plus a Home Assistant 2026.11 deprecation fix and some hardening. Install it from HACS with **Redownload → Show beta versions**. **E07 owners:** please press **Download diagnostics** on the Deepal integration page after updating (ideally while the car is charging, and again just after a drive) and attach the file to your issue. It is redacted, but please skim it first. Home Assistant 2026.3.0 or newer is still required.
