@@ -144,6 +144,7 @@ During setup, choose the same login method you use in the official Deepal app. I
 - After a command is accepted, the integration polls for the command result and refreshed vehicle state. It stops waiting once the cloud reports success, asking the car for fresh data once.
 - If the account is used elsewhere, Home Assistant may need reauthentication.
 - Developer notes on what the official app reveals about the E07 (SDA) interface: [docs/sda-app-findings.md](docs/sda-app-findings.md). Names only, unverified.
+- Want your charging status on your iPhone's Lock Screen? [docs/live-activities.md](docs/live-activities.md) has an automation that does it with just the official Home Assistant Companion app, no other integration needed.
 
 ## Credits
 
