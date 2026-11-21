@@ -117,6 +117,10 @@ BINARY_SENSOR_NAMES = {
     "front_passenger_seat_heater_on": "Front Passenger Seat Heater On",
     "driver_seat_ventilation_on": "Driver Seat Ventilation On",
     "front_passenger_seat_ventilation_on": "Front Passenger Seat Ventilation On",
+    "tire_front_left_warning": "Front Left Tyre Pressure Warning",
+    "tire_front_right_warning": "Front Right Tyre Pressure Warning",
+    "tire_rear_left_warning": "Rear Left Tyre Pressure Warning",
+    "tire_rear_right_warning": "Rear Right Tyre Pressure Warning",
 }
 
 
@@ -302,6 +306,33 @@ BINARY_SENSORS: tuple[DeepalBinarySensorDescription, ...] = (
         key="front_passenger_seat_ventilation_on",
         translation_key="front_passenger_seat_ventilation_on",
         value_fn=lambda data: _path_value(data, ("seat", "passenger", "ventStatus")) != 0 if _path_value(data, ("seat", "passenger", "ventStatus")) is not None else None,
+    ),
+    # S05 MQTT only: the per-wheel warning flags (lfPressureWarning etc.) are
+    # parsed into tire.<wheel>.warning already, but nothing read them until now.
+    # S07/E07 condition data has no such field, so these stay hidden there.
+    DeepalBinarySensorDescription(
+        key="tire_front_left_warning",
+        translation_key="tire_front_left_warning",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+        value_fn=lambda data: _path_value(data, ("tire", "leftFront", "warning")) != 0 if _path_value(data, ("tire", "leftFront", "warning")) is not None else None,
+    ),
+    DeepalBinarySensorDescription(
+        key="tire_front_right_warning",
+        translation_key="tire_front_right_warning",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+        value_fn=lambda data: _path_value(data, ("tire", "rightFront", "warning")) != 0 if _path_value(data, ("tire", "rightFront", "warning")) is not None else None,
+    ),
+    DeepalBinarySensorDescription(
+        key="tire_rear_left_warning",
+        translation_key="tire_rear_left_warning",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+        value_fn=lambda data: _path_value(data, ("tire", "leftBack", "warning")) != 0 if _path_value(data, ("tire", "leftBack", "warning")) is not None else None,
+    ),
+    DeepalBinarySensorDescription(
+        key="tire_rear_right_warning",
+        translation_key="tire_rear_right_warning",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+        value_fn=lambda data: _path_value(data, ("tire", "rightBack", "warning")) != 0 if _path_value(data, ("tire", "rightBack", "warning")) is not None else None,
     ),
 )
 

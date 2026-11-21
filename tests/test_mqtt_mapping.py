@@ -45,6 +45,26 @@ class TestAliases:
         params = {"dcDhargeGunConnectionState": 3, "dcChargeGunConnectionState": 0}
         assert mqtt(params)["charge"]["dcChargeGunConnectStatus"] == 3
 
+
+class TestTirePressureWarning:
+    def test_per_wheel_warning_flags_are_read(self):
+        condition = mqtt(
+            {
+                "lfPressureWarning": 1,
+                "rfPressureWarning": 0,
+                "lrPressureWarning": 1,
+                "rrPressureWarning": 0,
+            }
+        )
+        assert condition["tire"]["leftFront"]["warning"] == 1
+        assert condition["tire"]["rightFront"]["warning"] == 0
+        assert condition["tire"]["leftBack"]["warning"] == 1
+        assert condition["tire"]["rightBack"]["warning"] == 0
+
+    def test_warning_is_none_when_not_reported(self):
+        condition = mqtt({})
+        assert condition["tire"]["leftFront"]["warning"] is None
+
     @pytest.mark.parametrize("key", ["hood", "hoodStatus"])
     def test_hood_keys(self, key):
         assert mqtt({key: 1})["door"]["hood"] == 1

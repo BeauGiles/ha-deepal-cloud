@@ -28,6 +28,12 @@ S07_NEVER_REPORTED = {
     ("sensor", "gear_signal"),
     ("sensor", "epb_sts"),
     ("binary", "engine_sts"),
+    # The per-wheel pressure-warning flag only exists on S05 MQTT telemetry
+    # (lfPressureWarning etc.); the S07 REST condition has no such field.
+    ("binary", "tire_front_left_warning"),
+    ("binary", "tire_front_right_warning"),
+    ("binary", "tire_rear_left_warning"),
+    ("binary", "tire_rear_right_warning"),
 }
 
 
