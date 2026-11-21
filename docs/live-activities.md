@@ -1,28 +1,33 @@
-# iOS Live Activities for your car
+# Lock Screen charging status (iOS Live Activities / Android Live Updates)
 
-An automation that puts your car's charging status on the iOS Lock Screen,
-using nothing but the entities this integration already creates and the
-official Home Assistant Companion app. No extra integration, card or
-dashboard package is needed, only the free Companion app and a notify
-target.
+An automation that puts your car's charging status on the Lock Screen, using
+nothing but the entities this integration already creates and the official
+Home Assistant Companion app. No extra integration, card or dashboard package
+is needed, only the free Companion app and a notify target.
+
+Home Assistant's `live_update: true` works the same way on both platforms
+from one automation: on iOS it's a Live Activity, on Android 16+ it's a Live
+Update. The automation below targets both; see [Platform
+differences](#platform-differences) for the couple of fields that aren't
+shared.
 
 ## What you get
 
-A Live Activity while plugged in, showing state of charge and a countdown
-to the charge limit. It updates silently every 5 minutes and on every
-state-of-charge change, and becomes an audible alert once the car reports
-**Charge Complete** or stops charging while still plugged in. It clears
-itself 30 minutes after finishing, or as soon as you unplug.
+A persistent update while plugged in, showing state of charge and a
+countdown to the charge limit. It updates silently every 5 minutes and on
+every state-of-charge change, and becomes an audible alert once the car
+reports **Charge Complete** or stops charging while still plugged in. It
+clears itself 30 minutes after finishing, or as soon as you unplug.
 
 This reads the car's own sensors, so it works the same for an S07, S05 or
 E07, as long as the entities below exist for your vehicle.
 
 ## Requirements
 
-- The Home Assistant Companion app installed on the phone(s) you want the
-  Live Activity on, with notifications enabled. Live Activities themselves
-  need iOS 16.1 or newer; the `chronometer` countdown used below needs the
-  Companion app's usual minimum supported iOS version.
+- The Home Assistant Companion app, with notifications enabled, on the
+  phone(s) you want this on. iOS needs 17.2 or newer for Live Activities;
+  Android needs 16 or newer for Live Updates. Either way, Home Assistant Core
+  needs to be 2026.7.0 or newer.
 - A notify target for your phone. The examples below call `notify.my_phone`;
   use your own `notify.mobile_app_<device>`, or a [notify
   group](https://www.home-assistant.io/integrations/group/#notify-groups) if
@@ -126,7 +131,9 @@ actions:
                 notification_icon: mdi:battery-check
                 notification_icon_color: "#4CAF50"
                 progress_bar_color: "#4CAF50"
+                color: "#4CAF50"
                 silent: false
+                alert_once: false
       - alias: Paused (stopped but still plugged in)
         conditions:
           - condition: trigger
@@ -154,7 +161,9 @@ actions:
                 notification_icon: mdi:ev-plug-type2
                 notification_icon_color: "#ECECE7"
                 progress_bar_color: "#ECECE7"
+                color: "#ECECE7"
                 silent: false
+                alert_once: false
   default:
     - alias: Let state-of-charge, ETA and status sensors settle together
       delay: "00:00:05"
@@ -183,7 +192,9 @@ actions:
               when_relative: false
               notification_icon: mdi:ev-station
               notification_icon_color: "#4CAF50"
+              color: "#4CAF50"
               silent: true
+              alert_once: true
     - alias: Refresh Charged when state-of-charge/ETA arrives late
       if:
         - condition: state
@@ -207,25 +218,57 @@ actions:
               progress_max: 100
               notification_icon: mdi:battery-check
               notification_icon_color: "#4CAF50"
+              color: "#4CAF50"
               silent: true
+              alert_once: true
 mode: restart
 ```
 
 ## Notes
 
 - **`live_update: true`** is what turns a notification into a Live Activity
-  update on the Lock Screen rather than a banner; `silent: true` on the
-  refreshes stops every 5-minute tick from alerting you, while the start,
-  finish and pause notifications stay audible.
+  (iOS) or Live Update (Android) instead of a banner; `silent: true` /
+  `alert_once: true` on the refreshes stop every 5-minute tick from alerting
+  you, while the start, finish and pause notifications stay audible on both
+  platforms.
 - **The 2-minute debounce** on the `Not Charging` and `Charge Complete`
   triggers exists because the cloud can report a brief wrong status while the
   car and charger renegotiate. Without it you can get a false "Paused" alert
   seconds before the car goes back to actually charging.
-- **`tag`** is what Home Assistant uses to update an existing Live Activity in
-  place instead of starting a new one, and to clear it later with
-  `clear_notification`. Keep each automation's tag unique if you add more Live
-  Activities for other things.
-- This was built and is running on a real S07.
+- **`tag`** is what Home Assistant uses to update an existing Live Activity /
+  Live Update in place instead of starting a new one, and to clear it later
+  with `clear_notification`. Keep each automation's tag unique if you add
+  more of these for other things.
+- **`title`** is required on Android for a notification to become a Live
+  Update at all; without it, Android posts a plain banner instead. This
+  automation always sets one, so that isn't something you need to add.
+- This was built and verified running on a real S07, on iOS. The Android
+  side follows the Companion app's own documented behaviour below but hasn't
+  been checked on a real Android phone.
+
+## Platform differences
+
+Most fields behave the same on both platforms (`live_update`, `tag`,
+`title`, `message`, `progress`/`progress_max`, `chronometer`/`when`/
+`when_relative`, `notification_icon` and `clear_notification`). Two pairs
+don't, and the automation above sets both sides of each pair so it behaves
+correctly either way:
+
+- **Colour:** `notification_icon_color` and `progress_bar_color` are iOS
+  only. Android's equivalent is the single key `color`. The automation sets
+  all three to the same value, so iOS gets its icon/progress-bar colour and
+  Android gets its badge colour from the same line.
+- **Quiet refreshes:** `silent` is iOS only ("an update arrives without a
+  sound... has no effect when starting the activity"). Android's equivalent
+  is `alert_once` ("plays sound or vibration only once"), not `silent`
+  itself — setting only `silent: true` has no effect on Android, so the
+  5-minute refreshes could alert every time instead of staying quiet. The
+  automation sets both keys together wherever it previously set `silent`
+  alone.
+
+Reference: the Companion app's own [Live Activities and Live
+Updates](https://companion.home-assistant.io/docs/notifications/live-activities/)
+page documents every field and which platform(s) it applies to.
 
 ## What about a climate / pre-conditioning Live Activity?
 
