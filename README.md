@@ -101,6 +101,17 @@ Commands run one at a time in order (up to four queued). Open/closed buttons hav
 5. Install **Changan Deepal Cloud** from HACS.
 6. Restart Home Assistant.
 
+### Coming from danperks/ha-deepal?
+
+This fork is built on [danperks/ha-deepal](https://github.com/danperks/ha-deepal) (see [About This Fork](#about-this-fork)). I started from it because it already had account login, instead of capturing cookies and tokens as my original integration did, and remote commands, instead of read-only data. I kept the same integration name (`deepal`) so anyone already on this fork keeps their setup and history when they upgrade. The catch is that the two cannot be installed side by side. On Home Assistant 2026.11 and newer the Marketplace refuses to install this repository over the original, with a message like "The deepal directory belongs to danperks/ha-deepal".
+
+There are two ways round it. Take a backup first either way.
+
+- **Start clean (the route the Marketplace itself asks for, recommended).** Delete the Deepal entry under **Settings -> Devices & services**, uninstall danperks/ha-deepal, install this repository, then set the integration up again. You will need to sign in again.
+- **Replace the files by hand.** Download the source of the release you want, copy its `custom_components/deepal` folder over the one in your `config` folder (File editor, Samba or SSH) and restart. This keeps the existing entry. It is **not tested** on the 2026.11 Marketplace, which may still list the old repository as the owner.
+
+The Marketplace warns that uninstalling removes the integration's devices and entities. Your recorded history should stay in the database. Once you set the integration up again, any entity that comes back with the same ID picks its history up again, and automations and dashboards that use it work again. Some entity IDs will differ from the original, so expect to fix a few. [This page](docs/migrating-from-danperks.md) lists every entity that was renamed. Per-entity settings such as renames, areas and labels are lost.
+
 ### Manual
 
 1. Copy `custom_components/deepal` into your Home Assistant `custom_components` directory.
