@@ -10,6 +10,7 @@ Custom Home Assistant integration for the Changan Deepal cloud API.
 
 It supports the **Deepal S07** (telemetry and remote controls), the **Deepal S05** (MQTT telemetry, with opt-in lock, window and boot controls) and the **Deepal E07** (telemetry only). See [Supported Vehicles](#supported-vehicles) for what has actually been tested on each.
 
+> [!IMPORTANT]
 > **Upgrading from 0.3.x?** Windows and Boot are now buttons instead of covers, and sensors are only created for data your car reports. See the [0.4.0 upgrade notes](CHANGELOG.md#040---2026-10-25) before updating.
 
 ## About This Fork
@@ -26,15 +27,18 @@ On top of that base, this fork:
 
 Full details are in [CHANGELOG.md](CHANGELOG.md).
 
-**Note:** because entity keys changed from the upstream fork, upgrading will create new entities rather than renaming existing ones in place — you'll want to re-add any dashboard cards or automations that reference the old entity IDs, and remove the old (orphaned) entities from the entity registry.
+> [!NOTE]
+> Because entity keys changed from the upstream fork, upgrading will create new entities rather than renaming existing ones in place — you'll want to re-add any dashboard cards or automations that reference the old entity IDs, and remove the old (orphaned) entities from the entity registry.
 
 ## Important Warnings
 
-- Use this integration at your own risk.
-- This is an unofficial integration and is not endorsed by Changan or Deepal.
-- Remote commands can affect the vehicle. Make sure it is safe before using controls such as locks, windows, boot, climate, lights, or horn.
+> [!WARNING]
+> **Unofficial and unsupported.** This is a community project, not endorsed by, affiliated with, or supported by Changan or Deepal. It was built by reverse-engineering the official app's own cloud traffic, not from a published API, and either can change or block it at any time without notice.
+
 - This integration cannot be used to drive the car. It does not implement the BLE/digital key path required for drive authorization.
 - Logging in through this integration can log you out of the official Deepal app or other devices. Likewise, logging back into the official app may invalidate the Home Assistant session. Consider creating a separate Deepal user/account for Home Assistant and then 'sharing' car access from your main account in the Deepal app.
+
+See the full [Disclaimer](#disclaimer) at the bottom of this page.
 
 ## Supported Vehicles
 
@@ -59,23 +63,67 @@ If login fails for a region, the account may be homed on a different cluster: pl
 **All vehicles**
 - Email-code and phone/SMS login through Home Assistant, with native reauthentication/repair when the cloud session is invalidated.
 - Telemetry sensors and binary sensors with friendly names, including **Any Door** and **Any Window** (on if any door or window is open). Entities are only created for data your car actually reports, and added later if it first appears later.
-- Vehicle image (falls back to the Deepal logo when the picture is unavailable), VIN as the device serial number, and an OTA status sensor where the car provides one.
-- Remaining charge time as minutes and as an `H:MM` sensor for dashboards.
 - **Download diagnostics** on the device page: protocol detection, mapped and raw signals, and which signals no entity reads yet. VIN, plate, location and tokens are redacted.
 - Manual *Refresh Vehicle Data* button. On MQTT vehicles it wakes a car whose last report is stale, at most once per 5 minutes; the periodic poll never wakes the car.
 
-**S07 controls**
-- Door lock, charge limit and charging schedule, cabin climate, flash lights and horn.
-- Seat heating and ventilation levels (driver and front passenger) and steering-wheel heating.
-- Window and boot **buttons**: Lower Windows, Raise Windows, Open Boot, Close Boot. Their open/closed state is available as binary sensors.
-
-**S05 controls (opt-in)**
-- Door lock, plus the same window and boot buttons, once remote commands are enabled with the control PIN. Climate, charging, lights and horn are not available on MQTT vehicles.
-
-**E07**
-- Telemetry only: battery, range, charging, doors, locks, windows, climate, seats and lamps.
-
 Commands run one at a time in order (up to four queued). Open/closed buttons have no confirmation prompt at integration level; if you want one, set a confirmation on the dashboard card's tap action.
+
+## Features
+
+✅ supported · 🧪 experimental (inferred from one car's report) · ◐ only on cars that report it · ➖ not available
+
+### Read
+
+| Feature | S07 | S05 | E07 |
+| --- | :---: | :---: | :---: |
+| State of charge, range | ✅ | ✅ | ✅ |
+| Charging status, current, remaining charge time | ✅ | ✅ | 🧪 |
+| Charging cable / gun connected | ✅ | ✅ | 🧪 |
+| Charge limit, charging schedule (read) | ✅ | ➖ | ➖ |
+| Doors, windows, boot, Any Door/Any Window | ✅ | ✅ | ✅ |
+| Door lock status | ✅ | ✅ | ◐ |
+| Cabin climate status | ✅ | ✅ | ✅ |
+| Inside temperature, cabin humidity | ✅ | ◐ | ◐ |
+| Cabin air quality / PM2.5 | ◐ | ◐ | ➖ |
+| Outside temperature | ➖ | ✅ | ➖ |
+| Tyre pressure | ✅ | ✅ | ➖ |
+| Tyre pressure warning flag | ➖ | ✅ | ➖ |
+| Lights (beams, position, turn signals) | ✅ | ✅ | ✅ |
+| Seat heating / ventilation status | ✅ | ✅ | ◐ |
+| Steering wheel heater status | ✅ | ➖ | ➖ |
+| Odometer | ✅ | ✅ | ✅ |
+| Vehicle image, VIN, OTA status | ✅ | ◐ | ◐ |
+
+### Control
+
+| Feature | S07 | S05 | E07 |
+| --- | :---: | :---: | :---: |
+| Lock / unlock | ✅ | 🧪 (opt-in, untested on a real S05) | ➖ |
+| Windows, boot (open/close) | ✅ | 🧪 (opt-in, untested on a real S05) | ➖ |
+| Flash lights, honk horn | ✅ | ➖ | ➖ |
+| Cabin climate start/stop, target temperature | ✅ | ➖ | ➖ |
+| Charge limit, charging schedule | ✅ | ➖ | ➖ |
+| Seat heating/ventilation level, steering wheel heater | ✅ | ➖ | ➖ |
+| Manual refresh (wakes a stale car) | ✅ | ✅ | ➖ (REST needs no wake) |
+
+> [!CAUTION]
+> Commands act on a real car. You are responsible for how you use them and for any automations you build on them.
+
+### Entities by platform
+
+| Platform | Examples |
+| --- | --- |
+| Sensor | State of Charge, Estimated Range, Odometer, Charge Status, Charge Current, Remaining Charge Time, Tyre Pressures, Inside/Outside Temperature, Cabin Humidity, Power Status, OTA Status, Vehicle Image URL |
+| Binary sensor | Any Door, Any Window, individual doors/windows, Boot, Driver/Passenger Door Locked, Charging Cable, DC Charge Gun, Charging, Charge Schedule Enabled, Vehicle Connected, lights, Seat Heater/Ventilation On, Tyre Pressure Warning (S05) |
+| Lock | Door lock (S07, opt-in S05) |
+| Climate | Cabin climate (control on S07, read-only elsewhere) |
+| Number | Charge Limit, Seat Heater/Ventilation Level (S07 only) |
+| Switch | Charge Schedule Enabled, Steering Wheel Heater (S07 only) |
+| Time | Charge Schedule Start/End (S07 only) |
+| Button | Refresh Vehicle Data, Flash Lights, Honk Horn, Lower/Raise Windows, Open/Close Boot |
+| Image | Vehicle Image (falls back to the Deepal logo when the picture is unavailable) |
+
+VIN is used as the device serial number. An OTA status sensor is created where the car provides one. Remaining charge time is available both as minutes and as an `H:MM` sensor for dashboards.
 
 ## Known Limitations
 
@@ -105,7 +153,10 @@ Commands run one at a time in order (up to four queued). Open/closed buttons hav
 
 This fork is built on [danperks/ha-deepal](https://github.com/danperks/ha-deepal) (see [About This Fork](#about-this-fork)). I started from it because it already had account login, instead of capturing cookies and tokens as my original integration did, and remote commands, instead of read-only data. I kept the same integration name (`deepal`) so anyone already on this fork keeps their setup and history when they upgrade. The catch is that the two cannot be installed side by side. On Home Assistant 2026.11 and newer the Marketplace refuses to install this repository over the original, with a message like "The deepal directory belongs to danperks/ha-deepal".
 
-There are two ways round it. Take a backup first either way.
+There are two ways round it.
+
+> [!CAUTION]
+> Take a backup first either way.
 
 - **Start clean (the route the Marketplace itself asks for, recommended).** Delete the Deepal entry under **Settings -> Devices & services**, uninstall danperks/ha-deepal, install this repository, then set the integration up again. You will need to sign in again.
 - **Replace the files by hand.** Download the source of the release you want, copy its `custom_components/deepal` folder over the one in your `config` folder (File editor, Samba or SSH) and restart. This keeps the existing entry. It is **not tested** on the 2026.11 Marketplace, which may still list the old repository as the owner.
@@ -156,6 +207,16 @@ During setup, choose the same login method you use in the official Deepal app. I
 - [DylanTusler/ha-deepal](https://github.com/DylanTusler/ha-deepal) for Australia region support.
 - @timalpipo for testing on a live AU E07.
 
-## Development Status
+## Disclaimer
 
-This is early reverse-engineering work. Expect breaking changes, incomplete model support, and occasional cloud API/session issues.
+This is an independent project. It is not affiliated with, authorized by, endorsed by, or in any way officially connected with Changan Automobile Co., Ltd., Deepal, or any of their subsidiaries. Any trademarks mentioned are the property of their respective owners.
+
+> [!WARNING]
+> **Unofficial access.** It was built by reverse engineering how the Deepal app talks to Changan's servers. It does not use a published API. Changan or Deepal can change that at any time, with no warning and no migration path.
+
+- **Terms of service.** Using it may breach the Deepal terms of service in some regions, and could lead to your account being limited or blocked. Consider using a secondary account that has been given access to your car, not your main one.
+- **It controls a real car.** Commands such as lock, unlock, start climate and start charging act on your actual vehicle. You are responsible for how you use them, and for automations you build on them. Do not rely on this for anything safety critical.
+- **Your credentials.** Sign-in tokens are stored in your Home Assistant configuration. Protect your Home Assistant backups and access accordingly.
+- **No warranty and no support from Changan or Deepal.** Use it at your own risk. It is provided as is, as set out in the licence. The authors are not responsible for any consequences of using it, including vehicle malfunctions, warranty implications or account restrictions. **Please do not contact Changan, Deepal or your dealer for help with this integration**; open an issue here instead.
+
+This is also early reverse-engineering work. Expect breaking changes, incomplete model support, and occasional cloud API/session issues. There is no official Home Assistant integration for Deepal at the time of writing; this project exists to fill that gap.

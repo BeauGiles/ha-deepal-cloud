@@ -242,9 +242,10 @@ mode: restart
 - **`title`** is required on Android for a notification to become a Live
   Update at all; without it, Android posts a plain banner instead. This
   automation always sets one, so that isn't something you need to add.
-- This was built and verified running on a real S07, on iOS. The Android
-  side follows the Companion app's own documented behaviour below but hasn't
-  been checked on a real Android phone.
+> [!NOTE]
+> This was built and verified running on a real S07, on iOS. The Android side
+> follows the Companion app's own documented behaviour below but hasn't been
+> checked on a real Android phone.
 
 ## Platform differences
 
@@ -266,18 +267,25 @@ correctly either way:
   automation sets both keys together wherever it previously set `silent`
   alone.
 
+> [!IMPORTANT]
+> If you copy pieces of this automation instead of using it whole, keep
+> `silent`/`alert_once` and `notification_icon_color`/`progress_bar_color`/`color`
+> paired together — setting only the iOS-side key of either pair silently
+> does nothing on Android.
+
 Reference: the Companion app's own [Live Activities and Live
 Updates](https://companion.home-assistant.io/docs/notifications/live-activities/)
 page documents every field and which platform(s) it applies to.
 
 ## What about a climate / pre-conditioning Live Activity?
 
-A simple version of this, triggered directly off `climate.<car>_cabin_climate`
-turning on, does not work: that entity reflects the cabin climate running for
-*any* reason, including the car's own climate once you start driving, not
-just a climate session you started remotely. A naive automation fires the
-Live Activity every time you get in and drive off, not only when you
-pre-conditioned the car before getting in.
+> [!WARNING]
+> A simple version of this, triggered directly off `climate.<car>_cabin_climate`
+> turning on, does not work: that entity reflects the cabin climate running for
+> *any* reason, including the car's own climate once you start driving, not
+> just a climate session you started remotely. A naive automation fires the
+> Live Activity every time you get in and drive off, not only when you
+> pre-conditioned the car before getting in.
 
 A correct version needs to track whether *you* (or a schedule) started the
 session, separately from the entity simply being on, and needs to notice when
@@ -291,8 +299,9 @@ hands control back the moment the car is driven, rather than inferring
 "preconditioning" from the climate state alone. It's worth reading as a
 reference for how to do this correctly, even if you don't install it.
 
-**It will not work with this fork, though.** Companion is built specifically
-against [Sunek0/ha-deepal-alternative](https://github.com/Sunek0/ha-deepal-alternative)'s
-own entity keys (for example its battery sensor's key is `battery_level`,
-where this fork's is `soc`), and it looks for those keys when you try to add
-your car. Installing it here won't find your vehicle at setup.
+> [!CAUTION]
+> It will not work with this fork, though. Companion is built specifically
+> against [Sunek0/ha-deepal-alternative](https://github.com/Sunek0/ha-deepal-alternative)'s
+> own entity keys (for example its battery sensor's key is `battery_level`,
+> where this fork's is `soc`), and it looks for those keys when you try to add
+> your car. Installing it here won't find your vehicle at setup.
