@@ -34,6 +34,10 @@ S07_NEVER_REPORTED = {
     ("binary", "tire_front_right_warning"),
     ("binary", "tire_rear_left_warning"),
     ("binary", "tire_rear_right_warning"),
+    # Fuel (S05 PHEV only); the S07 REST condition has no fuel data at all.
+    ("sensor", "fuel_level"),
+    ("sensor", "fuel_volume"),
+    ("sensor", "fuel_range"),
 }
 
 
@@ -81,6 +85,16 @@ def test_any_door_open_needs_door_data():
     description = next(d for d in BINARY_SENSORS if d.key == "any_door_open")
     assert not _binary_supported(description)({"condition": {}})
     assert _binary_supported(description)({"condition": {"door": {"doors": [0, 0, 0, 0]}}})
+
+
+def test_fuel_sensors_appear_only_for_a_phev():
+    descriptions = [d for d in SENSORS if d.key in ("fuel_level", "fuel_volume", "fuel_range")]
+    assert len(descriptions) == 3
+    for description in descriptions:
+        assert not _sensor_supported(description)({"condition": {}})
+        assert _sensor_supported(description)(
+            {"condition": {"fuel": {"levelPercent": 53, "volumeL": 27, "remainingRangeKm": 410}}}
+        )
 
 
 def test_ota_sensor_needs_ota_data(s07_data):
