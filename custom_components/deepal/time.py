@@ -18,7 +18,11 @@ from .entity import DeepalEntity
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     coordinator: DeepalDataUpdateCoordinator = entry.runtime_data
-    if coordinator.vehicle_uses_mqtt:
+    # S07 always; S05 BEV only, with commands enabled (see
+    # coordinator.s05_charge_schedule_supported). This file holds only
+    # charge-schedule entities, so the whole-file gate can follow the same
+    # rule as the switch above.
+    if coordinator.vehicle_uses_mqtt and not coordinator.s05_charge_schedule_supported:
         return
     async_add_entities(
         [
