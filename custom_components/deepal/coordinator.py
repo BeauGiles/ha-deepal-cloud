@@ -242,10 +242,31 @@ class DeepalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             condition = await self.client.sda_condition(self.vehicle_id)
         elif vehicle_uses_mqtt(vehicle):
             condition = await self._async_mqtt_condition_with_fallback()
+            if vehicle_supports_mqtt_commands(vehicle) and self.client.commands_enabled:
+                await self._async_overlay_charge_plan(condition)
         else:
             await self._async_maybe_active_condition_refresh()
             condition = await self.client.condition(self.vehicle_id)
         return vehicles, condition
+
+    async def _async_overlay_charge_plan(self, condition: dict[str, Any]) -> None:
+        """Merge the REST condition's charge plan list into MQTT telemetry.
+
+        The S05's MQTT reports never include chargePlanList - it is REST-only,
+        same as on the S07 - so the charge-schedule switch/time entities have
+        nothing to read without this. Opt-in only (commands already have to
+        be enabled to reach this), and best-effort: a failure here is logged
+        and otherwise ignored, since it would only hide the optional
+        charge-schedule entities, not break telemetry.
+        """
+        try:
+            rest_condition = await self.client.condition(self.vehicle_id)
+        except DeepalApiError as err:
+            _LOGGER.debug("Deepal: charge plan overlay fetch failed: %s", err)
+            return
+        plans = (rest_condition.get("charge") or {}).get("chargePlanList")
+        if plans is not None:
+            condition.setdefault("charge", {})["chargePlanList"] = plans
 
     async def _async_mqtt_condition_with_fallback(self) -> dict[str, Any]:
         """Read MQTT telemetry; if it fails, use the REST condition and back off.
@@ -321,6 +342,24 @@ class DeepalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def mqtt_commands_supported(self) -> bool:
         """Return whether MQTT remote commands are available for this vehicle."""
         return vehicle_supports_mqtt_commands((self.data or {}).get("vehicle") or {})
+
+    @property
+    def s05_charge_schedule_supported(self) -> bool:
+        """Return whether the charge-schedule switch/time entities should exist.
+
+        S05 BEV only, with commands enabled, for now. The PHEV's plan behaves
+        differently (its "plan 1" is edited in place rather than replaced,
+        per Sunek0/ha-deepal-alternative's reverse engineering) and that is
+        not implemented here yet, so a confirmed PHEV is excluded. The model
+        code is only known once the MQTT envelope has reported one; until
+        then this proceeds optimistically rather than blocking a BEV whose
+        code just hasn't arrived yet - this whole feature requires commands
+        to already be explicitly enabled, so that's an accepted, opt-in risk.
+        """
+        if not (self.mqtt_commands_supported and self.client.commands_enabled):
+            return False
+        model_code = (self.client.last_mqtt_model_code or "").upper()
+        return not model_code.endswith("HEV")
 
     def _should_wake(self, report_ts: int | None) -> bool:
         """Return whether a manual refresh should wake the car.
