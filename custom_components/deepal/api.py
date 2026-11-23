@@ -17,6 +17,7 @@ import math
 import ssl
 import struct
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -33,6 +34,7 @@ from .const import (
     CA_BASE_URL,
     DEFAULT_GATEWAY,
     MQTT_CONFIG_TTL,
+    MQTT_LIVE_SESSION_DURATION,
     MQTT_TOKEN_TTL,
     REQUEST_ENCRYPTION_PUBLIC_KEY,
     region_for_country,
@@ -1666,6 +1668,35 @@ class DeepalClient:
             header_overrides=overrides,
         )
 
+    async def mqtt_live_condition_stream(
+        self,
+        vehicle_id: str,
+        on_condition: Callable[[dict[str, Any]], None],
+        *,
+        duration: float = MQTT_LIVE_SESSION_DURATION,
+    ) -> None:
+        """Keep one MQTT connection open and push every condition update.
+
+        Runs for approximately ``duration`` seconds then returns normally, so
+        the caller can simply call this again in a loop for a continuous live
+        session (see coordinator's live MQTT session). ``on_condition`` is
+        called with a merged condition dict each time the car reports enough
+        new data to be worth a push.
+
+        Literal ``MQTT`` vehicles (S05) only; this is not meant to be called
+        for an SDA-MQTT (E07) vehicle, which this integration has no evidence
+        supports it.
+        """
+        if not self.user_id:
+            raise DeepalApiError("MQTT telemetry requires user id; reauthenticate the integration")
+        try:
+            config = await self._mqtt_config(vehicle_id)
+            token = await self._mqtt_token()
+            await self._mqtt_read_condition_stream(config, token, on_condition, duration)
+        except DeepalApiError:
+            self._invalidate_mqtt_caches()
+            raise
+
     async def mqtt_condition(self, vehicle_id: str) -> dict[str, Any]:
         """Fetch and decrypt condition data from the MQTT telemetry path."""
         if not self.user_id:
@@ -2158,6 +2189,130 @@ class DeepalClient:
                     return _mqtt_condition_from_params(partial_params, self.drive_side)
 
             return _mqtt_condition_from_params(partial_params, self.drive_side) if partial_params else {}
+        finally:
+            writer.close()
+            try:
+                await writer.wait_closed()
+            except (ConnectionError, TimeoutError, ssl.SSLError):
+                pass
+
+    async def _mqtt_read_condition_stream(
+        self,
+        config: dict[str, Any],
+        token: str,
+        on_condition: Callable[[dict[str, Any]], None],
+        duration: float,
+    ) -> None:
+        """Connect/login/subscribe once (same flow as _mqtt_read_condition),
+        then keep reading for ``duration`` seconds, pushing a merged condition
+        on every report the car sends, instead of returning after the first
+        one. Deltas accumulate for the life of this one connection cycle;
+        the caller starts a fresh cycle (and so a fresh accumulator) after
+        this returns, which also naturally clears out anything stale.
+        """
+        info = ((config.get("mqttConnectionInfos") or [None])[0]) or {}
+        cluster = ((info.get("clusterInfos") or [None])[0]) or {}
+        host = str(cluster.get("brokerUrl", "")).replace("ssl://", "")
+        port = int(cluster.get("brokerPort") or 8883)
+        topics: list[str] = []
+        login_pub_topic: str | None = None
+        login_did: str | None = None
+        properties_get_topic: str | None = None
+        device_did: str | None = None
+
+        for topic_info in info.get("topicInfos") or []:
+            msg_type = topic_info.get("msgType")
+            for topic in topic_info.get("pubTopics") or []:
+                if msg_type == "loginout" and "/loginout/req" in topic:
+                    login_pub_topic = topic
+                    login_did = self._mqtt_topic_did(topic)
+                if msg_type == "properties" and "/properties/get/req" in topic:
+                    properties_get_topic = topic
+                    device_did = self._mqtt_topic_did(topic)
+            for topic in topic_info.get("subTopics") or []:
+                if "/commands/" not in topic and "/set/" not in topic:
+                    topics.append(topic)
+                if device_did is None and "/properties/" in topic:
+                    device_did = self._mqtt_topic_did(topic)
+
+        self.last_mqtt_topics = self._mqtt_topic_summary(info)
+        if not host or not login_pub_topic or not login_did or not properties_get_topic or not device_did:
+            raise DeepalApiError("MQTT config did not include required topics")
+
+        context = await asyncio.to_thread(ssl.create_default_context)
+        reader: asyncio.StreamReader
+        writer: asyncio.StreamWriter
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_connection(host, port, ssl=context, server_hostname=host),
+            timeout=15,
+        )
+        try:
+            writer.write(_mqtt_connect_packet(login_did, login_did, token))
+            await writer.drain()
+            first, body = await asyncio.wait_for(_mqtt_read_packet(reader), timeout=15)
+            rc = body[1] if first == 0x20 and len(body) >= 2 else None
+            if rc != 0:
+                raise DeepalApiError(f"MQTT broker rejected connection: rc={rc}")
+
+            writer.write(_mqtt_subscribe_packet(1, sorted(set(topics))))
+            await writer.drain()
+            await asyncio.wait_for(_mqtt_read_packet(reader), timeout=15)
+
+            login_req_id = self._mqtt_req_id(login_did)
+            writer.write(
+                _mqtt_publish_packet(login_pub_topic, self._mqtt_login_payload(login_did, login_req_id))
+            )
+            await writer.drain()
+
+            secret_key: str | None = None
+            accumulated: dict[str, Any] = {}
+            deadline = time.monotonic() + duration
+
+            while time.monotonic() < deadline:
+                try:
+                    first, body = await asyncio.wait_for(
+                        _mqtt_read_packet(reader),
+                        timeout=max(1, deadline - time.monotonic()),
+                    )
+                except TimeoutError:
+                    # Nothing arrived before the deadline: a normal, healthy
+                    # end to this cycle (not a failure), so the caller
+                    # reconnects quickly rather than backing off.
+                    break
+                if first >> 4 != 3:
+                    continue
+                parsed = _mqtt_try_parse_publish(first, body)
+                if parsed is None:
+                    continue
+                topic, payload, packet_id = parsed
+                if packet_id is not None:
+                    writer.write(bytes([0x40, 0x02]) + struct.pack("!H", packet_id))
+                    await writer.drain()
+
+                self.last_mqtt_model_code = _mqtt_model_code(payload) or self.last_mqtt_model_code
+
+                if not secret_key:
+                    secret_key = self._mqtt_secret_from_payload(payload)
+                    if secret_key:
+                        condition_req_id = self._mqtt_req_id(device_did)
+                        writer.write(
+                            _mqtt_publish_packet(
+                                properties_get_topic,
+                                self._mqtt_condition_request_payload(
+                                    device_did, login_did, secret_key, condition_req_id
+                                ),
+                            )
+                        )
+                        await writer.drain()
+                    continue
+
+                params = self._mqtt_condition_params_from_payload(payload, secret_key)
+                if not params:
+                    continue
+                accumulated.update(params)
+                condition = _mqtt_condition_from_params(accumulated, self.drive_side)
+                if condition:
+                    on_condition(condition)
         finally:
             writer.close()
             try:

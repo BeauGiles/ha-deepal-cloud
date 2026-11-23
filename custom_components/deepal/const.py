@@ -59,6 +59,7 @@ CONF_PRIVATE_KEY = "private_key_pem"
 CONF_LOGIN_METHOD = "login_method"
 CONF_ENABLE_COMMANDS = "enable_commands"
 CONF_ENABLE_API_LOGGING = "enable_api_logging"
+CONF_ENABLE_LIVE_MQTT = "enable_live_mqtt"
 CONF_ACTIVE_REFRESH_INTERVAL = "active_refresh_interval"
 CONF_RC_TOKEN = "rc_token"
 CONF_CONTROL_PIN = "control_pin"
@@ -93,6 +94,16 @@ AC_MAX_TEMP_C = 32.0
 # instead of hammering the gateway every poll.
 MQTT_BACKOFF_BASE = 60  # seconds after the first failure; doubles each time
 MQTT_BACKOFF_MAX = 600  # seconds
+
+# Live MQTT session (S05, literal "MQTT" only - see vehicle_uses_mqtt/_uses_sda).
+# Each connection cycle is bounded rather than kept open indefinitely, so no
+# PINGREQ keepalive is needed: the connect/login/subscribe sequence is the
+# same proven one-shot flow used elsewhere, just kept reading and pushing
+# updates until the duration elapses, then reconnected fresh.
+MQTT_LIVE_SESSION_DURATION = 240  # seconds per connection cycle
+MQTT_LIVE_RECONNECT_DELAY = 2  # seconds before starting the next cycle after a clean one
+MQTT_LIVE_ERROR_BACKOFF_BASE = 5  # seconds after a failed cycle; doubles each time
+MQTT_LIVE_ERROR_BACKOFF_MAX = 120  # seconds
 
 # The CA bootstrap is per vehicle and practically static, and the auth token is
 # account level, so both are reused instead of fetched on every MQTT session.

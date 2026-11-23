@@ -18,6 +18,7 @@ from .const import (
     CONF_DEVICE_ID,
     CONF_ENABLE_API_LOGGING,
     CONF_ENABLE_COMMANDS,
+    CONF_ENABLE_LIVE_MQTT,
     CONF_LANGUAGE,
     CONF_PRIVATE_KEY,
     CONF_RC_TOKEN,
@@ -28,6 +29,8 @@ from .const import (
     DEFAULT_COUNTRY,
     DEFAULT_LANGUAGE,
     PLATFORMS,
+    vehicle_uses_mqtt,
+    vehicle_uses_sda,
 )
 from .coordinator import DeepalDataUpdateCoordinator
 
@@ -56,6 +59,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    # Live MQTT session: literal "MQTT" vehicles (S05) only, opt-in. The E07
+    # also satisfies vehicle_uses_mqtt (its protocolType is "SDA-MQTT"), so
+    # vehicle_uses_sda is checked too, to keep this off it until it's known
+    # to work there.
+    vehicle = (coordinator.data or {}).get("vehicle") or {}
+    if data.get(CONF_ENABLE_LIVE_MQTT, False) and vehicle_uses_mqtt(vehicle) and not vehicle_uses_sda(vehicle):
+        coordinator.start_live_mqtt_session()
+        entry.async_on_unload(coordinator.stop_live_mqtt_session)
 
     # Reload only when the user's actual *options* (set via the options flow)
     # change - not on every entry.data save. Refreshing the access token also

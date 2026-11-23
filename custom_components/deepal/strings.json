@@ -74,6 +74,7 @@
           "control_pin": "Control PIN",
           "enable_commands": "Enable remote commands",
           "enable_api_logging": "Enable redacted API logging",
+          "enable_live_mqtt": "Keep a live MQTT connection (S05 only)",
           "reauthenticate": "Reauthenticate now"
         },
         "data_description": {
@@ -82,6 +83,7 @@
           "control_pin": "The same PIN used for remote controls in the official Deepal app. Required when remote commands are enabled.",
           "enable_commands": "Allow Home Assistant to send signed commands such as refresh, lock, climate, charging, windows, boot, seat and steering wheel heating, lights, and horn. MQTT vehicles (e.g. S05) support lock, windows and boot only.",
           "enable_api_logging": "Write redacted Deepal API requests and responses to the Home Assistant log for troubleshooting. Tokens, PINs, signatures, keys, and account identifiers are filtered, but vehicle data may still appear. Leave disabled unless debugging.",
+          "enable_live_mqtt": "Experimental. Keeps one MQTT connection open to push telemetry updates between the normal polls, instead of waiting for the next one. Only has an effect on an S05 reporting protocol MQTT (not the E07's SDA-MQTT, which this is not known to work with yet). The regular poll keeps running underneath this either way, so turning this off (or a connection failure) never makes data go stale beyond the usual poll interval. Untested on a real S05.",
           "reauthenticate": "Logs in again to get a fresh command-signing key, without deleting or re-adding the integration. Use this if remote commands (lock, windows, boot, climate, charging, lights, horn) fail outright while vehicle data still updates normally. Any other changes made in this same submission are ignored - reopen this dialog afterward for those."
         }
       }

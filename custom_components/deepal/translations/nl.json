@@ -74,6 +74,7 @@
           "control_pin": "Bedieningspincode",
           "enable_commands": "Opdrachten op afstand inschakelen",
           "enable_api_logging": "Geredigeerde API-logging inschakelen",
+          "enable_live_mqtt": "Een live MQTT-verbinding behouden (alleen S05)",
           "reauthenticate": "Nu opnieuw authenticeren"
         },
         "data_description": {
@@ -82,6 +83,7 @@
           "control_pin": "Dezelfde pincode die je gebruikt voor de bediening op afstand in de officiële Deepal-app. Vereist als opdrachten op afstand zijn ingeschakeld.",
           "enable_commands": "Laat Home Assistant ondertekende opdrachten sturen, zoals verversen, vergrendelen, klimaat, laden, ramen, kofferbak, stoel- en stuurverwarming, verlichting en claxon. MQTT-voertuigen (bijv. S05) ondersteunen alleen vergrendelen, ramen en kofferbak.",
           "enable_api_logging": "Schrijf geredigeerde Deepal API-verzoeken en -antwoorden naar het Home Assistant-logboek voor probleemoplossing. Tokens, pincodes, handtekeningen, sleutels en accountidentificatoren worden gefilterd, maar voertuiggegevens kunnen nog zichtbaar zijn. Laat dit uitgeschakeld, tenzij je aan het debuggen bent.",
+          "enable_live_mqtt": "Experimenteel. Houdt één MQTT-verbinding open om telemetrie-updates tussen de normale polls te verzenden, in plaats van op de volgende te wachten. Heeft alleen effect op een S05 die protocol MQTT rapporteert (niet de SDA-MQTT van de E07, waarvan nog niet bekend is dat dit werkt). De normale poll blijft hoe dan ook actief, dus het uitschakelen hiervan (of een verbindingsfout) zorgt er nooit voor dat gegevens verouderd raken voorbij het gebruikelijke pollinterval. Niet getest op een echte S05.",
           "reauthenticate": "Logt opnieuw in om een nieuwe sleutel voor het ondertekenen van opdrachten te krijgen, zonder de integratie te verwijderen of opnieuw toe te voegen. Gebruik dit als opdrachten op afstand (vergrendelen, ramen, kofferbak, klimaat, laden, verlichting, claxon) volledig mislukken terwijl de voertuiggegevens normaal blijven bijwerken. Andere wijzigingen in dezelfde opslag worden genegeerd; open dit venster daarna opnieuw om die door te voeren."
         }
       }
