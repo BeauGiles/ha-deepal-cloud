@@ -6,6 +6,9 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
 ### Added
 
+- **Live MQTT telemetry session for the S05 (experimental, opt-in, off by default).** A new "Keep a live MQTT connection" option keeps one MQTT connection open and pushes every telemetry update the car sends between the normal polls, instead of waiting for the next one. Built on the same connect/login/subscribe sequence the existing one-shot MQTT read already uses, just kept open and reading for ~4 minutes per cycle (reconnecting immediately after) instead of returning after the first report; no new keepalive/PINGREQ handling was needed as a result. The regular poll keeps running on its own schedule underneath this either way, so a live-session outage or simply leaving the option off never makes data go stale beyond the usual poll interval. **Literal `MQTT` vehicles only (S05).** The E07 also matches `vehicle_uses_mqtt` internally (its `protocolType` is `SDA-MQTT`), but this is explicitly excluded from it, since it isn't known to work there yet. **Untested on a real S05.**
+### Added
+
 - **Tyre-pressure-warning sensors (S05 only).** `api.py` already parsed the car's per-wheel `lfPressureWarning`/`rfPressureWarning`/`lrPressureWarning`/`rrPressureWarning` flags from S05 MQTT telemetry, but nothing read them. Four new binary sensors (Front Left/Right and Rear Left/Right Tyre Pressure Warning) expose them. They stay hidden on S07 and E07 cars, whose condition data has no such field; those models only have the four raw pressure sensors.
 
 ## [0.4.2-beta1] - 2026-11-19

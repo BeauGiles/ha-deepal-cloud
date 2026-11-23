@@ -35,6 +35,10 @@ from .const import (
     MAX_QUEUED_COMMANDS,
     MQTT_BACKOFF_BASE,
     MQTT_BACKOFF_MAX,
+    MQTT_LIVE_ERROR_BACKOFF_BASE,
+    MQTT_LIVE_ERROR_BACKOFF_MAX,
+    MQTT_LIVE_RECONNECT_DELAY,
+    MQTT_LIVE_SESSION_DURATION,
     RATE_LIMIT_MAX_BACKOFF,
     RATE_LIMIT_MIN_BACKOFF,
     SESSION_REFRESH_MIN_INTERVAL,
@@ -93,6 +97,70 @@ class DeepalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._rate_limited_until = 0.0
         self._last_session_refresh: float | None = None
         self._wake_lock = asyncio.Lock()
+        self._live_mqtt_task: asyncio.Task[None] | None = None
+
+    def start_live_mqtt_session(self) -> None:
+        """Start the live MQTT session as a background task tied to this entry.
+
+        Idempotent: does nothing if a session is already running. The caller
+        is responsible for only calling this for a literal "MQTT" vehicle
+        (see vehicle_uses_mqtt/vehicle_uses_sda) with the option enabled -
+        this does not re-check either.
+        """
+        if self._live_mqtt_task is not None and not self._live_mqtt_task.done():
+            return
+        self._live_mqtt_task = self.entry.async_create_background_task(
+            self.hass, self._async_live_mqtt_loop(), name=f"deepal_live_mqtt_{self.entry.entry_id}"
+        )
+
+    async def stop_live_mqtt_session(self) -> None:
+        """Cancel the live MQTT session and wait for it to actually stop."""
+        task, self._live_mqtt_task = self._live_mqtt_task, None
+        if task is None:
+            return
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+    async def _async_live_mqtt_loop(self) -> None:
+        """Reconnect loop around DeepalClient.mqtt_live_condition_stream.
+
+        A cycle that completes normally (the bounded duration elapsed) is
+        followed by a short, fixed delay before the next one; a cycle that
+        raises is followed by an exponential backoff. Either way, this never
+        stops on its own - only cancellation (stop_live_mqtt_session) ends
+        it - so a transient failure does not silently turn this feature off.
+        """
+        failures = 0
+        while True:
+            try:
+                await self.client.mqtt_live_condition_stream(
+                    self.vehicle_id, self._on_live_condition, duration=MQTT_LIVE_SESSION_DURATION
+                )
+            except asyncio.CancelledError:
+                raise
+            except Exception as err:  # noqa: BLE001 - any failure just retries with backoff
+                failures += 1
+                delay = min(MQTT_LIVE_ERROR_BACKOFF_MAX, MQTT_LIVE_ERROR_BACKOFF_BASE * 2 ** (failures - 1))
+                _LOGGER.debug("Deepal live MQTT session error (%s); retrying in %s s", err, delay)
+            else:
+                failures = 0
+                delay = MQTT_LIVE_RECONNECT_DELAY
+            await asyncio.sleep(delay)
+
+    def _on_live_condition(self, condition: dict[str, Any]) -> None:
+        """Push a live MQTT update between polls, without disturbing the rest
+        of the coordinator's data (vehicle list, vehicle metadata, OTA).
+
+        This runs alongside the existing periodic poll, not instead of it:
+        the poll keeps running on its own schedule regardless of whether this
+        session is healthy, so a live-session outage never makes telemetry go
+        stale beyond the normal poll interval.
+        """
+        current = self.data or {}
+        self.async_set_updated_data({**current, "condition": condition})
 
     def _start_rate_limit_backoff(self, err: DeepalRateLimitError) -> float:
         """Stop calling the API for the gateway's Retry-After (bounded); return the delay."""

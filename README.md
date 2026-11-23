@@ -129,6 +129,7 @@ VIN is used as the device serial number. An OTA status sensor is created where t
 
 - **E07:** No remote controls. The app sends them over a separate MQTT broker that is not implemented. Tyre pressures, outside temperature and humidity are not mapped yet, and the charging-state mapping is inferred from one car's report.
 - **S05:** The MQTT telemetry changes (including the charging-state mapping), the wake and the lock/window/boot commands in this fork have not been tested on a real S05. The command protocol comes from [kobizz/ha-deepal](https://github.com/kobizz/ha-deepal), validated there on an Israel-market S05.
+- **S05 live MQTT session (opt-in, off by default):** also untested on a real S05. Only for a vehicle reporting protocol `MQTT`; excluded for the E07, which is not known to work with it.
 - **The Lower/Raise Windows and Open/Close Boot buttons** are confirmed working on an S07. They are untested on the S05, and the command queue (several commands in quick succession) is covered by unit tests but has not been checked on a real car.
 - **Other regions and models** are unverified (see above).
 - Only the data the cloud provides is available; some cars report only while awake.
