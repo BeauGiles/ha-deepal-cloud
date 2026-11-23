@@ -17,9 +17,17 @@ from .entity import DeepalEntity
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     coordinator: DeepalDataUpdateCoordinator = entry.runtime_data
-    if coordinator.vehicle_uses_mqtt:
-        return
-    async_add_entities([DeepalChargeScheduleSwitch(coordinator), DeepalSteeringWheelHeatSwitch(coordinator)])
+    entities: list[SwitchEntity] = []
+    # Charge schedule: S07 always; S05 BEV only, with commands enabled, and
+    # only once the REST overlay has given it a plan list to read (see
+    # coordinator.s05_charge_schedule_supported and _async_overlay_charge_plan).
+    if not coordinator.vehicle_uses_mqtt or coordinator.s05_charge_schedule_supported:
+        entities.append(DeepalChargeScheduleSwitch(coordinator))
+    # Steering wheel heating stays S07-only; no evidence this REST command
+    # works for an MQTT vehicle.
+    if not coordinator.vehicle_uses_mqtt:
+        entities.append(DeepalSteeringWheelHeatSwitch(coordinator))
+    async_add_entities(entities)
 
 
 def _charge_plan(condition: dict[str, Any]) -> dict[str, Any]:
