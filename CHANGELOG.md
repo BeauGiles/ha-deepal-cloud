@@ -7,9 +7,12 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 ### Added
 
 - **Charge schedule for the S05 BEV (experimental, opt-in).** The Charge Schedule switch and the Charge Schedule Start/End time entities, previously S07-only, now also appear for an S05 BEV once remote commands are enabled. The car's own `chargePlanList` is REST-only (not in the MQTT telemetry), so the coordinator now overlays a REST condition read onto the MQTT one whenever commands are enabled, best-effort: a failed overlay only hides these entities, it doesn't affect telemetry. Like the existing S07 switch/time entities, they need a schedule plan to already exist (set once from the official app) before Home Assistant can read or change it. **Deliberately excluded:** the S05 PHEV, whose schedule plan behaves differently (the app edits one fixed "plan 1" in place rather than replacing it) and isn't implemented here yet; also the E07, which has no remote commands at all. **Completely untested on a real S05** - there is currently no S05 owner testing this fork. Please report back if you try it.
-### Added
-
+- **Fuel sensors for the S05 PHEV** (Fuel Level, Fuel Volume, Fuel Range). `api.py` now maps the car's `remainingFuel`/`fuelLeftover`/`remainedOilMile` MQTT fields. Raw field names and the real captured values (27 L at 53% on a live S05 PHEV) come from Sunek0/ha-deepal-alternative (MIT). No tank-capacity sensor is added, matching their own finding that the car never reports one. These stay hidden on a BEV, S07 or E07, which have no fuel data at all. Read-only; charge-schedule and other PHEV-specific controls are a separate, later piece of work.
 - **Tyre-pressure-warning sensors (S05 only).** `api.py` already parsed the car's per-wheel `lfPressureWarning`/`rfPressureWarning`/`lrPressureWarning`/`rrPressureWarning` flags from S05 MQTT telemetry, but nothing read them. Four new binary sensors (Front Left/Right and Rear Left/Right Tyre Pressure Warning) expose them. They stay hidden on S07 and E07 cars, whose condition data has no such field; those models only have the four raw pressure sensors.
+
+### Fixed
+
+- **The Vehicle Image now keeps showing the last real photo across a failed or slow refetch**, instead of dropping straight to the bundled Deepal logo. The cloud's image URL can change (it looked hash-obfuscated/session-scoped), and if the new URL's fetch failed or didn't finish quickly, the entity used to show the generic logo even though it already had a perfectly good photo. It now only falls back to the logo when there has never been a successful fetch at all (idea from Sunek0/ha-deepal-alternative, MIT).
 
 ## [0.4.2-beta1] - 2026-11-19
 

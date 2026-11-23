@@ -218,6 +218,15 @@
       },
       "sda_data": {
         "name": "SDA Data"
+      },
+      "fuel_level": {
+        "name": "Fuel Level"
+      },
+      "fuel_volume": {
+        "name": "Fuel Volume"
+      },
+      "fuel_range": {
+        "name": "Fuel Range"
       }
     },
     "binary_sensor": {

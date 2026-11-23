@@ -81,6 +81,7 @@ class DeepalVehicleImage(DeepalEntity, ImageEntity):
         self._session = async_get_clientsession(hass)
         self._last_url: str | None = None
         self._image_bytes: bytes | None = None
+        self._image_bytes_url: str | None = None  # which URL _image_bytes was fetched from
         self._fallback_bytes: bytes | None = None
         self._failed_at: float | None = None
         self._fetch_task: asyncio.Task[bytes | None] | None = None
@@ -113,9 +114,12 @@ class DeepalVehicleImage(DeepalEntity, ImageEntity):
         current_url = self._source_url
         if current_url and current_url != self._last_url:
             self._last_url = current_url
-            self._image_bytes = None  # force a re-fetch on next async_image()
             self._failed_at = None
-            self._attr_image_last_updated = datetime.now(UTC)
+            # Keep serving the last successfully fetched picture (if any) while
+            # the new URL is fetched in the background; async_image() only
+            # replaces it once that fetch succeeds, and _attr_image_last_updated
+            # is only bumped on success too (idea from
+            # Sunek0/ha-deepal-alternative, MIT).
             self._async_start_fetch()
         super()._handle_coordinator_update()
 
@@ -164,6 +168,7 @@ class DeepalVehicleImage(DeepalEntity, ImageEntity):
             log("Deepal: vehicle image fetch failed (%s: %s); using the bundled picture", type(err).__name__, err)
             return None
         self._image_bytes = data
+        self._image_bytes_url = url
         self._failed_at = None
         self._warned = False
         self._attr_content_type = content_type
@@ -173,16 +178,25 @@ class DeepalVehicleImage(DeepalEntity, ImageEntity):
         return data
 
     async def async_image(self) -> bytes | None:
-        """Return the API image, or the bundled fallback if it is unavailable."""
-        if self._image_bytes is not None:
-            return self._image_bytes
+        """Return the freshest API image.
+
+        While a fetch is in flight or has recently failed, this serves the
+        last successfully downloaded picture instead of jumping straight to
+        the bundled fallback - a real, slightly stale photo beats the generic
+        logo. The fallback is only used when there has never been a
+        successful fetch.
+        """
         if not self._source_url:
-            return await self._async_fallback()
+            return self._image_bytes if self._image_bytes is not None else await self._async_fallback()
+        if self._image_bytes is not None and self._image_bytes_url == self._source_url:
+            return self._image_bytes  # already have the current picture; no fetch needed
         if self._failed_at is not None and time.monotonic() - self._failed_at < API_IMAGE_RETRY_AFTER:
-            return await self._async_fallback()
+            return self._image_bytes if self._image_bytes is not None else await self._async_fallback()
         self._async_start_fetch()
         try:
             data = await asyncio.wait_for(asyncio.shield(self._fetch_task), timeout=API_IMAGE_WAIT)
         except TimeoutError:
             data = None
-        return data if data is not None else await self._async_fallback()
+        if data is not None:
+            return data
+        return self._image_bytes if self._image_bytes is not None else await self._async_fallback()

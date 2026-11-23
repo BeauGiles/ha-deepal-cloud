@@ -65,6 +65,25 @@ class TestTirePressureWarning:
         condition = mqtt({})
         assert condition["tire"]["leftFront"]["warning"] is None
 
+
+class TestFuel:
+    def test_phev_fuel_fields_are_read(self):
+        # Matches a real capture: 27 L at 53% on a live S05 PHEV.
+        condition = mqtt({"remainingFuel": 53, "fuelLeftover": 27, "remainedOilMile": 410})
+        assert condition["fuel"]["levelPercent"] == 53
+        assert condition["fuel"]["volumeL"] == 27
+        assert condition["fuel"]["remainingRangeKm"] == 410
+
+    def test_absent_entirely_on_a_bev(self):
+        condition = mqtt({})
+        assert condition["fuel"]["levelPercent"] is None
+        assert condition["fuel"]["volumeL"] is None
+        assert condition["fuel"]["remainingRangeKm"] is None
+
+    def test_255_sentinel_is_unknown_not_255_percent(self):
+        condition = mqtt({"remainingFuel": 255})
+        assert condition["fuel"]["levelPercent"] is None
+
     @pytest.mark.parametrize("key", ["hood", "hoodStatus"])
     def test_hood_keys(self, key):
         assert mqtt({key: 1})["door"]["hood"] == 1
