@@ -4,6 +4,10 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
 ## [Unreleased]
 
+## [0.4.3-beta1] - 2026-11-24
+
+**Beta.** Four new, experimental, opt-in features for the **S05**, none of them tested on a real S05 yet, plus a general fix for the vehicle photo. Install it from HACS with **Redownload → Show beta versions**. **If you have an S05 or an S05 PHEV, please try these out and report back** - this is the first real S05-specific work since the fork started, and it needs real-car feedback to go further. Home Assistant 2026.3.0 or newer is still required.
+
 ### Added
 
 - **Live MQTT telemetry session for the S05 (experimental, opt-in, off by default).** A new "Keep a live MQTT connection" option keeps one MQTT connection open and pushes every telemetry update the car sends between the normal polls, instead of waiting for the next one. Built on the same connect/login/subscribe sequence the existing one-shot MQTT read already uses, just kept open and reading for ~4 minutes per cycle (reconnecting immediately after) instead of returning after the first report; no new keepalive/PINGREQ handling was needed as a result. The regular poll keeps running on its own schedule underneath this either way, so a live-session outage or simply leaving the option off never makes data go stale beyond the usual poll interval. **Literal `MQTT` vehicles only (S05).** The E07 also matches `vehicle_uses_mqtt` internally (its `protocolType` is `SDA-MQTT`), but this is explicitly excluded from it, since it isn't known to work there yet. **Untested on a real S05.**
