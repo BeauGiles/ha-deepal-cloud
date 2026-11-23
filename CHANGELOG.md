@@ -6,6 +6,10 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
 ### Added
 
+- **Fuel sensors for the S05 PHEV** (Fuel Level, Fuel Volume, Fuel Range). `api.py` now maps the car's `remainingFuel`/`fuelLeftover`/`remainedOilMile` MQTT fields. Raw field names and the real captured values (27 L at 53% on a live S05 PHEV) come from Sunek0/ha-deepal-alternative (MIT). No tank-capacity sensor is added, matching their own finding that the car never reports one. These stay hidden on a BEV, S07 or E07, which have no fuel data at all. Read-only; charge-schedule and other PHEV-specific controls are a separate, later piece of work.
+
+### Added
+
 - **Tyre-pressure-warning sensors (S05 only).** `api.py` already parsed the car's per-wheel `lfPressureWarning`/`rfPressureWarning`/`lrPressureWarning`/`rrPressureWarning` flags from S05 MQTT telemetry, but nothing read them. Four new binary sensors (Front Left/Right and Rear Left/Right Tyre Pressure Warning) expose them. They stay hidden on S07 and E07 cars, whose condition data has no such field; those models only have the four raw pressure sensors.
 
 ### Fixed

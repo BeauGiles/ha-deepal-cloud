@@ -1068,6 +1068,15 @@ def _mqtt_condition_from_params(params: dict[str, Any], drive_side: str | None =
             "leftBack": {"pressure": _as_float(params.get("lrTyrePressure")), "warning": _as_int(params.get("lrPressureWarning"))},
             "rightBack": {"pressure": _as_float(params.get("rrTyrePressure")), "warning": _as_int(params.get("rrPressureWarning"))},
         },
+        # S05 PHEV only; absent entirely on a BEV, so these stay unknown/hidden
+        # there and on every other model. No tank-capacity field is known to
+        # exist (Sunek0/ha-deepal-alternative, MIT, removed their own attempt
+        # at one as always-unknown), so it isn't mapped here either.
+        "fuel": {
+            "levelPercent": _percent_or_none(_as_int(params.get("remainingFuel"))),
+            "volumeL": _as_float(params.get("fuelLeftover")),
+            "remainingRangeKm": _as_int(params.get("remainedOilMile")),
+        },
         "seat": {
             "leftFront": seat_left,
             "rightFront": seat_right,

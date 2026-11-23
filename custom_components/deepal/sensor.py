@@ -13,7 +13,7 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import MATCH_ALL, PERCENTAGE, UnitOfLength, UnitOfTemperature
+from homeassistant.const import MATCH_ALL, PERCENTAGE, UnitOfLength, UnitOfTemperature, UnitOfVolume
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -116,6 +116,9 @@ SENSOR_NAMES = {
     "tire_front_right_pressure": "Front Right Tyre Pressure",
     "tire_rear_left_pressure": "Rear Left Tyre Pressure",
     "tire_rear_right_pressure": "Rear Right Tyre Pressure",
+    "fuel_level": "Fuel Level",
+    "fuel_volume": "Fuel Volume",
+    "fuel_range": "Fuel Range",
     "driver_seat_heater_level": "Driver Seat Heater Level",
     "front_passenger_seat_heater_level": "Front Passenger Seat Heater Level",
     "rear_left_seat_heater_level": "Rear Left Seat Heater Level",
@@ -314,6 +317,32 @@ SENSORS: tuple[DeepalSensorDescription, ...] = (
         device_class=SensorDeviceClass.PRESSURE,
         state_class=SensorStateClass.MEASUREMENT,
         path=("tire", "rightBack", "pressure"),
+    ),
+    # S05 PHEV only (Sunek0/ha-deepal-alternative, MIT, for the raw field
+    # names, hardware-validated against a real S05 PHEV). Absent on a BEV, so
+    # hidden there, on S07 and on E07.
+    DeepalSensorDescription(
+        key="fuel_level",
+        translation_key="fuel_level",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        path=("fuel", "levelPercent"),
+    ),
+    DeepalSensorDescription(
+        key="fuel_volume",
+        translation_key="fuel_volume",
+        native_unit_of_measurement=UnitOfVolume.LITERS,
+        device_class=SensorDeviceClass.VOLUME_STORAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        path=("fuel", "volumeL"),
+    ),
+    DeepalSensorDescription(
+        key="fuel_range",
+        translation_key="fuel_range",
+        native_unit_of_measurement=UnitOfLength.KILOMETERS,
+        device_class=SensorDeviceClass.DISTANCE,
+        state_class=SensorStateClass.MEASUREMENT,
+        path=("fuel", "remainingRangeKm"),
     ),
     DeepalSensorDescription(
         key="driver_seat_heater_level",
