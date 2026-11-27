@@ -51,6 +51,15 @@ _S05_OPEN = 1
 _S05_CLOSE = 2
 _S05_POSITION_OPEN = 100
 _S05_POSITION_CLOSED = 0
+# Ported from danperks/ha-deepal's S05 MQTT climate/seat/steering commands
+# (MIT): "limited live use" per their own release notes, not verified here.
+# The EU app's AUTOMATIC_TIME floor for a remote climate/seat/steering run;
+# the S07 REST climate command keeps its own, unrelated 30-minute default.
+_S05_REMOTE_RUN_MINUTES = 15
+# S05 MQTT telemetry uses 2 for on and 1 for off (per danperks, observed on a
+# real S05), unlike the head-unit property enum used elsewhere.
+_S05_STEERING_ON = 2
+_S05_STEERING_OFF = 1
 _MQTT_WAKE_SETTLE_SECONDS = 2
 
 _S05_VEHICLE_ERROR_MESSAGES = {
@@ -1761,6 +1770,63 @@ class DeepalClient:
                 if open_value
                 else _S05_POSITION_CLOSED,
             },
+        )
+
+    async def mqtt_control_air_conditioner(
+        self, *, vehicle_id: str, enabled: bool, target_temp_c: float
+    ) -> str:
+        """Start or stop cabin climate on an MQTT-backed vehicle.
+
+        Turning it on sends the driver-zone setpoint plus the remote run
+        timer; turning it off sends ``Cnr_AllAcOff`` with no parameters.
+        Ported from danperks/ha-deepal (MIT); "limited live use" there, not
+        verified on a car here.
+        """
+        if enabled:
+            return await self._mqtt_command(
+                vehicle_id,
+                service_code="AC",
+                method="Cnr_DrACTemp",
+                params={"ACTempSet": float(target_temp_c), "SetTime": _S05_REMOTE_RUN_MINUTES},
+            )
+        return await self._mqtt_command(
+            vehicle_id, service_code="AC", method="Cnr_AllAcOff", params={}
+        )
+
+    async def mqtt_control_seat_heat(self, *, vehicle_id: str, driver: bool, level: int) -> str:
+        """Set a front seat heater on an MQTT-backed vehicle. Level 0 is off.
+
+        Ported from danperks/ha-deepal (MIT); not verified on a car here.
+        """
+        return await self._mqtt_command(
+            vehicle_id,
+            service_code="Seat",
+            method="Cnr_DrSeatHeat" if driver else "Cnr_PsgSeatHeat",
+            params={"SeatHeat": int(level), "SetTime": _S05_REMOTE_RUN_MINUTES},
+        )
+
+    async def mqtt_control_seat_vent(self, *, vehicle_id: str, driver: bool, level: int) -> str:
+        """Set front seat ventilation on an MQTT-backed vehicle. Level 0 is off.
+
+        Ported from danperks/ha-deepal (MIT); not verified on a car here.
+        """
+        return await self._mqtt_command(
+            vehicle_id,
+            service_code="Seat",
+            method="Cnr_DrSeatVent" if driver else "Cnr_PsgSeatVent",
+            params={"SeatVent": int(level), "SetTime": _S05_REMOTE_RUN_MINUTES},
+        )
+
+    async def mqtt_control_steering_wheel_heat(self, *, vehicle_id: str, open_value: bool) -> str:
+        """Turn steering-wheel heat on or off on an MQTT-backed vehicle.
+
+        Ported from danperks/ha-deepal (MIT); not verified on a car here.
+        """
+        return await self._mqtt_command(
+            vehicle_id,
+            service_code="TxSteering",
+            method="Cnr_TxSteeringHeat",
+            params={"SteeringHeat": _S05_STEERING_ON if open_value else _S05_STEERING_OFF},
         )
 
     def _invalidate_mqtt_caches(self) -> None:
