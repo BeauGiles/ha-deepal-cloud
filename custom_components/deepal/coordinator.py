@@ -223,7 +223,7 @@ class DeepalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         self.last_refresh_failure = None
         vehicle = self._vehicle_from_list(vehicles)
-        self._async_sync_location_permission_issue(condition)
+        self._async_sync_location_permission_issue(condition, vehicle or {})
         ota = None
         if not vehicle_uses_mqtt(vehicle or {}):
             try:
@@ -255,12 +255,23 @@ class DeepalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         await self.async_request_refresh()
         return result
 
-    def _async_sync_location_permission_issue(self, condition: dict[str, Any]) -> None:
-        """Warn while the head unit is not sharing location, and clear it when it is."""
+    def _async_sync_location_permission_issue(self, condition: dict[str, Any], vehicle: dict[str, Any]) -> None:
+        """Warn while the head unit is not sharing location, and clear it when it is.
+
+        S05 (literal MQTT) only - the location tracker is S05-only (see
+        device_tracker.py), but the cloud's raw S07 REST condition response
+        has its own top-level ``locationGeo`` key too (not something this
+        integration maps there itself), which previously made this issue
+        fire for every vehicle, not just the S05 it's meant for.
+        """
+        issue_id = f"{self.entry.entry_id}_location_permission"
+        if not vehicle_uses_mqtt(vehicle) or vehicle_uses_sda(vehicle):
+            # Clear a mistaken issue from before this gate existed.
+            ir.async_delete_issue(self.hass, DOMAIN, issue_id)
+            return
         loc = condition.get("locationGeo") if isinstance(condition, dict) else None
         if not isinstance(loc, dict):
             return
-        issue_id = f"{self.entry.entry_id}_location_permission"
         switch = _as_int(loc.get("locationSwitch"))
         if switch == 0:
             ir.async_create_issue(
