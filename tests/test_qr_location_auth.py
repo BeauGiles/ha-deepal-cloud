@@ -229,8 +229,11 @@ _OFF = {
 class _FakeCoordinator:
     vehicle_id = "veh-1"
 
-    def __init__(self, condition):
-        self.data = {"condition": condition, "vehicle": {"carName": "Deepal"}}
+    def __init__(self, condition, *, vehicle=None):
+        self.data = {
+            "condition": condition,
+            "vehicle": vehicle if vehicle is not None else {"carName": "Deepal", "protocolType": "MQTT"},
+        }
 
 
 def _tracker(location_geo):
@@ -294,12 +297,34 @@ class TestLocationTracker:
 
 
 class TestDeviceTrackerSetup:
-    def test_adds_one_tracker(self):
+    def test_adds_one_tracker_for_an_s05(self):
         entities = []
         entry = types.SimpleNamespace(runtime_data=_FakeCoordinator({}))
         asyncio.run(device_tracker.async_setup_entry(None, entry, entities.extend))
         assert len(entities) == 1
         assert isinstance(entities[0], DeepalLocationTracker)
+
+    def test_no_tracker_for_an_s07(self):
+        # A real S07's raw REST condition response carries its own top-level
+        # locationGeo block (confirmed from a user's diagnostics download),
+        # so the entity must be gated by vehicle type, not by the data alone.
+        entities = []
+        entry = types.SimpleNamespace(
+            runtime_data=_FakeCoordinator(
+                {"locationGeo": {"locationSwitch": 1, "lat": "1.0", "lng": "2.0"}},
+                vehicle={"protocolType": "TLV"},
+            )
+        )
+        asyncio.run(device_tracker.async_setup_entry(None, entry, entities.extend))
+        assert entities == []
+
+    def test_no_tracker_for_an_e07(self):
+        entities = []
+        entry = types.SimpleNamespace(
+            runtime_data=_FakeCoordinator({}, vehicle={"protocolType": "SDA-MQTT"})
+        )
+        asyncio.run(device_tracker.async_setup_entry(None, entry, entities.extend))
+        assert entities == []
 
 
 # --- coordinator.py: async_authorize_qr_code and the repair issue ----------

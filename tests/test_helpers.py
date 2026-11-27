@@ -61,7 +61,7 @@ def test_charge_minutes(value, expected):
 
 @pytest.mark.parametrize(
     ("minutes", "expected"),
-    [(218, "3:38"), (5, "0:05"), (60, "1:00"), (0, "0:00"), (8191, None), (None, None), (-1, None)],
+    [(218, "3:38"), (5, "0:05"), (60, "1:00"), (0, "0:00"), (8191, "Not applicable"), (None, None), (-1, None)],
 )
 def test_hours_minutes_format(minutes, expected):
     assert _format_hours_minutes(minutes) == expected

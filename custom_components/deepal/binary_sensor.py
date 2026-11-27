@@ -65,24 +65,6 @@ def _charge_gun_connected(data: dict[str, Any]) -> bool | None:
     return charge_connection == 3
 
 
-def _charge_schedule(data: dict[str, Any]) -> dict[str, Any]:
-    plans = _path_value(data, ("charge", "chargePlanList"))
-    if not isinstance(plans, list) or not plans:
-        return {}
-    first_plan = plans[0]
-    return first_plan if isinstance(first_plan, dict) else {}
-
-
-def _charge_schedule_enabled(data: dict[str, Any]) -> bool | None:
-    plan = _charge_schedule(data)
-    if not plan:
-        return None
-    # Matches switch.py's DeepalChargeScheduleSwitch.is_on exactly - both start and
-    # end switches must be == 1. The previous OR-based check (truthy on either
-    # switch) disagreed with the actual switch entity's own on/off state.
-    return plan.get("startSwitch") == 1 and plan.get("endSwitch") == 1
-
-
 _TIRE_PRESSURE_PATHS: tuple[tuple[str, ...], ...] = (
     ("tire", "leftFront", "pressure"),
     ("tire", "rightFront", "pressure"),
@@ -118,7 +100,6 @@ BINARY_SENSOR_NAMES = {
     "charge_con_status": "Charging cable",
     "dc_charge_gun_connect_status": "DC charge gun",
     "charge_status": "Charging",
-    "charge_schedule_enabled": "Charging schedule enabled",
     "defrost_status": "Defrost status",
     "connect_status": "Vehicle connected",
     "engine_sts": "Engine on",
@@ -244,11 +225,6 @@ BINARY_SENSORS: tuple[DeepalBinarySensorDescription, ...] = (
         # chargeStatus == 6 is "Charging" (0 = Charge Complete, 1 = Not Charging).
         # Dylan's original (!= 0) treated "Not Charging" (1) as charging too.
         value_fn=lambda data: (_charge(data).get("chargeStatus") == 6) if _charge(data).get("chargeStatus") is not None else None,
-    ),
-    DeepalBinarySensorDescription(
-        key="charge_schedule_enabled",
-        translation_key="charge_schedule_enabled",
-        value_fn=_charge_schedule_enabled,
     ),
     DeepalBinarySensorDescription(
         key="defrost_status",
@@ -407,22 +383,3 @@ class DeepalBinarySensor(DeepalEntity, BinarySensorEntity):
             )
             return min(pressures) < threshold
         return self.entity_description.value_fn(self.condition)
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any] | None:
-        if self.entity_description.key != "charge_schedule_enabled":
-            return None
-        plan = _charge_schedule(self.condition)
-        return {
-            "plan_id": plan.get("planId"),
-            "start_time": plan.get("startTime"),
-            "end_time": plan.get("endTime"),
-            "start_switch": plan.get("startSwitch"),
-            "end_switch": plan.get("endSwitch"),
-            "is_valid": plan.get("isValid"),
-            "weeks": plan.get("weeks"),
-            "time_zone": plan.get("timeZone"),
-            "time_format": plan.get("timeFormat"),
-            "plan_type": plan.get("planType"),
-            "send_time": plan.get("sendTime"),
-        }

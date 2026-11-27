@@ -18,7 +18,9 @@ BY_KEY = {description.key: description for description in SENSORS}
 
 def test_no_estimate_is_unknown_not_8191_minutes():
     assert _path_value(CONDITION, BY_KEY["remain_charge_time"].path) == 8191.0
-    assert _format_hours_minutes(8191.0) is None
+    # The plain minutes sensor has a device_class/unit, so it still shows
+    # Unknown; the H:MM text sensor has neither and says so explicitly.
+    assert _format_hours_minutes(8191.0) == "Not applicable"
 
 
 def test_tyre_pressures_are_read_in_kpa():

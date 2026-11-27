@@ -1,9 +1,11 @@
 """GPS device tracker for a Deepal vehicle.
 
-Ported from danperks/ha-deepal (MIT). Only populated for an S05 (literal
-MQTT): ``locationGeo`` is mapped from MQTT telemetry in ``api.py``'s
-``_mqtt_condition_from_params``, and nothing maps it for the S07's REST
-condition or the E07's SDA condition, so the tracker is unavailable there.
+Ported from danperks/ha-deepal (MIT). S05 (literal MQTT) only: ``locationGeo``
+is mapped from MQTT telemetry in ``api.py``'s ``_mqtt_condition_from_params``.
+The entity itself is gated to S05 in ``async_setup_entry`` below - a real S07's
+raw REST condition response turns out to carry its own top-level
+``locationGeo`` block too (confirmed from a user's diagnostics download), so
+checking the data alone isn't enough to keep this S07/E07-only.
 """
 
 from __future__ import annotations
@@ -17,6 +19,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .api import _as_int
+from .const import vehicle_uses_mqtt, vehicle_uses_sda
 from .coordinator import DeepalDataUpdateCoordinator
 from .entity import DeepalEntity
 
@@ -65,6 +68,11 @@ def _gps_coordinates(condition: dict[str, Any]) -> tuple[float | None, float | N
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     coordinator: DeepalDataUpdateCoordinator = entry.runtime_data
+    vehicle = (coordinator.data or {}).get("vehicle") or {}
+    # S05 (literal MQTT) only - see the module docstring for why the data
+    # itself (locationGeo being present) isn't a safe enough check.
+    if not vehicle_uses_mqtt(vehicle) or vehicle_uses_sda(vehicle):
+        return
     async_add_entities([DeepalLocationTracker(coordinator)])
 
 
