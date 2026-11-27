@@ -40,7 +40,10 @@ class DeepalLocationPermissionRepairFlow(RepairsFlow):
     """Paste the head-unit QR URL to turn location sharing on."""
 
     async def async_step_init(self, user_input: dict[str, str] | None = None) -> data_entry_flow.FlowResult:
-        return await self.async_step_authorize(user_input)
+        # Don't forward user_input: the flow manager's own init call passes a
+        # data dict here that isn't a form submission (it's the issue's own
+        # context), and treating it as one crashes on the missing form field.
+        return await self.async_step_authorize()
 
     async def async_step_authorize(self, user_input: dict[str, str] | None = None) -> data_entry_flow.FlowResult:
         errors: dict[str, str] = {}

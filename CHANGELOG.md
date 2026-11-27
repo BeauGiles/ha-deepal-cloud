@@ -4,6 +4,11 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
 ## [Unreleased]
 
+### Fixed
+
+- **"Deepal location permission is off" repair fired for every vehicle, not just the S05 it's meant for.** The S07's raw REST condition response carries its own top-level `locationGeo` block (not something this integration maps there itself), which the 0.4.3 location-permission check read without first confirming the vehicle actually uses MQTT. Now gated the same way the location device tracker already is, and clears any issue a non-S05 vehicle was mistakenly given.
+- **Opening that repair for the first time crashed with a 500 error.** Home Assistant's repair-flow manager calls the flow's init step with its own data dict (not a form submission), and the flow forwarded it straight into the step that reads the submitted QR URL, raising `KeyError: 'qr_auth_url'` before the form ever showed. The existing command-reauth repair already avoided this; the location-permission one now does too.
+
 ## [0.4.3] - 2026-11-27
 
 More experimental, opt-in S05 features, a new service, a login quality-of-life fix, and an entity-layout cleanup. **S05-specific features added since 0.4.2 are still untested on a real S05** - released as stable because the S07/E07 paths this fork was built against are unaffected (the only change there is the entity-category/naming cleanup below, which doesn't touch any entity's data or control logic). **If you have an S05 or S05 PHEV, please try these out and report back.** Home Assistant 2026.3.0 or newer is still required.

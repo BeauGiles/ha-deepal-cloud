@@ -384,22 +384,44 @@ class TestAsyncAuthorizeQrCode:
             asyncio.run(coordinator.async_authorize_qr_code(_SAMPLE_QR))
 
 
+_S05 = {"protocolType": "MQTT"}
+_S07 = {"protocolType": "REST"}
+_E07 = {"protocolType": "SDA-MQTT"}
+
+
 class TestSyncLocationPermissionIssue:
     def test_switch_off_creates_the_issue(self, monkeypatch):
         fake_ir = _FakeIssueRegistry()
         coordinator = _coordinator(monkeypatch, client=None, fake_ir=fake_ir)
-        coordinator._async_sync_location_permission_issue({"locationGeo": {"locationSwitch": 0}})
+        coordinator._async_sync_location_permission_issue({"locationGeo": {"locationSwitch": 0}}, _S05)
         assert fake_ir.created == ["entry-1_location_permission"]
 
     def test_switch_on_deletes_the_issue(self, monkeypatch):
         fake_ir = _FakeIssueRegistry()
         coordinator = _coordinator(monkeypatch, client=None, fake_ir=fake_ir)
-        coordinator._async_sync_location_permission_issue({"locationGeo": {"locationSwitch": 1}})
+        coordinator._async_sync_location_permission_issue({"locationGeo": {"locationSwitch": 1}}, _S05)
         assert fake_ir.deleted == ["entry-1_location_permission"]
 
     def test_no_locationgeo_does_nothing(self, monkeypatch):
         fake_ir = _FakeIssueRegistry()
         coordinator = _coordinator(monkeypatch, client=None, fake_ir=fake_ir)
-        coordinator._async_sync_location_permission_issue({})
+        coordinator._async_sync_location_permission_issue({}, _S05)
         assert fake_ir.created == []
         assert fake_ir.deleted == []
+
+    @pytest.mark.parametrize("vehicle", [_S07, _E07])
+    def test_non_s05_never_creates_the_issue_even_with_a_locationgeo_key(self, monkeypatch, vehicle):
+        # The cloud's raw S07 REST condition response carries its own
+        # top-level locationGeo key (not something this integration maps
+        # there), which must not be mistaken for the S05 MQTT mapping.
+        fake_ir = _FakeIssueRegistry()
+        coordinator = _coordinator(monkeypatch, client=None, fake_ir=fake_ir)
+        coordinator._async_sync_location_permission_issue({"locationGeo": {"locationSwitch": 0}}, vehicle)
+        assert fake_ir.created == []
+
+    @pytest.mark.parametrize("vehicle", [_S07, _E07])
+    def test_non_s05_clears_a_previously_mistaken_issue(self, monkeypatch, vehicle):
+        fake_ir = _FakeIssueRegistry()
+        coordinator = _coordinator(monkeypatch, client=None, fake_ir=fake_ir)
+        coordinator._async_sync_location_permission_issue({"locationGeo": {"locationSwitch": 0}}, vehicle)
+        assert fake_ir.deleted == ["entry-1_location_permission"]
