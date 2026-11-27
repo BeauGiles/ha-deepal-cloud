@@ -19,10 +19,10 @@ This repo is rebased on [danperks/ha-deepal](https://github.com/danperks/ha-deep
 
 On top of that base, this fork:
 
-- Fixes incorrect logic for charge-gun connection status, the "Charging" binary sensor, and "Charge Schedule Enabled" (all three were reading the wrong values)
+- Fixes incorrect logic for charge-gun connection status, the "Charging" binary sensor, and "Charging schedule enabled" (all three were reading the wrong values)
 - Restores features from the original version of this integration that the upstream fork didn't carry over: the vehicle image entity, VIN as the device serial number, and the OTA firmware status sensor
 - Renames entities to AU/UK conventions throughout (Odometer, Tyre, Boot) with keys aligned to the real Deepal API fields
-- Adds icons and consistent Title Case naming across every entity
+- Adds icons and consistent sentence-case naming across every entity, matching current Home Assistant style guidance
 - Disables a couple of noisy diagnostic-only entities by default
 
 Full details are in [CHANGELOG.md](CHANGELOG.md).
@@ -63,9 +63,9 @@ If login fails for a region, the account may be homed on a different cluster: pl
 
 **All vehicles**
 - Email-code and phone/SMS login through Home Assistant, with native reauthentication/repair when the cloud session is invalidated.
-- Telemetry sensors and binary sensors with friendly names, including **Any Door** and **Any Window** (on if any door or window is open). Entities are only created for data your car actually reports, and added later if it first appears later.
+- Telemetry sensors and binary sensors with friendly names, including **Any door** and **Any window** (on if any door or window is open). Entities are only created for data your car actually reports, and added later if it first appears later.
 - **Download diagnostics** on the device page: protocol detection, mapped and raw signals, and which signals no entity reads yet. VIN, plate, location and tokens are redacted.
-- Manual *Refresh Vehicle Data* button. On MQTT vehicles it wakes a car whose last report is stale, at most once per 5 minutes; the periodic poll never wakes the car.
+- Manual *Refresh vehicle data* button. On MQTT vehicles it wakes a car whose last report is stale, at most once per 5 minutes; the periodic poll never wakes the car.
 
 Commands run one at a time in order (up to four queued). Open/closed buttons have no confirmation prompt at integration level; if you want one, set a confirmation on the dashboard card's tap action.
 
@@ -82,7 +82,7 @@ Commands run one at a time in order (up to four queued). Open/closed buttons hav
 | Charging cable / gun connected | ✅ | ✅ | 🧪 |
 | Charge limit (read) | ✅ | ➖ | ➖ |
 | Charging schedule (read) | ✅ | 🧪¹ ² | ➖ |
-| Doors, windows, boot, Any Door/Any Window | ✅ | ✅ | ✅ |
+| Doors, windows, boot, Any door/Any window | ✅ | ✅ | ✅ |
 | Door lock status | ✅ | ✅ | ◐ |
 | Cabin climate status | ✅ | ✅ | ✅ |
 | Inside temperature, cabin humidity | ✅ | ◐ | ◐ |
@@ -148,7 +148,7 @@ VIN is used as the device serial number. An OTA status sensor is created where t
 - **S05 charge schedule (BEV only, opt-in):** also untested on a real S05. Needs a plan already set in the official app before Home Assistant can read or change it, same limitation as the S07. Not implemented for the S05 PHEV, whose schedule plan behaves differently (reverse-engineered by [Sunek0/ha-deepal-alternative](https://github.com/Sunek0/ha-deepal-alternative), MIT).
 - **S05 cabin climate, seat heating/ventilation and steering-wheel heating (opt-in):** also untested on a real S05. Ported from [danperks/ha-deepal](https://github.com/danperks/ha-deepal) (MIT), who describe it as "limited live use" on their side too.
 - **S05 location device tracker (opt-in, requires authorising the head unit's QR):** also untested on a real S05. Ported from [danperks/ha-deepal](https://github.com/danperks/ha-deepal) (MIT). S05 only - nothing maps an equivalent GPS field for the S07 or E07.
-- **The Lower/Raise Windows and Open/Close Boot buttons** are confirmed working on an S07. They are untested on the S05, and the command queue (several commands in quick succession) is covered by unit tests but has not been checked on a real car.
+- **The Lower/Raise windows and Open/Close boot buttons** are confirmed working on an S07. They are untested on the S05, and the command queue (several commands in quick succession) is covered by unit tests but has not been checked on a real car.
 - **Other regions and models** are unverified (see above).
 - Only the data the cloud provides is available; some cars report only while awake.
 
@@ -216,7 +216,7 @@ No control PIN is required. Home Assistant then exposes a device tracker with th
 - **`APIGW_-1_7_01_004 invalided token` on an S05:** the cloud rejected the token for the MQTT setup. The integration tries the other token it knows about, then falls back to the REST condition (which may show less data) and retries MQTT every few minutes. If it persists, download the diagnostics (they show `mqtt_last_error`) and open an issue.
 - **"The Deepal API rate limited the request":** the cloud asked the integration to slow down. It stops calling the API for the time the gateway asks (at least a minute) and carries on by itself; no action is needed.
 - **`APP_1_1_02_005 ... logged in on another device`:** the official app or another client signed in with the same account. Use a separate Deepal account for Home Assistant, shared from your main account, and avoid repeated login attempts, which can trigger a rate limit.
-- **"Power is not off" (result code 1032):** the car is powered on and refuses the remote command. Check the Power Status entity; switch the car off, or wait for it to power down, and try again.
+- **"Power is not off" (result code 1032):** the car is powered on and refuses the remote command. Check the Power status entity; switch the car off, or wait for it to power down, and try again.
 - **Commands fail while data still updates:** use *Reauthenticate now* under **Configure** to register a fresh command-signing key.
 - **Reporting a new model or region:** please attach the diagnostics file (while the car is charging if it is a charging problem) to a GitHub issue.
 
