@@ -102,6 +102,12 @@ MQTT_BACKOFF_MAX = 600  # seconds
 # updates until the duration elapses, then reconnected fresh.
 MQTT_LIVE_SESSION_DURATION = 240  # seconds per connection cycle
 MQTT_LIVE_RECONNECT_DELAY = 2  # seconds before starting the next cycle after a clean one
+# The broker only accepts one connection per client id, shared with the
+# periodic poll and with commands (see DeepalClient._mqtt_exclusive_connection).
+# This caps how long a single read inside a live cycle blocks, so the cycle
+# notices a pending exclusive request and yields promptly instead of only at
+# the next multi-minute deadline.
+MQTT_LIVE_YIELD_CHECK_SECONDS = 5
 MQTT_LIVE_ERROR_BACKOFF_BASE = 5  # seconds after a failed cycle; doubles each time
 MQTT_LIVE_ERROR_BACKOFF_MAX = 120  # seconds
 
