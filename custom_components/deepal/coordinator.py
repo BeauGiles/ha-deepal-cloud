@@ -13,6 +13,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_SCAN_INTERVAL
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import (
@@ -21,6 +22,7 @@ from .api import (
     DeepalClient,
     DeepalRateLimitError,
     DeepalSessionInvalidated,
+    _as_int,
     add_seat_roles,
 )
 from .const import (
@@ -221,6 +223,7 @@ class DeepalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         self.last_refresh_failure = None
         vehicle = self._vehicle_from_list(vehicles)
+        self._async_sync_location_permission_issue(condition)
         ota = None
         if not vehicle_uses_mqtt(vehicle or {}):
             try:
@@ -232,6 +235,45 @@ class DeepalDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 ota = None
         condition = add_seat_roles(condition, (vehicle or {}).get("driveSeatPosition"))
         return {"vehicles": vehicles, "vehicle": vehicle or {}, "condition": condition, "ota": ota}
+
+    async def async_authorize_qr_code(self, qr_code_or_url: str) -> dict[str, Any]:
+        """Authorise a head-unit location QR code, then refresh vehicle data.
+
+        Token refresh matches ``_async_update_data``: one refresh and config-entry
+        update on ``DeepalAuthError``, then a single retry. Ported from
+        danperks/ha-deepal (MIT).
+        """
+        try:
+            result = await self.client.authorize_qr_code(qr_code_or_url)
+        except DeepalAuthError:
+            try:
+                await self._async_refresh_and_persist_tokens()
+                result = await self.client.authorize_qr_code(qr_code_or_url)
+            except (DeepalApiError, DeepalAuthError) as refresh_err:
+                raise ConfigEntryAuthFailed(f"Authentication failed: {refresh_err}") from refresh_err
+        ir.async_delete_issue(self.hass, DOMAIN, f"{self.entry.entry_id}_location_permission")
+        await self.async_request_refresh()
+        return result
+
+    def _async_sync_location_permission_issue(self, condition: dict[str, Any]) -> None:
+        """Warn while the head unit is not sharing location, and clear it when it is."""
+        loc = condition.get("locationGeo") if isinstance(condition, dict) else None
+        if not isinstance(loc, dict):
+            return
+        issue_id = f"{self.entry.entry_id}_location_permission"
+        switch = _as_int(loc.get("locationSwitch"))
+        if switch == 0:
+            ir.async_create_issue(
+                self.hass,
+                DOMAIN,
+                issue_id,
+                is_fixable=True,
+                is_persistent=True,
+                severity=ir.IssueSeverity.WARNING,
+                translation_key="location_permission",
+            )
+        elif switch == 1:
+            ir.async_delete_issue(self.hass, DOMAIN, issue_id)
 
     async def _async_fetch(self) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         """Fetch vehicle metadata and condition."""
