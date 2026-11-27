@@ -20,7 +20,11 @@
         "title": "Voer de e-mailcode in",
         "description": "Voer de verificatiecode in die Changan/Deepal heeft gestuurd. De code kan snel verlopen, vraag dus een nieuwe aan als deze wordt geweigerd.",
         "data": {
-          "auth_code": "E-mailcode"
+          "auth_code": "E-mailcode",
+          "start_over": "Opnieuw beginnen"
+        },
+        "data_description": {
+          "start_over": "Ga terug en vraag een nieuwe e-mailcode aan. Je kunt de code leeg laten."
         }
       },
       "phone": {
@@ -35,7 +39,11 @@
         "title": "Voer de sms-code in",
         "description": "Voer de verificatiecode in die Changan/Deepal heeft gestuurd. De code kan snel verlopen, vraag dus een nieuwe aan als deze wordt geweigerd. Komt er geen sms aan, annuleer dan en begin opnieuw met inloggen via e-mail.",
         "data": {
-          "auth_code": "Sms-code"
+          "auth_code": "Sms-code",
+          "start_over": "Opnieuw beginnen"
+        },
+        "data_description": {
+          "start_over": "Ga terug en vraag een nieuwe sms-code aan. Je kunt de code leeg laten."
         }
       },
       "commands": {
@@ -67,7 +75,7 @@
     "step": {
       "init": {
         "title": "Opties voor Changan Deepal Cloud",
-        "description": "Stel in hoe vaak Home Assistant de gecachte clouddata leest en hoe vaak het nieuwe gegevens bij het voertuig opvraagt. Opdrachten op afstand vereisen de bedieningspincode uit de Deepal-app.",
+        "description": "Stel in hoe vaak Home Assistant de gecachte clouddata leest en hoe vaak het nieuwe gegevens bij het voertuig opvraagt. Opdrachten op afstand vereisen de bedieningspincode uit de Deepal-app. Om de locatie van het voertuig toe te staan, plak de QR-URL van het scherm Privacy → Locatietoestemming op de boordcomputer. Die URL wordt eenmalig gebruikt en niet opgeslagen.",
         "data": {
           "scan_interval": "Interval voor statusopvraag",
           "active_refresh_interval": "Interval voor voertuigverversing",
@@ -76,6 +84,7 @@
           "enable_api_logging": "Geredigeerde API-logging inschakelen",
           "enable_live_mqtt": "Een live MQTT-verbinding behouden (alleen S05)",
           "low_tyre_pressure_kpa": "Waarschuwingsdrempel voor lage bandenspanning",
+          "qr_auth_url": "QR-URL voor locatietoestemming",
           "reauthenticate": "Nu opnieuw authenticeren"
         },
         "data_description": {
@@ -86,9 +95,13 @@
           "enable_api_logging": "Schrijf geredigeerde Deepal API-verzoeken en -antwoorden naar het Home Assistant-logboek voor probleemoplossing. Tokens, pincodes, handtekeningen, sleutels en accountidentificatoren worden gefilterd, maar voertuiggegevens kunnen nog zichtbaar zijn. Laat dit uitgeschakeld, tenzij je aan het debuggen bent.",
           "enable_live_mqtt": "Experimenteel. Houdt één MQTT-verbinding open om telemetrie-updates tussen de normale polls te verzenden, in plaats van op de volgende te wachten. Heeft alleen effect op een S05 die protocol MQTT rapporteert (niet de SDA-MQTT van de E07, waarvan nog niet bekend is dat dit werkt). De normale poll blijft hoe dan ook actief, dus het uitschakelen hiervan (of een verbindingsfout) zorgt er nooit voor dat gegevens verouderd raken voorbij het gebruikelijke pollinterval. Niet getest op een echte S05.",
           "low_tyre_pressure_kpa": "Waarschuwt als een band onder deze druk komt (gebruikt door de sensor Lage bandenspanning). Standaard 230 kPa; verhoog of verlaag dit naar het eigen typeplaatje-minimum van deze auto.",
+          "qr_auth_url": "Plak de QR-link van de boordcomputer (Privacy → Locatietoestemming), of alleen het qrCode-token. Laat leeg om over te slaan. Dit wordt niet opgeslagen.",
           "reauthenticate": "Logt opnieuw in om een nieuwe sleutel voor het ondertekenen van opdrachten te krijgen, zonder de integratie te verwijderen of opnieuw toe te voegen. Gebruik dit als opdrachten op afstand (vergrendelen, ramen, kofferbak, klimaat, laden, verlichting, claxon) volledig mislukken terwijl de voertuiggegevens normaal blijven bijwerken. Andere wijzigingen in dezelfde opslag worden genegeerd; open dit venster daarna opnieuw om die door te voeren."
         }
       }
+    },
+    "error": {
+      "qr_auth_failed": "Deze QR-code kon niet worden geautoriseerd. Open het scherm voor locatietoestemming op de auto opnieuw en plak de nieuwe URL."
     },
     "abort": {
       "reauth_triggered": "Opnieuw authenticeren wordt gestart. Home Assistant toont een melding om het opnieuw inloggen te voltooien; doe dat om de nieuwe sleutel voor het ondertekenen van opdrachten te registreren."
@@ -102,6 +115,23 @@
           "confirm": {
             "title": "Opdrachten op afstand van Deepal moeten opnieuw worden geauthenticeerd",
             "description": "Hiermee log je opnieuw in om een nieuwe sleutel voor het ondertekenen van opdrachten te registreren. Na je bevestiging toont Home Assistant een melding om het inloggen te voltooien."
+          }
+        }
+      }
+    },
+    "location_permission": {
+      "title": "Deepal-locatietoestemming staat uit",
+      "fix_flow": {
+        "error": {
+          "qr_auth_failed": "Deze QR-code kon niet worden geautoriseerd. Open het scherm voor locatietoestemming op de auto opnieuw en plak de nieuwe URL."
+        },
+        "step": {
+          "authorize": {
+            "title": "Deepal-locatietoestemming autoriseren",
+            "description": "Plak de QR-URL die op de boordcomputer van de auto wordt getoond onder Privacy → Locatietoestemming. De code verandert elke keer dat dat scherm wordt geopend. Home Assistant stuurt deze naar je Deepal-account; er is geen bedieningspincode nodig.",
+            "data": {
+              "qr_auth_url": "QR-URL"
+            }
           }
         }
       }

@@ -20,7 +20,11 @@
         "title": "Introduza o código do email",
         "description": "Introduza o código de verificação enviado pela Changan/Deepal. O código pode expirar rapidamente, por isso peça um novo se for rejeitado.",
         "data": {
-          "auth_code": "Código do email"
+          "auth_code": "Código do email",
+          "start_over": "Começar de novo"
+        },
+        "data_description": {
+          "start_over": "Volte atrás e peça um novo código de email. Pode deixar o código em branco."
         }
       },
       "phone": {
@@ -35,7 +39,11 @@
         "title": "Introduza o código SMS",
         "description": "Introduza o código de verificação enviado pela Changan/Deepal. O código pode expirar rapidamente, por isso peça um novo se for rejeitado. Se não chegar nenhum SMS, cancele e recomece com o início de sessão por email.",
         "data": {
-          "auth_code": "Código SMS"
+          "auth_code": "Código SMS",
+          "start_over": "Começar de novo"
+        },
+        "data_description": {
+          "start_over": "Volte atrás e peça um novo código SMS. Pode deixar o código em branco."
         }
       },
       "commands": {
@@ -67,7 +75,7 @@
     "step": {
       "init": {
         "title": "Opções do Changan Deepal Cloud",
-        "description": "Ajuste a frequência com que o Home Assistant lê os dados em cache da nuvem e com que pede dados novos ao veículo. Os comandos remotos requerem o PIN de controlo da app da Deepal.",
+        "description": "Ajuste a frequência com que o Home Assistant lê os dados em cache da nuvem e com que pede dados novos ao veículo. Os comandos remotos requerem o PIN de controlo da app da Deepal. Para permitir a localização do veículo, cole o URL do código QR do ecrã Privacidade → Permissão de localização da unidade principal. Esse URL é usado uma vez e não é guardado.",
         "data": {
           "scan_interval": "Intervalo de consulta do estado",
           "active_refresh_interval": "Intervalo de atualização do veículo",
@@ -76,6 +84,7 @@
           "enable_api_logging": "Ativar o registo da API com dados ocultados",
           "enable_live_mqtt": "Manter uma ligação MQTT em direto (apenas S05)",
           "low_tyre_pressure_kpa": "Limite de aviso de pressão baixa dos pneus",
+          "qr_auth_url": "URL de permissão de localização QR",
           "reauthenticate": "Autenticar novamente agora"
         },
         "data_description": {
@@ -86,9 +95,13 @@
           "enable_api_logging": "Escreve no registo do Home Assistant os pedidos e as respostas da API da Deepal com dados ocultados, para resolução de problemas. Tokens, PIN, assinaturas, chaves e identificadores de conta são filtrados, mas podem ainda aparecer dados do veículo. Deixe desativado, a menos que esteja a depurar.",
           "enable_live_mqtt": "Experimental. Mantém uma ligação MQTT aberta para enviar atualizações de telemetria entre as sondagens normais, em vez de esperar pela seguinte. Só tem efeito num S05 que reporta o protocolo MQTT (não o SDA-MQTT do E07, que não se sabe ainda que funcione). A sondagem normal continua a funcionar de qualquer forma, por isso desativar isto (ou uma falha de ligação) nunca torna os dados desatualizados para além do intervalo de sondagem habitual. Não testado num S05 real.",
           "low_tyre_pressure_kpa": "Avisa quando um pneu desce abaixo desta pressão (usado pelo sensor Pressão baixa dos pneus). Padrão 230 kPa; aumente ou diminua para corresponder ao mínimo da placa deste carro.",
+          "qr_auth_url": "Cole a hiperligação do código QR da unidade principal do carro (Privacidade → Permissão de localização), ou apenas o token qrCode. Deixe em branco para ignorar. Não é guardado.",
           "reauthenticate": "Volta a iniciar sessão para obter uma nova chave de assinatura de comandos, sem eliminar nem voltar a adicionar a integração. Use isto se os comandos remotos (fechadura, vidros, mala, clima, carregamento, luzes, buzina) falharem por completo enquanto os dados do veículo continuam a atualizar normalmente. Quaisquer outras alterações feitas neste mesmo envio são ignoradas; volte a abrir esta caixa depois para as aplicar."
         }
       }
+    },
+    "error": {
+      "qr_auth_failed": "Não foi possível autorizar esse código QR. Abra novamente o ecrã de permissão de localização no carro e cole o novo URL."
     },
     "abort": {
       "reauth_triggered": "A iniciar a reautenticação. O Home Assistant vai mostrar uma notificação para terminar o novo início de sessão; conclua-o para registar a nova chave de assinatura de comandos."
@@ -102,6 +115,23 @@
           "confirm": {
             "title": "Os comandos remotos da Deepal precisam de reautenticação",
             "description": "Isto volta a iniciar sessão para registar uma nova chave de assinatura de comandos. O Home Assistant vai mostrar uma notificação para terminar o início de sessão depois de confirmar."
+          }
+        }
+      }
+    },
+    "location_permission": {
+      "title": "A permissão de localização da Deepal está desativada",
+      "fix_flow": {
+        "error": {
+          "qr_auth_failed": "Não foi possível autorizar esse código QR. Abra novamente o ecrã de permissão de localização no carro e cole o novo URL."
+        },
+        "step": {
+          "authorize": {
+            "title": "Autorizar a permissão de localização da Deepal",
+            "description": "Cole o URL do código QR mostrado na unidade principal do carro em Privacidade → Permissão de localização. O código muda sempre que esse ecrã é aberto. O Home Assistant envia-o para a sua conta Deepal; não é necessário o PIN de controlo.",
+            "data": {
+              "qr_auth_url": "URL do QR"
+            }
           }
         }
       }

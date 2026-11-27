@@ -1,0 +1,50 @@
+authorize_qr:
+  name: Authorize location QR
+  description: >-
+    Authorise head-unit location sharing. Paste the QR URL from the car's
+    Privacy → Location permission screen, or the bare qrCode token. No control
+    PIN is required. The code changes each time that screen is opened.
+  fields:
+    qr_code:
+      name: QR code
+      description: >-
+        Full QR URL (the link contains qrCode=) or the bare token.
+      required: true
+      example: "https://ca-m.iov.changanauto.com.de/intl-app-gw/intl-app-user/api/qr-code/tmp-auth/scan?qrCode=00000000-0000-4000-8000-000000000000"
+      selector:
+        text:
+    entry_id:
+      name: Config entry
+      description: >-
+        Deepal config entry to authorise. Required only when more than one
+        Deepal vehicle is set up.
+      required: false
+      selector:
+        config_entry:
+          integration: deepal
+
+set_charge_window:
+  name: Set charge window
+  description: >-
+    Set the charging schedule's start and end times in one command, keeping
+    the current start and end switches as they are. Target the Charge
+    Schedule switch.
+  target:
+    entity:
+      domain: switch
+      integration: deepal
+  fields:
+    start_time:
+      name: Start time
+      description: Time of day the charge window starts.
+      required: true
+      example: "00:30:00"
+      selector:
+        time:
+    end_time:
+      name: End time
+      description: Time of day the charge window ends.
+      required: true
+      example: "07:00:00"
+      selector:
+        time:
