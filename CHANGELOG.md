@@ -4,6 +4,10 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
 ## [Unreleased]
 
+## [0.4.3-beta2] - 2026-11-27
+
+**Beta.** One more experimental, opt-in S05 feature (cabin climate, seat heating/ventilation and steering-wheel heating over MQTT), plus a concurrency fix for the live MQTT session added in 0.4.3-beta1. Install it from HACS with **Redownload → Show beta versions**. **Still no S05 or S05 PHEV owner has tested any of the S05-specific work in this fork** - if you have one, please try it and report back. Home Assistant 2026.3.0 or newer is still required.
+
 ### Added
 
 - **S05 remote cabin climate, seat heating/ventilation and steering-wheel heating (experimental, opt-in).** Ported from [danperks/ha-deepal](https://github.com/danperks/ha-deepal) (MIT), who describe it as having had "limited live use" so far. The Cabin Climate entity, the four seat heating/ventilation Number entities and the Steering Wheel Heating switch, previously S07-only, now also appear for an S05 (literal `MQTT`, not the E07's `SDA-MQTT`) once remote commands are enabled - both the BEV and the PHEV, unlike the charge-schedule entities from 0.4.3-beta1. Each uses a different `Cnr_*` MQTT command per function (`Cnr_DrACTemp`/`Cnr_AllAcOff` for climate, `Cnr_DrSeatHeat`/`Cnr_PsgSeatHeat`/`Cnr_DrSeatVent`/`Cnr_PsgSeatVent` for seats, `Cnr_TxSteeringHeat` for the steering wheel) rather than the REST commands the S07 uses. **Completely untested on a real S05 here** - there is still no S05 owner testing this fork.
