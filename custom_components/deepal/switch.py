@@ -23,9 +23,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     # coordinator.s05_charge_schedule_supported and _async_overlay_charge_plan).
     if not coordinator.vehicle_uses_mqtt or coordinator.s05_charge_schedule_supported:
         entities.append(DeepalChargeScheduleSwitch(coordinator))
-    # Steering wheel heating stays S07-only; no evidence this REST command
-    # works for an MQTT vehicle.
-    if not coordinator.vehicle_uses_mqtt:
+    # Steering wheel heating: S07 always; S05 (literal MQTT, not the E07's
+    # SDA-MQTT) once commands are enabled, via a different (MQTT) command -
+    # ported from danperks/ha-deepal (MIT), "limited live use" there, not
+    # verified here.
+    if not coordinator.vehicle_uses_mqtt or (
+        coordinator.mqtt_commands_supported and coordinator.client.commands_enabled
+    ):
         entities.append(DeepalSteeringWheelHeatSwitch(coordinator))
     async_add_entities(entities)
 
@@ -104,9 +108,15 @@ class DeepalSteeringWheelHeatSwitch(DeepalEntity, SwitchEntity):
         await self._async_control(open_value=False)
 
     async def _async_control(self, *, open_value: bool) -> None:
+        client = self.coordinator.client
+        control = (
+            client.mqtt_control_steering_wheel_heat
+            if self.coordinator.vehicle_uses_mqtt
+            else client.control_steering_wheel_heat
+        )
         try:
             await self.async_execute_command(
-                lambda: self.coordinator.client.control_steering_wheel_heat(
+                lambda: control(
                     vehicle_id=self.coordinator.vehicle_id,
                     open_value=open_value,
                 ),

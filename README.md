@@ -102,10 +102,10 @@ Commands run one at a time in order (up to four queued). Open/closed buttons hav
 | Lock / unlock | ✅ | 🧪 (opt-in, untested on a real S05) | ➖ |
 | Windows, boot (open/close) | ✅ | 🧪 (opt-in, untested on a real S05) | ➖ |
 | Flash lights, honk horn | ✅ | ➖ | ➖ |
-| Cabin climate start/stop, target temperature | ✅ | ➖ | ➖ |
+| Cabin climate start/stop, target temperature | ✅ | 🧪 (opt-in, untested on a real S05) | ➖ |
 | Charge limit | ✅ | ➖ | ➖ |
 | Charging schedule | ✅ | 🧪 (opt-in, untested on a real S05, BEV only) | ➖ |
-| Seat heating/ventilation level, steering wheel heater | ✅ | ➖ | ➖ |
+| Seat heating/ventilation level, steering wheel heater | ✅ | 🧪 (opt-in, untested on a real S05) | ➖ |
 | Manual refresh (wakes a stale car) | ✅ | ✅ | ➖ (REST needs no wake) |
 
 > [!CAUTION]
@@ -133,6 +133,7 @@ VIN is used as the device serial number. An OTA status sensor is created where t
 - **S05:** The MQTT telemetry changes (including the charging-state mapping), the wake and the lock/window/boot commands in this fork have not been tested on a real S05. The command protocol comes from [kobizz/ha-deepal](https://github.com/kobizz/ha-deepal), validated there on an Israel-market S05.
 - **S05 live MQTT session (opt-in, off by default):** also untested on a real S05. Only for a vehicle reporting protocol `MQTT`; excluded for the E07, which is not known to work with it.
 - **S05 charge schedule (BEV only, opt-in):** also untested on a real S05. Needs a plan already set in the official app before Home Assistant can read or change it, same limitation as the S07. Not implemented for the S05 PHEV, whose schedule plan behaves differently (reverse-engineered by [Sunek0/ha-deepal-alternative](https://github.com/Sunek0/ha-deepal-alternative), MIT).
+- **S05 cabin climate, seat heating/ventilation and steering-wheel heating (opt-in):** also untested on a real S05. Ported from [danperks/ha-deepal](https://github.com/danperks/ha-deepal) (MIT), who describe it as "limited live use" on their side too.
 - **The Lower/Raise Windows and Open/Close Boot buttons** are confirmed working on an S07. They are untested on the S05, and the command queue (several commands in quick succession) is covered by unit tests but has not been checked on a real car.
 - **Other regions and models** are unverified (see above).
 - Only the data the cloud provides is available; some cars report only while awake.

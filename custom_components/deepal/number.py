@@ -18,17 +18,26 @@ from .entity import DeepalEntity
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     coordinator: DeepalDataUpdateCoordinator = entry.runtime_data
-    if coordinator.vehicle_uses_mqtt:
-        return
-    async_add_entities(
-        [
-            DeepalChargeLimitNumber(coordinator),
-            DeepalSeatLevelNumber(coordinator, driver=True, function="heat"),
-            DeepalSeatLevelNumber(coordinator, driver=False, function="heat"),
-            DeepalSeatLevelNumber(coordinator, driver=True, function="vent"),
-            DeepalSeatLevelNumber(coordinator, driver=False, function="vent"),
-        ]
-    )
+    entities: list[NumberEntity] = []
+    # Charge limit stays S07-only; no command for it is known on an S05.
+    if not coordinator.vehicle_uses_mqtt:
+        entities.append(DeepalChargeLimitNumber(coordinator))
+    # Seat heating/ventilation level: S07 always; S05 (literal MQTT, not the
+    # E07's SDA-MQTT) once commands are enabled. Ported from danperks/ha-deepal
+    # (MIT) for the MQTT command shape; "limited live use" there, not
+    # verified here.
+    if not coordinator.vehicle_uses_mqtt or (
+        coordinator.mqtt_commands_supported and coordinator.client.commands_enabled
+    ):
+        entities.extend(
+            [
+                DeepalSeatLevelNumber(coordinator, driver=True, function="heat"),
+                DeepalSeatLevelNumber(coordinator, driver=False, function="heat"),
+                DeepalSeatLevelNumber(coordinator, driver=True, function="vent"),
+                DeepalSeatLevelNumber(coordinator, driver=False, function="vent"),
+            ]
+        )
+    async_add_entities(entities)
 
 
 class DeepalChargeLimitNumber(DeepalEntity, NumberEntity):
@@ -97,7 +106,10 @@ class DeepalSeatLevelNumber(DeepalEntity, NumberEntity):
 
     async def async_set_native_value(self, value: float) -> None:
         client = self.coordinator.client
-        control = client.control_seats_heat if self._function == "heat" else client.control_seats_wind
+        if self.coordinator.vehicle_uses_mqtt:
+            control = client.mqtt_control_seat_heat if self._function == "heat" else client.mqtt_control_seat_vent
+        else:
+            control = client.control_seats_heat if self._function == "heat" else client.control_seats_wind
         level = max(0, min(3, int(value)))
         try:
             await self.async_execute_command(

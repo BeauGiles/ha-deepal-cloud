@@ -93,12 +93,23 @@ class DeepalClimate(_TemperatureProperties, DeepalEntity, ClimateEntity):
         return _tenths_c((self.condition.get("hvac") or {}).get("remoteTemp"))
 
     @property
+    def _mqtt_commands_supported(self) -> bool:
+        """Whether climate control is available on this vehicle.
+
+        Always true for an S07. For an MQTT vehicle, true only for literal
+        "MQTT" (S05) with commands enabled - not the E07 (SDA-MQTT), which
+        has no evidence this works. Ported from danperks/ha-deepal (MIT);
+        "limited live use" there, not verified here.
+        """
+        if not self.coordinator.vehicle_uses_mqtt:
+            return True
+        return self.coordinator.mqtt_commands_supported and self.coordinator.client.commands_enabled
+
+    @property
     def supported_features(self) -> ClimateEntityFeature:
-        return (
-            ClimateEntityFeature(0)
-            if self.coordinator.vehicle_uses_mqtt
-            else ClimateEntityFeature.TARGET_TEMPERATURE
-        )
+        if not self._mqtt_commands_supported:
+            return ClimateEntityFeature(0)
+        return ClimateEntityFeature.TARGET_TEMPERATURE
 
     @property
     def hvac_mode(self) -> HVACMode | None:
@@ -150,18 +161,27 @@ class DeepalClimate(_TemperatureProperties, DeepalEntity, ClimateEntity):
         await self._async_send(enabled=False, target_temperature=self._target_temperature_c() or 21)
 
     def _raise_if_read_only(self) -> None:
-        if self.coordinator.vehicle_uses_mqtt:
-            raise HomeAssistantError("Climate control is not supported for MQTT vehicles in this version")
+        if not self._mqtt_commands_supported:
+            raise HomeAssistantError("Climate control is not supported for this vehicle/configuration")
 
     async def _async_send(self, *, enabled: bool, target_temperature: float) -> None:
         try:
-            await self.async_execute_command(
-                lambda: self.coordinator.client.control_air_conditioner(
-                    vehicle_id=self.coordinator.vehicle_id,
-                    enabled=enabled,
-                    target_temp_c=target_temperature,
+            if self.coordinator.vehicle_uses_mqtt:
+                await self.async_execute_command(
+                    lambda: self.coordinator.client.mqtt_control_air_conditioner(
+                        vehicle_id=self.coordinator.vehicle_id,
+                        enabled=enabled,
+                        target_temp_c=target_temperature,
+                    )
                 )
-            )
+            else:
+                await self.async_execute_command(
+                    lambda: self.coordinator.client.control_air_conditioner(
+                        vehicle_id=self.coordinator.vehicle_id,
+                        enabled=enabled,
+                        target_temp_c=target_temperature,
+                    )
+                )
         except DeepalCommandAuthError as err:
             self.raise_command_reauth_required(err)
         except (DeepalApiError, DeepalCommandNotReady) as err:

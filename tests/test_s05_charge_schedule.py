@@ -8,6 +8,7 @@ implement.
 from __future__ import annotations
 
 import asyncio
+import types
 
 from custom_components.deepal import switch
 from custom_components.deepal import time as time_module
@@ -113,9 +114,18 @@ class TestOverlayChargePlan:
 class _SwitchFakeCoordinator:
     vehicle_id = "123"
 
-    def __init__(self, *, mqtt=False, charge_schedule_supported=False):
+    def __init__(
+        self,
+        *,
+        mqtt=False,
+        charge_schedule_supported=False,
+        mqtt_commands_supported=False,
+        commands_enabled=False,
+    ):
         self.vehicle_uses_mqtt = mqtt
         self.s05_charge_schedule_supported = charge_schedule_supported
+        self.mqtt_commands_supported = mqtt_commands_supported
+        self.client = types.SimpleNamespace(commands_enabled=commands_enabled)
         self.data = {"condition": {}}
 
 
@@ -131,10 +141,26 @@ class TestSwitchSetup:
         names = _added(switch, _SwitchFakeCoordinator(mqtt=False))
         assert {"Charge Schedule", "Steering Wheel Heating"} <= names
 
-    def test_s05_bev_with_commands_gets_only_the_charge_schedule_switch(self):
-        names = _added(switch, _SwitchFakeCoordinator(mqtt=True, charge_schedule_supported=True))
-        assert "Charge Schedule" in names
-        assert "Steering Wheel Heating" not in names
+    def test_s05_bev_with_commands_gets_both_switches(self):
+        # Steering wheel heat only needs commands enabled (any S05); charge
+        # schedule additionally needs s05_charge_schedule_supported (BEV only).
+        names = _added(
+            switch,
+            _SwitchFakeCoordinator(
+                mqtt=True, charge_schedule_supported=True, mqtt_commands_supported=True, commands_enabled=True
+            ),
+        )
+        assert {"Charge Schedule", "Steering Wheel Heating"} <= names
+
+    def test_s05_phev_with_commands_gets_steering_but_not_charge_schedule(self):
+        names = _added(
+            switch,
+            _SwitchFakeCoordinator(
+                mqtt=True, charge_schedule_supported=False, mqtt_commands_supported=True, commands_enabled=True
+            ),
+        )
+        assert "Steering Wheel Heating" in names
+        assert "Charge Schedule" not in names
 
     def test_s05_without_support_gets_neither(self):
         names = _added(switch, _SwitchFakeCoordinator(mqtt=True, charge_schedule_supported=False))
