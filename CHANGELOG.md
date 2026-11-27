@@ -4,6 +4,10 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-11-27
+
+More experimental, opt-in S05 features, a new service, a login quality-of-life fix, and an entity-layout cleanup. **S05-specific features added since 0.4.2 are still untested on a real S05** - released as stable because the S07/E07 paths this fork was built against are unaffected (the only change there is the entity-category/naming cleanup below, which doesn't touch any entity's data or control logic). **If you have an S05 or S05 PHEV, please try these out and report back.** Home Assistant 2026.3.0 or newer is still required.
+
 ### Added
 
 - **Lowest/Low tyre pressure sensor pair, built in.** A `Lowest tyre pressure` sensor and a `Low tyre pressure` binary sensor are now created for every vehicle that reports any tyre pressure (not just the S05-only per-wheel warning flags) - the same thing a `min_max` + `threshold` helper pair would otherwise need, by hand, per vehicle. The warning threshold defaults to 230 kPa and is configurable per vehicle under **Configure** (`Low tyre pressure warning threshold`).
