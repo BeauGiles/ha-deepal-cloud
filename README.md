@@ -52,8 +52,9 @@ The integration chooses its behaviour from the `protocolType` the cloud reports 
 
 ## Supported Regions
 * **Confirmed working:** Australia, Israel, Portugal, and the United Kingdom.
+* **Belgium:** [danperks/ha-deepal](https://github.com/danperks/ha-deepal) reports Belgium working on the same European cluster this integration uses - Netherlands-delivered vehicles are often registered under Belgium (`BE`) rather than the Netherlands, and a Dutch-dealer account that gets "Account not registered" logging in under the Netherlands can succeed under Belgium instead. It has not been confirmed through this integration yet.
 * **Spain:** the Spanish community integration [manuelem1984/dec_deepal](https://github.com/manuelem1984/dec_deepal) reports Spain working with an S05 on the same European cluster this integration uses. It has not been confirmed through this integration yet.
-* **Added but unverified, European cluster:** Austria, Belgium, France, Germany, Greece, Ireland, Italy, Luxembourg, the Netherlands and Switzerland (default European cluster; other integrations list them, nobody has confirmed a login here).
+* **Added but unverified, European cluster:** Austria, France, Germany, Greece, Ireland, Italy, Luxembourg, the Netherlands and Switzerland (default European cluster; other integrations list them, nobody has confirmed a login here).
 * **Added but unverified, Singapore cluster:** Hong Kong, Indonesia, Macau, Malaysia, Mongolia, New Zealand, the Philippines, Singapore, Thailand and Vietnam (assumed to share Australia's Singapore cluster).
 
 If login fails for a region, the account may be homed on a different cluster: please open an issue with the country and the diagnostics file.
@@ -127,6 +128,8 @@ Commands run one at a time in order (up to four queued). Open/closed buttons hav
 | Device tracker | Location (S05 only, after location permission is authorised - see [Location](#location)) |
 
 VIN is used as the device serial number. An OTA status sensor is created where the car provides one. Remaining charge time is available both as minutes and as an `H:MM` sensor for dashboards.
+
+**`deepal.set_charge_window` service.** Sets the Charge Schedule start and end times in one call, without disturbing whether each is currently on or off (the plain switch and the Time entities always set both together). Target the Charge Schedule switch entity. Ported from [danperks/ha-deepal](https://github.com/danperks/ha-deepal) (MIT).
 
 ## Known Limitations
 
