@@ -4,6 +4,10 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
 ## [Unreleased]
 
+### Added
+
+- **S05 vehicle location device tracker and QR location authorisation (experimental, opt-in).** The head unit only shares GPS location once its Privacy → Location permission QR is authorised - through the integration's Configure dialog, a repair that's raised while sharing is off, or the new `deepal.authorize_qr` service. Once authorised, a Location device tracker exposes the car's coordinates plus altitude, heading, satellite count, GPS time and whether sharing is on; a live latitude is still reported even when longitude happens to be exactly 0. **S05 only** (literal `MQTT`, not the E07's `SDA-MQTT`) - nothing maps an equivalent GPS field for the S07's REST condition or the E07's SDA condition, so the tracker stays unavailable on those. Ported from [danperks/ha-deepal](https://github.com/danperks/ha-deepal) (MIT). **Completely untested on a real S05** - there is still no S05 owner testing this fork.
+
 ## [0.4.3-beta2] - 2026-11-27
 
 **Beta.** One more experimental, opt-in S05 feature (cabin climate, seat heating/ventilation and steering-wheel heating over MQTT), plus a concurrency fix for the live MQTT session added in 0.4.3-beta1. Install it from HACS with **Redownload → Show beta versions**. **Still no S05 or S05 PHEV owner has tested any of the S05-specific work in this fork** - if you have one, please try it and report back. Home Assistant 2026.3.0 or newer is still required.

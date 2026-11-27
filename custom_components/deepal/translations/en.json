@@ -67,7 +67,7 @@
     "step": {
       "init": {
         "title": "Changan Deepal Cloud options",
-        "description": "Tune how often Home Assistant reads cached cloud data and how often it asks the vehicle for fresh data. Remote commands require the control PIN from the Deepal app.",
+        "description": "Tune how often Home Assistant reads cached cloud data and how often it asks the vehicle for fresh data. Remote commands require the control PIN from the Deepal app. To allow vehicle location, paste the QR URL from the head unit's Privacy → Location permission screen. That URL is used once and is not saved.",
         "data": {
           "scan_interval": "Status poll interval",
           "active_refresh_interval": "Vehicle refresh interval",
@@ -75,6 +75,7 @@
           "enable_commands": "Enable remote commands",
           "enable_api_logging": "Enable redacted API logging",
           "enable_live_mqtt": "Keep a live MQTT connection (S05 only)",
+          "qr_auth_url": "Location permission QR URL",
           "reauthenticate": "Reauthenticate now"
         },
         "data_description": {
@@ -84,9 +85,13 @@
           "enable_commands": "Allow Home Assistant to send signed commands such as refresh, lock, climate, charging, windows, boot, seat and steering wheel heating, lights, and horn. MQTT vehicles (e.g. S05) support lock, windows and boot only.",
           "enable_api_logging": "Write redacted Deepal API requests and responses to the Home Assistant log for troubleshooting. Tokens, PINs, signatures, keys, and account identifiers are filtered, but vehicle data may still appear. Leave disabled unless debugging.",
           "enable_live_mqtt": "Experimental. Keeps one MQTT connection open to push telemetry updates between the normal polls, instead of waiting for the next one. Only has an effect on an S05 reporting protocol MQTT (not the E07's SDA-MQTT, which this is not known to work with yet). The regular poll keeps running underneath this either way, so turning this off (or a connection failure) never makes data go stale beyond the usual poll interval. Untested on a real S05.",
+          "qr_auth_url": "Paste the QR link from the car head unit (Privacy → Location permission), or the bare qrCode token. Leave blank to skip. This is not stored.",
           "reauthenticate": "Logs in again to get a fresh command-signing key, without deleting or re-adding the integration. Use this if remote commands (lock, windows, boot, climate, charging, lights, horn) fail outright while vehicle data still updates normally. Any other changes made in this same submission are ignored - reopen this dialog afterward for those."
         }
       }
+    },
+    "error": {
+      "qr_auth_failed": "Could not authorise that QR code. Open the location permission screen on the car again and paste the new URL."
     },
     "abort": {
       "reauth_triggered": "Starting reauthentication. Home Assistant will show a notification to finish logging in again - complete that to register the fresh command-signing key."
@@ -389,6 +394,11 @@
       "vehicle_image": {
         "name": "Vehicle Image"
       }
+    },
+    "device_tracker": {
+      "location": {
+        "name": "Location"
+      }
     }
   },
   "issues": {
@@ -399,6 +409,24 @@
           "confirm": {
             "title": "Deepal remote commands need reauthentication",
             "description": "This logs in again to register a fresh command-signing key. Home Assistant will show a notification to finish logging in again once you confirm."
+          }
+        }
+      }
+    },
+    "location_permission": {
+      "title": "Deepal location permission is off",
+      "description": "The car is not sharing its location. On the head unit, open Privacy → Location permission, then paste the QR URL into this repair.",
+      "fix_flow": {
+        "error": {
+          "qr_auth_failed": "Could not authorise that QR code. Open the location permission screen on the car again and paste the new URL."
+        },
+        "step": {
+          "authorize": {
+            "title": "Authorise Deepal location permission",
+            "description": "Paste the QR URL shown on the car head unit under Privacy → Location permission. The code changes each time that screen is opened. Home Assistant sends it to your Deepal account; no control PIN is required.",
+            "data": {
+              "qr_auth_url": "QR URL"
+            }
           }
         }
       }

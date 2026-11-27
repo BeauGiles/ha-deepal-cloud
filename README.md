@@ -124,6 +124,7 @@ Commands run one at a time in order (up to four queued). Open/closed buttons hav
 | Time | Charge Schedule Start/End (S07 only) |
 | Button | Refresh Vehicle Data, Flash Lights, Honk Horn, Lower/Raise Windows, Open/Close Boot |
 | Image | Vehicle Image (falls back to the Deepal logo when the picture is unavailable) |
+| Device tracker | Location (S05 only, after location permission is authorised - see [Location](#location)) |
 
 VIN is used as the device serial number. An OTA status sensor is created where the car provides one. Remaining charge time is available both as minutes and as an `H:MM` sensor for dashboards.
 
@@ -134,6 +135,7 @@ VIN is used as the device serial number. An OTA status sensor is created where t
 - **S05 live MQTT session (opt-in, off by default):** also untested on a real S05. Only for a vehicle reporting protocol `MQTT`; excluded for the E07, which is not known to work with it.
 - **S05 charge schedule (BEV only, opt-in):** also untested on a real S05. Needs a plan already set in the official app before Home Assistant can read or change it, same limitation as the S07. Not implemented for the S05 PHEV, whose schedule plan behaves differently (reverse-engineered by [Sunek0/ha-deepal-alternative](https://github.com/Sunek0/ha-deepal-alternative), MIT).
 - **S05 cabin climate, seat heating/ventilation and steering-wheel heating (opt-in):** also untested on a real S05. Ported from [danperks/ha-deepal](https://github.com/danperks/ha-deepal) (MIT), who describe it as "limited live use" on their side too.
+- **S05 location device tracker (opt-in, requires authorising the head unit's QR):** also untested on a real S05. Ported from [danperks/ha-deepal](https://github.com/danperks/ha-deepal) (MIT). S05 only - nothing maps an equivalent GPS field for the S07 or E07.
 - **The Lower/Raise Windows and Open/Close Boot buttons** are confirmed working on an S07. They are untested on the S05, and the command queue (several commands in quick succession) is covered by unit tests but has not been checked on a real car.
 - **Other regions and models** are unverified (see above).
 - Only the data the cloud provides is available; some cars report only while awake.
@@ -182,6 +184,18 @@ Once installed in HACS or manually:
 You can also configure it manually from **Settings -> Devices & services -> Add integration**, then search for **Changan Deepal Cloud**.
 
 During setup, choose the same login method you use in the official Deepal app. If phone/SMS login says the account is not registered, try email-code login instead. If no SMS code ever arrives (Spanish testers report Deepal stopped delivering them in September 2026), cancel and start again with email-code login. You can choose whether to enable remote commands; they require the same control PIN used by the official Deepal app.
+
+## Location
+
+**S05 only** (literal `MQTT`, not the E07's `SDA-MQTT`) - the head unit's GPS position is only mapped from MQTT telemetry; nothing maps an equivalent field for the S07's REST condition or the E07's SDA condition, so the device tracker stays unavailable on those. Ported from [danperks/ha-deepal](https://github.com/danperks/ha-deepal) (MIT), untested on a real S05 here.
+
+The head unit shares vehicle location only after you allow it under **Privacy → Location permission**. That screen shows a QR code. Paste the QR URL, or the bare `qrCode` value, into any of these:
+
+- The integration's **Configure** dialog, in **Location permission QR URL**. The URL is used once and is not saved.
+- The repair that Home Assistant raises while location sharing is off.
+- The `deepal.authorize_qr` service. Pass `qr_code`, and pass `entry_id` when more than one Deepal vehicle is set up.
+
+No control PIN is required. Home Assistant then exposes a device tracker with the car's GPS coordinates plus altitude, heading, satellite count, GPS time, and whether location sharing is on. The tracker stays unavailable until sharing is on and the car has reported a position.
 
 ## Troubleshooting
 
