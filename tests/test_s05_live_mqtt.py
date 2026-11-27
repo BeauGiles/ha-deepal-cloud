@@ -108,6 +108,8 @@ def make_client():
     client.enable_api_logging = False
     client.last_mqtt_topics = None
     client.last_mqtt_model_code = None
+    client._mqtt_connection_lock = asyncio.Lock()
+    client._mqtt_exclusive_requested = asyncio.Event()
     client._invalidate_mqtt_caches = lambda: None
     # Bypasses the real AES decryption/encryption (see condition_payload's
     # comment) - the request payload's exact content is not under test here.
@@ -302,3 +304,132 @@ class TestOnLiveCondition:
         assert captured["vehicle"] == {"carId": "1"}
         assert captured["ota"] is None
         assert captured["condition"] == {"soc": 50}
+
+
+# --- exclusive access to the one allowed MQTT connection -------------------
+#
+# The broker only accepts one connection per client id (the device's own
+# did), and the periodic poll, a command, and the live session all connect
+# with the same one. _mqtt_exclusive_connection() serializes the periodic
+# poll/command side; the live session cooperates by watching
+# _mqtt_exclusive_requested and ending its current cycle early instead of
+# holding the connection for its full multi-minute budget.
+
+
+class TestMqttExclusiveConnection:
+    def test_sets_the_flag_for_the_body_and_clears_it_after(self):
+        client = make_client()
+        seen_while_inside = {}
+
+        async def run():
+            async with client._mqtt_exclusive_connection():
+                seen_while_inside["flag"] = client._mqtt_exclusive_requested.is_set()
+                seen_while_inside["locked"] = client._mqtt_connection_lock.locked()
+
+        asyncio.run(run())
+        assert seen_while_inside == {"flag": True, "locked": True}
+        assert not client._mqtt_exclusive_requested.is_set()
+        assert not client._mqtt_connection_lock.locked()
+
+    def test_clears_the_flag_and_releases_the_lock_even_if_the_body_raises(self):
+        client = make_client()
+
+        async def run():
+            async with client._mqtt_exclusive_connection():
+                raise DeepalApiError("boom")
+
+        with pytest.raises(DeepalApiError):
+            asyncio.run(run())
+        assert not client._mqtt_exclusive_requested.is_set()
+        assert not client._mqtt_connection_lock.locked()
+
+    def test_two_uses_in_a_row_do_not_deadlock(self):
+        client = make_client()
+        order = []
+
+        async def run():
+            async with client._mqtt_exclusive_connection():
+                order.append("first")
+            async with client._mqtt_exclusive_connection():
+                order.append("second")
+
+        asyncio.run(run())
+        assert order == ["first", "second"]
+
+    def test_serializes_two_concurrent_callers(self):
+        client = make_client()
+        active = []
+        overlapped = []
+
+        async def holder(tag, hold_for):
+            async with client._mqtt_exclusive_connection():
+                active.append(tag)
+                if len(active) > 1:
+                    overlapped.append(True)
+                await asyncio.sleep(hold_for)
+                active.remove(tag)
+
+        async def run():
+            await asyncio.gather(holder("a", 0.03), holder("b", 0))
+
+        asyncio.run(run())
+        assert overlapped == []
+
+
+class TestLiveSessionYieldsForExclusiveRequest:
+    def test_a_pending_exclusive_request_ends_the_cycle_early(self, monkeypatch):
+        import custom_components.deepal.api as api_module
+
+        # Shrink the per-read check interval so the test doesn't take several
+        # real seconds; the deadline below is deliberately much larger so a
+        # quick return proves the flag caused it, not the deadline.
+        monkeypatch.setattr(api_module, "MQTT_LIVE_YIELD_CHECK_SECONDS", 0.02)
+
+        client = make_client()
+        reader = FakeReader(
+            [
+                CONNACK_OK,
+                SUBACK,
+                _publish("$vdp/device-did/properties/get/res", secret_payload()),
+            ]
+        )
+        writer = FakeWriter()
+        patch_connection(monkeypatch, reader, writer)
+
+        async def run():
+            task = asyncio.ensure_future(
+                client._mqtt_read_condition_stream(MQTT_CONFIG, "token", lambda c: None, 30)
+            )
+            await asyncio.sleep(0.05)  # let it connect, login and start waiting on reads
+            client._mqtt_exclusive_requested.set()
+            await asyncio.wait_for(task, timeout=2)
+
+        asyncio.run(run())  # would hang near the 30s deadline if the flag were ignored
+        assert writer.closed
+
+    def test_without_a_request_it_keeps_running_past_one_check_interval(self, monkeypatch):
+        import custom_components.deepal.api as api_module
+
+        monkeypatch.setattr(api_module, "MQTT_LIVE_YIELD_CHECK_SECONDS", 0.02)
+
+        client = make_client()
+        reader = FakeReader(
+            [
+                CONNACK_OK,
+                SUBACK,
+                _publish("$vdp/device-did/properties/get/res", secret_payload()),
+            ]
+        )
+        writer = FakeWriter()
+        patch_connection(monkeypatch, reader, writer)
+
+        async def run():
+            task = asyncio.ensure_future(
+                client._mqtt_read_condition_stream(MQTT_CONFIG, "token", lambda c: None, 0.1)
+            )
+            await asyncio.sleep(0.05)
+            assert not task.done()  # still running past one 0.02s check interval
+            await asyncio.wait_for(task, timeout=2)
+
+        asyncio.run(run())
+        assert writer.closed
