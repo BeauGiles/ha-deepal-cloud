@@ -83,6 +83,7 @@
           "enable_commands": "Ativar comandos remotos",
           "enable_api_logging": "Ativar o registo da API com dados ocultados",
           "enable_live_mqtt": "Manter uma ligação MQTT em direto (apenas S05)",
+          "low_tyre_pressure_kpa": "Limite de aviso de pressão baixa dos pneus",
           "qr_auth_url": "URL de permissão de localização QR",
           "reauthenticate": "Autenticar novamente agora"
         },
@@ -93,6 +94,7 @@
           "enable_commands": "Permite que o Home Assistant envie comandos assinados como atualizar, trancar, clima, carregamento, vidros, mala, aquecimento dos bancos e do volante, luzes e buzina. Os veículos MQTT (p. ex., S05) só suportam fechadura, vidros e mala.",
           "enable_api_logging": "Escreve no registo do Home Assistant os pedidos e as respostas da API da Deepal com dados ocultados, para resolução de problemas. Tokens, PIN, assinaturas, chaves e identificadores de conta são filtrados, mas podem ainda aparecer dados do veículo. Deixe desativado, a menos que esteja a depurar.",
           "enable_live_mqtt": "Experimental. Mantém uma ligação MQTT aberta para enviar atualizações de telemetria entre as sondagens normais, em vez de esperar pela seguinte. Só tem efeito num S05 que reporta o protocolo MQTT (não o SDA-MQTT do E07, que não se sabe ainda que funcione). A sondagem normal continua a funcionar de qualquer forma, por isso desativar isto (ou uma falha de ligação) nunca torna os dados desatualizados para além do intervalo de sondagem habitual. Não testado num S05 real.",
+          "low_tyre_pressure_kpa": "Avisa quando um pneu desce abaixo desta pressão (usado pelo sensor Pressão baixa dos pneus). Padrão 230 kPa; aumente ou diminua para corresponder ao mínimo da placa deste carro.",
           "qr_auth_url": "Cole a hiperligação do código QR da unidade principal do carro (Privacidade → Permissão de localização), ou apenas o token qrCode. Deixe em branco para ignorar. Não é guardado.",
           "reauthenticate": "Volta a iniciar sessão para obter uma nova chave de assinatura de comandos, sem eliminar nem voltar a adicionar a integração. Use isto se os comandos remotos (fechadura, vidros, mala, clima, carregamento, luzes, buzina) falharem por completo enquanto os dados do veículo continuam a atualizar normalmente. Quaisquer outras alterações feitas neste mesmo envio são ignoradas; volte a abrir esta caixa depois para as aplicar."
         }

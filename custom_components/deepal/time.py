@@ -9,6 +9,7 @@ from homeassistant.components.time import TimeEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .api import DeepalApiError, DeepalCommandAuthError, DeepalCommandNotReady
@@ -26,8 +27,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         return
     async_add_entities(
         [
-            DeepalChargeScheduleTime(coordinator, "charge_schedule_start_time", "Charge Schedule Start", "startTime"),
-            DeepalChargeScheduleTime(coordinator, "charge_schedule_end_time", "Charge Schedule End", "endTime"),
+            DeepalChargeScheduleTime(coordinator, "charge_schedule_start_time", "Charging schedule start", "startTime"),
+            DeepalChargeScheduleTime(coordinator, "charge_schedule_end_time", "Charging schedule end", "endTime"),
         ]
     )
 
@@ -56,6 +57,10 @@ def _format_hhmm(value: time) -> str:
 
 class DeepalChargeScheduleTime(DeepalEntity, TimeEntity):
     """Start or end time for the charging schedule."""
+
+    # Config: the Polestar C3 fork's equivalent ("Charging schedule start/end")
+    # is a Configuration-card entity, matching the Charging schedule switch.
+    _attr_entity_category = EntityCategory.CONFIG
 
     def __init__(
         self,

@@ -6,9 +6,20 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
 ### Added
 
+- **Lowest/Low tyre pressure sensor pair, built in.** A `Lowest tyre pressure` sensor and a `Low tyre pressure` binary sensor are now created for every vehicle that reports any tyre pressure (not just the S05-only per-wheel warning flags) - the same thing a `min_max` + `threshold` helper pair would otherwise need, by hand, per vehicle. The warning threshold defaults to 230 kPa and is configurable per vehicle under **Configure** (`Low tyre pressure warning threshold`).
 - **S05 vehicle location device tracker and QR location authorisation (experimental, opt-in).** The head unit only shares GPS location once its Privacy → Location permission QR is authorised - through the integration's Configure dialog, a repair that's raised while sharing is off, or the new `deepal.authorize_qr` service. Once authorised, a Location device tracker exposes the car's coordinates plus altitude, heading, satellite count, GPS time and whether sharing is on; a live latitude is still reported even when longitude happens to be exactly 0. **S05 only** (literal `MQTT`, not the E07's `SDA-MQTT`) - nothing maps an equivalent GPS field for the S07's REST condition or the E07's SDA condition, so the tracker stays unavailable on those. Ported from [danperks/ha-deepal](https://github.com/danperks/ha-deepal) (MIT). **Completely untested on a real S05** - there is still no S05 owner testing this fork.
 - **`deepal.set_charge_window` service.** Sets the charging schedule's start and end times in one call, keeping the current start/end switches as they are - the existing switch and Time entities always set both switches together, so there was no way to change just the times without also forcing the schedule on. Target the Charge Schedule switch entity. `control_charge_schedule` in `api.py` now accepts `start_enabled`/`end_enabled` independently of `enabled` to support this. Ported from [danperks/ha-deepal](https://github.com/danperks/ha-deepal) (MIT).
 - **"Start over" checkbox on the email and SMS code steps.** If a code expires or never arrives, you can now tick "Start over" on the code-entry step to go straight back and request a new one, instead of cancelling the whole config flow and starting from scratch. The code field is optional when ticked. Ported from [danperks/ha-deepal](https://github.com/danperks/ha-deepal) (MIT).
+
+### Changed
+
+- **Entity categories and naming brought in line with the Polestar C3 fork's own audit.** Comparing this fork's entity layout against recent category/naming cleanup in [BeauGiles/ha-polestar-c3](https://github.com/BeauGiles/ha-polestar-c3):
+  - `Charging status` (was `Charge status`, Diagnostic) and `Power status` (Diagnostic) are promoted to primary Sensors-card entities, matching that fork's `Charging status` and `In use`.
+  - `Cabin air quality index` (renamed from `Cabin Air Quality Level`) is likewise promoted out of Diagnostic.
+  - The `Refresh vehicle data` button is no longer marked Diagnostic, matching that fork's plain Controls-card `Refresh` button.
+  - The charging-schedule switch, start/end time entities, and their sensor mirrors move to **Configuration** (switch/time) or **Diagnostic** (the sensor mirrors), matching that fork's `Charging schedule` placement; `Max charge limit` moves to Diagnostic for the same reason (a config-echo value, which that fork doesn't even duplicate as a separate sensor).
+  - Several entities are renamed for consistency: `Charge Schedule*` -> `Charging schedule*`, `*Charge Current` -> `*Charging current`, matching the gerund wording used throughout the Polestar C3 fork.
+  - **Every entity name now follows Home Assistant's sentence-case convention** (e.g. `Front left door`, not `Front Left Door`) instead of Title Case, matching current Home Assistant style guidance and the Polestar C3 fork. Internal keys/translation keys/unique IDs are unchanged - only the displayed name moves.
 
 ### Documentation
 

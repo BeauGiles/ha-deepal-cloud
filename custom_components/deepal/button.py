@@ -6,7 +6,6 @@ from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .api import DeepalApiError, DeepalCommandAuthError, DeepalCommandNotReady
@@ -38,8 +37,9 @@ class DeepalRefreshButton(DeepalEntity, ButtonEntity):
     """Manually refresh cached Deepal cloud vehicle data."""
 
     _attr_translation_key = "refresh"
-    _attr_name = "Refresh Vehicle Data"
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_name = "Refresh vehicle data"
+    # Not Diagnostic: the Polestar C3 fork's equivalent ("Refresh") is a plain
+    # Controls-card button, a user action rather than a diagnostic readout.
 
     def __init__(self, coordinator: DeepalDataUpdateCoordinator) -> None:
         super().__init__(coordinator, "refresh")
@@ -86,7 +86,7 @@ class DeepalFlashLightsButton(_DeepalFlashHonkButton):
     """Momentary button to flash the vehicle lights."""
 
     _attr_translation_key = "flash_lights"
-    _attr_name = "Flash Lights"
+    _attr_name = "Flash lights"
     _attr_icon = "mdi:car-parking-lights"
     _action_type = 1
 
@@ -98,7 +98,7 @@ class DeepalHonkHornButton(_DeepalFlashHonkButton):
     """Momentary button to sound the horn."""
 
     _attr_translation_key = "honk_horn"
-    _attr_name = "Honk Horn"
+    _attr_name = "Honk horn"
     _attr_icon = "mdi:bullhorn"
     _action_type = 3
 
@@ -150,7 +150,7 @@ class DeepalWindowsButton(_DeepalOpenCloseButton):
         super().__init__(coordinator, key)
         self._open_value = lower
         self._attr_translation_key = key
-        self._attr_name = "Lower Windows" if lower else "Raise Windows"
+        self._attr_name = "Lower windows" if lower else "Raise windows"
         self._attr_icon = "mdi:window-open-variant" if lower else "mdi:window-closed-variant"
 
     def _is_closed(self) -> bool | None:
@@ -175,7 +175,7 @@ class DeepalBootButton(_DeepalOpenCloseButton):
         super().__init__(coordinator, key)
         self._open_value = open_boot
         self._attr_translation_key = key
-        self._attr_name = "Open Boot" if open_boot else "Close Boot"
+        self._attr_name = "Open boot" if open_boot else "Close boot"
         self._attr_icon = "mdi:car-back"
 
     def _is_closed(self) -> bool | None:

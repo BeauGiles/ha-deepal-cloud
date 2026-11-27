@@ -116,20 +116,22 @@ Commands run one at a time in order (up to four queued). Open/closed buttons hav
 
 | Platform | Examples |
 | --- | --- |
-| Sensor | State of Charge, Estimated Range, Odometer, Charge Status, Charge Current, Remaining Charge Time, Tyre Pressures, Inside/Outside Temperature, Cabin Humidity, Power Status, OTA Status, Vehicle Image URL |
-| Binary sensor | Any Door, Any Window, individual doors/windows, Boot, Driver/Passenger Door Locked, Charging Cable, DC Charge Gun, Charging, Charge Schedule Enabled, Vehicle Connected, lights, Seat Heater/Ventilation On, Tyre Pressure Warning (S05) |
+| Sensor | State of charge, Estimated range, Odometer, Charging status, Charging current, Remaining charge time, Tyre pressures, Lowest tyre pressure, Inside/Outside temperature, Cabin humidity, Power status, OTA status, Vehicle image URL |
+| Binary sensor | Any door, Any window, individual doors/windows, Boot, Driver/Passenger door locked, Charging cable, DC charge gun, Charging, Charging schedule enabled, Vehicle connected, lights, Seat heater/ventilation on, Tyre pressure warning (S05), Low tyre pressure |
 | Lock | Door lock (S07, opt-in S05) |
 | Climate | Cabin climate (control on S07, read-only elsewhere) |
-| Number | Charge Limit, Seat Heater/Ventilation Level (S07 only) |
-| Switch | Charge Schedule Enabled, Steering Wheel Heater (S07 only) |
-| Time | Charge Schedule Start/End (S07 only) |
-| Button | Refresh Vehicle Data, Flash Lights, Honk Horn, Lower/Raise Windows, Open/Close Boot |
-| Image | Vehicle Image (falls back to the Deepal logo when the picture is unavailable) |
+| Number | Charge limit, Seat heater/ventilation level (S07 only) |
+| Switch | Charging schedule enabled, Steering wheel heater (S07 only) |
+| Time | Charging schedule start/end (S07 only) |
+| Button | Refresh vehicle data, Flash lights, Honk horn, Lower/Raise windows, Open/Close boot |
+| Image | Vehicle image (falls back to the Deepal logo when the picture is unavailable) |
 | Device tracker | Location (S05 only, after location permission is authorised - see [Location](#location)) |
 
-VIN is used as the device serial number. An OTA status sensor is created where the car provides one. Remaining charge time is available both as minutes and as an `H:MM` sensor for dashboards.
+VIN is used as the device serial number. An OTA status sensor is created where the car provides one. Remaining charge time is available both as minutes and as an `H:MM` sensor for dashboards. Entity names follow Home Assistant's sentence-case convention.
 
-**`deepal.set_charge_window` service.** Sets the Charge Schedule start and end times in one call, without disturbing whether each is currently on or off (the plain switch and the Time entities always set both together). Target the Charge Schedule switch entity. Ported from [danperks/ha-deepal](https://github.com/danperks/ha-deepal) (MIT).
+**Low tyre pressure.** The Lowest tyre pressure sensor and Low tyre pressure binary sensor are built in on every vehicle that reports any tyre pressure (not just the per-wheel warning flags, which are S05 MQTT only) - the same thing a `min_max` + `threshold` helper pair would do by hand. The warning threshold defaults to 230 kPa and is configurable per vehicle under **Configure**.
+
+**`deepal.set_charge_window` service.** Sets the Charging schedule start and end times in one call, without disturbing whether each is currently on or off (the plain switch and the Time entities always set both together). Target the Charging schedule switch entity. Ported from [danperks/ha-deepal](https://github.com/danperks/ha-deepal) (MIT).
 
 ## Known Limitations
 

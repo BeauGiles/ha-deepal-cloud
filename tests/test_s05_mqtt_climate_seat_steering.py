@@ -225,14 +225,14 @@ class TestNumberSetupGating:
 
     def test_s07_gets_charge_limit_and_seat_levels(self):
         names = self._added(_FakeCoordinator(mqtt=False))
-        assert "Charge Limit" in names
-        assert "Driver Seat Heating" in names
+        assert "Charge limit" in names
+        assert "Driver seat heating" in names
 
     def test_s05_with_commands_gets_seat_levels_but_not_charge_limit(self):
         names = self._added(_FakeCoordinator(mqtt=True, mqtt_commands_supported=True, commands_enabled=True))
-        assert "Charge Limit" not in names
-        assert "Driver Seat Heating" in names
-        assert "Front Passenger Seat Ventilation" in names
+        assert "Charge limit" not in names
+        assert "Driver seat heating" in names
+        assert "Front passenger seat ventilation" in names
 
     def test_s05_without_commands_gets_neither(self):
         names = self._added(_FakeCoordinator(mqtt=True, mqtt_commands_supported=False))

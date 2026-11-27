@@ -139,7 +139,7 @@ def _added(module, coordinator):
 class TestSwitchSetup:
     def test_s07_gets_both_switches(self):
         names = _added(switch, _SwitchFakeCoordinator(mqtt=False))
-        assert {"Charge Schedule", "Steering Wheel Heating"} <= names
+        assert {"Charging schedule", "Steering wheel heating"} <= names
 
     def test_s05_bev_with_commands_gets_both_switches(self):
         # Steering wheel heat only needs commands enabled (any S05); charge
@@ -150,7 +150,7 @@ class TestSwitchSetup:
                 mqtt=True, charge_schedule_supported=True, mqtt_commands_supported=True, commands_enabled=True
             ),
         )
-        assert {"Charge Schedule", "Steering Wheel Heating"} <= names
+        assert {"Charging schedule", "Steering wheel heating"} <= names
 
     def test_s05_phev_with_commands_gets_steering_but_not_charge_schedule(self):
         names = _added(
@@ -159,23 +159,23 @@ class TestSwitchSetup:
                 mqtt=True, charge_schedule_supported=False, mqtt_commands_supported=True, commands_enabled=True
             ),
         )
-        assert "Steering Wheel Heating" in names
-        assert "Charge Schedule" not in names
+        assert "Steering wheel heating" in names
+        assert "Charging schedule" not in names
 
     def test_s05_without_support_gets_neither(self):
         names = _added(switch, _SwitchFakeCoordinator(mqtt=True, charge_schedule_supported=False))
-        assert not {"Charge Schedule", "Steering Wheel Heating"} & names
+        assert not {"Charging schedule", "Steering wheel heating"} & names
 
 
 class TestTimeSetup:
     def test_s07_gets_the_time_entities(self):
         names = _added(time_module, _SwitchFakeCoordinator(mqtt=False))
-        assert {"Charge Schedule Start", "Charge Schedule End"} <= names
+        assert {"Charging schedule start", "Charging schedule end"} <= names
 
     def test_s05_bev_with_commands_gets_the_time_entities(self):
         names = _added(time_module, _SwitchFakeCoordinator(mqtt=True, charge_schedule_supported=True))
-        assert {"Charge Schedule Start", "Charge Schedule End"} <= names
+        assert {"Charging schedule start", "Charging schedule end"} <= names
 
     def test_s05_without_support_gets_none(self):
         names = _added(time_module, _SwitchFakeCoordinator(mqtt=True, charge_schedule_supported=False))
-        assert not {"Charge Schedule Start", "Charge Schedule End"} & names
+        assert not {"Charging schedule start", "Charging schedule end"} & names

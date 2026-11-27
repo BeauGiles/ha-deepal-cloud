@@ -12,6 +12,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_platform
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .api import DeepalApiError, DeepalCommandAuthError, DeepalCommandNotReady
@@ -68,7 +69,10 @@ class DeepalChargeScheduleSwitch(DeepalEntity, SwitchEntity):
     """Enable or disable the charging schedule."""
 
     _attr_translation_key = "charge_schedule_control"
-    _attr_name = "Charge Schedule"
+    _attr_name = "Charging schedule"
+    # Config: the Polestar C3 fork's equivalent ("Charging schedule") is a
+    # Configuration-card entity, not a plain Sensors/Controls one.
+    _attr_entity_category = EntityCategory.CONFIG
 
     def __init__(self, coordinator: DeepalDataUpdateCoordinator) -> None:
         super().__init__(coordinator, "charge_schedule_control")
@@ -141,7 +145,7 @@ class DeepalSteeringWheelHeatSwitch(DeepalEntity, SwitchEntity):
     """Turn the steering wheel heating on or off (request shape from danperks/ha-deepal)."""
 
     _attr_translation_key = "steering_wheel_heating_control"
-    _attr_name = "Steering Wheel Heating"
+    _attr_name = "Steering wheel heating"
     _attr_icon = "mdi:steering"
 
     def __init__(self, coordinator: DeepalDataUpdateCoordinator) -> None:
