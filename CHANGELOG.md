@@ -7,6 +7,11 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 ### Added
 
 - **`deepal.set_charge_window` service.** Sets the charging schedule's start and end times in one call, keeping the current start/end switches as they are - the existing switch and Time entities always set both switches together, so there was no way to change just the times without also forcing the schedule on. Target the Charge Schedule switch entity. `control_charge_schedule` in `api.py` now accepts `start_enabled`/`end_enabled` independently of `enabled` to support this. Ported from [danperks/ha-deepal](https://github.com/danperks/ha-deepal) (MIT).
+- **"Start over" checkbox on the email and SMS code steps.** If a code expires or never arrives, you can now tick "Start over" on the code-entry step to go straight back and request a new one, instead of cancelling the whole config flow and starting from scratch. The code field is optional when ticked. Ported from [danperks/ha-deepal](https://github.com/danperks/ha-deepal) (MIT).
+
+### Documentation
+
+- **Belgium login region moved out of "unverified".** [danperks/ha-deepal](https://github.com/danperks/ha-deepal) reports Belgium working on the same European cluster this integration uses, and notes that Netherlands-delivered vehicles are often registered under Belgium (`BE`) rather than the Netherlands - a Dutch-dealer account that gets "Account not registered" under the Netherlands can succeed under Belgium instead. Not yet confirmed through this integration itself, so it's called out on its own line rather than moved into "Confirmed working".
 
 ## [0.4.3-beta2] - 2026-11-27
 
