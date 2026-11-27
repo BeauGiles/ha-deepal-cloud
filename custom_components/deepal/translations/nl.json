@@ -20,7 +20,11 @@
         "title": "Voer de e-mailcode in",
         "description": "Voer de verificatiecode in die Changan/Deepal heeft gestuurd. De code kan snel verlopen, vraag dus een nieuwe aan als deze wordt geweigerd.",
         "data": {
-          "auth_code": "E-mailcode"
+          "auth_code": "E-mailcode",
+          "start_over": "Opnieuw beginnen"
+        },
+        "data_description": {
+          "start_over": "Ga terug en vraag een nieuwe e-mailcode aan. Je kunt de code leeg laten."
         }
       },
       "phone": {
@@ -35,7 +39,11 @@
         "title": "Voer de sms-code in",
         "description": "Voer de verificatiecode in die Changan/Deepal heeft gestuurd. De code kan snel verlopen, vraag dus een nieuwe aan als deze wordt geweigerd. Komt er geen sms aan, annuleer dan en begin opnieuw met inloggen via e-mail.",
         "data": {
-          "auth_code": "Sms-code"
+          "auth_code": "Sms-code",
+          "start_over": "Opnieuw beginnen"
+        },
+        "data_description": {
+          "start_over": "Ga terug en vraag een nieuwe sms-code aan. Je kunt de code leeg laten."
         }
       },
       "commands": {

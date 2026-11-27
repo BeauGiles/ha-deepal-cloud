@@ -20,7 +20,11 @@
         "title": "Introduza o código do email",
         "description": "Introduza o código de verificação enviado pela Changan/Deepal. O código pode expirar rapidamente, por isso peça um novo se for rejeitado.",
         "data": {
-          "auth_code": "Código do email"
+          "auth_code": "Código do email",
+          "start_over": "Começar de novo"
+        },
+        "data_description": {
+          "start_over": "Volte atrás e peça um novo código de email. Pode deixar o código em branco."
         }
       },
       "phone": {
@@ -35,7 +39,11 @@
         "title": "Introduza o código SMS",
         "description": "Introduza o código de verificação enviado pela Changan/Deepal. O código pode expirar rapidamente, por isso peça um novo se for rejeitado. Se não chegar nenhum SMS, cancele e recomece com o início de sessão por email.",
         "data": {
-          "auth_code": "Código SMS"
+          "auth_code": "Código SMS",
+          "start_over": "Começar de novo"
+        },
+        "data_description": {
+          "start_over": "Volte atrás e peça um novo código SMS. Pode deixar o código em branco."
         }
       },
       "commands": {
