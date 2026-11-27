@@ -90,6 +90,25 @@ class DeepalChargeScheduleSwitch(DeepalEntity, SwitchEntity):
     async def async_turn_off(self, **kwargs: Any) -> None:
         await self._async_update_schedule(enabled=False)
 
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        # Moved here from the now-removed "Charging schedule enabled" binary
+        # sensor, which duplicated this switch's own on/off state.
+        plan = _charge_plan(self.condition)
+        return {
+            "plan_id": plan.get("planId"),
+            "start_time": plan.get("startTime"),
+            "end_time": plan.get("endTime"),
+            "start_switch": plan.get("startSwitch"),
+            "end_switch": plan.get("endSwitch"),
+            "is_valid": plan.get("isValid"),
+            "weeks": plan.get("weeks"),
+            "time_zone": plan.get("timeZone"),
+            "time_format": plan.get("timeFormat"),
+            "plan_type": plan.get("planType"),
+            "send_time": plan.get("sendTime"),
+        }
+
     async def _async_update_schedule(self, *, enabled: bool) -> None:
         plan = _charge_plan(self.condition)
         if not plan:

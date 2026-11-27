@@ -20,7 +20,9 @@ S07_NEVER_REPORTED = {
     ("sensor", "outside_temp"),
     ("sensor", "inside_pm25"),
     ("sensor", "inside_air_quality_level"),
-    ("sensor", "charge_current"),
+    # charge_current is NOT here: this S07 never sends a plain chargeCurrent
+    # field either, but it does send acChargeCurrent/dcChargeCurrent, so the
+    # sensor is created and derives its value from those instead.
     ("sensor", "charge_plan_start_time"),
     ("sensor", "charge_plan_end_time"),
     ("sensor", "rear_left_seat_heater_level"),

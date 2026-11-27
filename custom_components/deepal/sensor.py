@@ -60,14 +60,35 @@ def _charge_schedule(data: dict[str, Any]) -> dict[str, Any]:
     return first_plan if isinstance(first_plan, dict) else {}
 
 
+def _derived_charge_current(data: dict[str, Any]) -> float | None:
+    """Fall back to whichever of AC/DC charge current is actually reporting.
+
+    Only used when the car never sends a plain chargeCurrent field at all
+    (confirmed absent from a real S07's diagnostics, while acChargeCurrent and
+    dcChargeCurrent were both present). The inactive mode's field is 0 while
+    not in use, so the larger of the two is the one actually charging.
+    """
+    ac = _path_value(data, ("charge", "acChargeCurrent"))
+    dc = _path_value(data, ("charge", "dcChargeCurrent"))
+    ac = ac if isinstance(ac, int | float) else None
+    dc = dc if isinstance(dc, int | float) else None
+    if ac is None and dc is None:
+        return None
+    return max(ac or 0.0, dc or 0.0)
+
+
 def _format_hours_minutes(minutes: Any) -> str | None:
-    """Format remaining charge minutes as H:MM, or None when there is no estimate.
+    """Format remaining charge minutes as H:MM, "Not applicable", or None.
 
     The duration-style sensor shows seconds in the frontend; this text form is
-    meant for dashboards. 8191 is the app's "no estimate" value. Idea and format
-    follow Sunek0/ha-deepal-alternative (MIT).
+    meant for dashboards. 8191 is the app's "no estimate" value - this sensor
+    has no device_class/unit, so it can say "Not applicable" instead of
+    falling back to a plain Unknown. Idea and format follow
+    Sunek0/ha-deepal-alternative (MIT).
     """
-    if not isinstance(minutes, int | float) or minutes < 0 or minutes == 8191:
+    if minutes == 8191:
+        return "Not applicable"
+    if not isinstance(minutes, int | float) or minutes < 0:
         return None
     total = int(minutes)
     return f"{total // 60}:{total % 60:02d}"
@@ -480,6 +501,11 @@ def _sensor_supported(description: DeepalSensorDescription):
         return lambda data: _path_value(_condition(data), ("vehicleStatus", "steeringWheelHeater")) is not None
     if key == "tire_lowest_pressure":
         return lambda data: bool(_tire_pressures(_condition(data)))
+    if key == "charge_current":
+        return lambda data: (
+            _path_value(_condition(data), ("charge", "chargeCurrent")) is not None
+            or _derived_charge_current(_condition(data)) is not None
+        )
     path = description.path
     return lambda data: _path_value(_condition(data), path) is not None
 
@@ -515,6 +541,15 @@ class DeepalSensor(DeepalEntity, SensorEntity):
     def native_value(self) -> Any:
         if self.entity_description.key == "ac_status":
             return _cabin_climate_mode_state(self.condition)
+        if self.entity_description.key == "charge_current":
+            value = _path_value(self.condition, self.entity_description.path)
+            if value is not None:
+                return value
+            # Some cars never send the combined chargeCurrent field at all
+            # (confirmed on a real S07's diagnostics), only the AC/DC
+            # breakdown - fall back to whichever of those is actually
+            # reporting a charge (the other is 0 while not in use).
+            return _derived_charge_current(self.condition)
         if self.entity_description.key == "remain_charge_time":
             minutes = _path_value(self.condition, self.entity_description.path)
             return None if minutes == 8191 else minutes

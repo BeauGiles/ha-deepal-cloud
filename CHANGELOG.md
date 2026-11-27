@@ -4,6 +4,16 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
 ## [Unreleased]
 
+### Fixed
+
+- **"Reported charging current" is now derived from AC/DC when the car never sends the combined field.** Confirmed from a real S07's diagnostics: `acChargeCurrent`/`dcChargeCurrent` are present but the plain `chargeCurrent` field is never sent at all. The sensor now falls back to whichever of the two is actually reporting a non-zero current, and is created for cars that only ever report the breakdown.
+- **"Remaining charge time (H:MM)" now shows "Not applicable" instead of Unknown when the car has no current estimate** (the cloud's `8191` sentinel, seen whenever the car isn't charging). The plain-minutes sensor still shows Unknown for the same case - it has a device class and unit, so it can't carry free text, unlike the H:MM one.
+- **The Location device tracker was never actually gated to S05 - only the repair issue was, in 0.4.4.** A real S07's raw REST condition response carries its own top-level `locationGeo` block (same root cause as the repair fix above), so checking the data alone isn't enough. The entity itself is now gated the same way the other S05-only platforms are.
+
+### Changed
+
+- **Removed the "Charging schedule enabled" binary sensor.** It duplicated the Charging schedule switch's own on/off state exactly, with no control of its own. Its extra attributes (plan ID, start/end switches, weeks, time zone, etc.) moved onto the switch entity, so no detail is lost - only the redundant entity itself is gone.
+
 ## [0.4.4] - 2026-11-27
 
 Urgent bugfix release. Reported directly from a live 0.4.3 S07 install within hours of that release going out - see below.

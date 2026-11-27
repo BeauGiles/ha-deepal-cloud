@@ -285,9 +285,6 @@
       "charge_status": {
         "name": "Charging"
       },
-      "charge_schedule_enabled": {
-        "name": "Charging schedule enabled"
-      },
       "defrost_status": {
         "name": "Defrost status"
       },

@@ -78,13 +78,6 @@
       }
     },
     "binary_sensor": {
-      "charge_schedule_enabled": {
-        "default": "mdi:calendar-clock",
-        "state": {
-          "on": "mdi:calendar-check",
-          "off": "mdi:calendar-remove"
-        }
-      },
       "defrost_status": {
         "default": "mdi:car-defrost-front"
       },
@@ -201,7 +194,11 @@
     },
     "switch": {
       "charge_schedule_control": {
-        "default": "mdi:calendar-clock"
+        "default": "mdi:calendar-clock",
+        "state": {
+          "on": "mdi:calendar-check",
+          "off": "mdi:calendar-remove"
+        }
       }
     },
     "time": {
