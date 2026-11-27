@@ -92,45 +92,46 @@ class DeepalSensorDescription(SensorEntityDescription):
 
 
 SENSOR_NAMES = {
-    "soc": "State of Charge",
-    "drv_mileage": "Estimated Range",
+    "soc": "State of charge",
+    "drv_mileage": "Estimated range",
     "total_mileage": "Odometer",
     "speed": "Speed",
-    "last_updated_at": "Vehicle Data Timestamp",
-    "inside_temp": "Inside Temperature",
-    "outside_temp": "Outside Temperature",
-    "ac_status": "Cabin Climate Mode",
-    "inside_humidity": "Cabin Humidity",
+    "last_updated_at": "Vehicle data timestamp",
+    "inside_temp": "Inside temperature",
+    "outside_temp": "Outside temperature",
+    "ac_status": "Cabin climate mode",
+    "inside_humidity": "Cabin humidity",
     "inside_pm25": "Cabin PM2.5",
-    "inside_air_quality_level": "Cabin Air Quality Level",
-    "charge_status": "Charge Status",
-    "charge_current": "Reported Charge Current",
-    "ac_charge_current": "AC Charge Current",
-    "dc_charge_current": "DC Charge Current",
-    "remain_charge_time": "Remaining Charge Time",
-    "remain_charge_time_hhmm": "Remaining Charge Time (H:MM)",
-    "max_soc_percent": "Max Charge Limit",
-    "charge_plan_start_time": "Charge Schedule Start Time",
-    "charge_plan_end_time": "Charge Schedule End Time",
-    "tire_front_left_pressure": "Front Left Tyre Pressure",
-    "tire_front_right_pressure": "Front Right Tyre Pressure",
-    "tire_rear_left_pressure": "Rear Left Tyre Pressure",
-    "tire_rear_right_pressure": "Rear Right Tyre Pressure",
-    "fuel_level": "Fuel Level",
-    "fuel_volume": "Fuel Volume",
-    "fuel_range": "Fuel Range",
-    "driver_seat_heater_level": "Driver Seat Heater Level",
-    "front_passenger_seat_heater_level": "Front Passenger Seat Heater Level",
-    "rear_left_seat_heater_level": "Rear Left Seat Heater Level",
-    "rear_right_seat_heater_level": "Rear Right Seat Heater Level",
-    "steering_wheel_heater": "Steering Wheel Heater",
-    "vehicle_status": "Vehicle Status",
-    "power_status": "Power Status",
-    "gear_signal": "Gear Signal",
-    "epb_sts": "Electronic Parking Brake Status",
-    "img_url": "Vehicle Image URL",
-    "refresh_failure_count": "Refresh Failure Count",
-    "ota_status": "OTA Status",
+    "inside_air_quality_level": "Cabin air quality index",
+    "charge_status": "Charging status",
+    "charge_current": "Reported charging current",
+    "ac_charge_current": "AC charging current",
+    "dc_charge_current": "DC charging current",
+    "remain_charge_time": "Remaining charge time",
+    "remain_charge_time_hhmm": "Remaining charge time (H:MM)",
+    "max_soc_percent": "Max charge limit",
+    "charge_plan_start_time": "Charging schedule start time",
+    "charge_plan_end_time": "Charging schedule end time",
+    "tire_front_left_pressure": "Front left tyre pressure",
+    "tire_front_right_pressure": "Front right tyre pressure",
+    "tire_rear_left_pressure": "Rear left tyre pressure",
+    "tire_rear_right_pressure": "Rear right tyre pressure",
+    "tire_lowest_pressure": "Lowest tyre pressure",
+    "fuel_level": "Fuel level",
+    "fuel_volume": "Fuel volume",
+    "fuel_range": "Fuel range",
+    "driver_seat_heater_level": "Driver seat heater level",
+    "front_passenger_seat_heater_level": "Front passenger seat heater level",
+    "rear_left_seat_heater_level": "Rear left seat heater level",
+    "rear_right_seat_heater_level": "Rear right seat heater level",
+    "steering_wheel_heater": "Steering wheel heater",
+    "vehicle_status": "Vehicle status",
+    "power_status": "Power status",
+    "gear_signal": "Gear signal",
+    "epb_sts": "Electronic parking brake status",
+    "img_url": "Vehicle image URL",
+    "refresh_failure_count": "Refresh failure count",
+    "ota_status": "OTA status",
 }
 
 
@@ -220,13 +221,16 @@ SENSORS: tuple[DeepalSensorDescription, ...] = (
     DeepalSensorDescription(
         key="inside_air_quality_level",
         translation_key="inside_air_quality_level",
-        entity_category=EntityCategory.DIAGNOSTIC,
+        # Promoted out of Diagnostic: the Polestar C3 fork's equivalent ("Cabin
+        # air quality index") is a primary Sensors-card entity, not Diagnostic.
         path=("hvac", "insideAirQualityLevel"),
     ),
     DeepalSensorDescription(
         key="charge_status",
         translation_key="charge_status",
-        entity_category=EntityCategory.DIAGNOSTIC,
+        # Promoted out of Diagnostic: the Polestar C3 fork's equivalent
+        # ("Charging status") is a primary Sensors-card entity, not Diagnostic,
+        # and this tells more than the plain Charging on/off binary sensor.
         path=("charge", "chargeStatus"),
         value_map={0: "Charge Complete", 1: "Not Charging", 6: "Charging"},
     ),
@@ -274,16 +278,24 @@ SENSORS: tuple[DeepalSensorDescription, ...] = (
         translation_key="max_soc_percent",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
+        # Diagnostic: a read-only mirror of the Charge Limit number control,
+        # same treatment as a config-echo value. The Polestar C3 fork doesn't
+        # even duplicate its equivalent (Target SoC) as a separate sensor.
+        entity_category=EntityCategory.DIAGNOSTIC,
         path=("charge", "maxSocPercent"),
     ),
     DeepalSensorDescription(
         key="charge_plan_start_time",
         translation_key="charge_plan_start_time",
+        # Diagnostic: a read-only mirror of the Charging Schedule Start time
+        # entity, same reasoning as max_soc_percent above.
+        entity_category=EntityCategory.DIAGNOSTIC,
         path=(),
     ),
     DeepalSensorDescription(
         key="charge_plan_end_time",
         translation_key="charge_plan_end_time",
+        entity_category=EntityCategory.DIAGNOSTIC,
         path=(),
     ),
     DeepalSensorDescription(
@@ -317,6 +329,18 @@ SENSORS: tuple[DeepalSensorDescription, ...] = (
         device_class=SensorDeviceClass.PRESSURE,
         state_class=SensorStateClass.MEASUREMENT,
         path=("tire", "rightBack", "pressure"),
+    ),
+    # The lowest of the four, so a dashboard or automation doesn't need four
+    # separate thresholds - the same thing a min_max + threshold helper pair
+    # would do, built in. Created only once at least one wheel reports a
+    # pressure (see _sensor_supported below); hidden on cars with none.
+    DeepalSensorDescription(
+        key="tire_lowest_pressure",
+        translation_key="tire_lowest_pressure",
+        native_unit_of_measurement="kPa",
+        device_class=SensorDeviceClass.PRESSURE,
+        state_class=SensorStateClass.MEASUREMENT,
+        path=(),
     ),
     # S05 PHEV only (Sunek0/ha-deepal-alternative, MIT, for the raw field
     # names, hardware-validated against a real S05 PHEV). Absent on a BEV, so
@@ -378,7 +402,8 @@ SENSORS: tuple[DeepalSensorDescription, ...] = (
     DeepalSensorDescription(
         key="power_status",
         translation_key="power_status",
-        entity_category=EntityCategory.DIAGNOSTIC,
+        # Promoted out of Diagnostic: the Polestar C3 fork's closest equivalent
+        # ("In use") is a primary Sensors-card entity, not Diagnostic.
         path=("vehicleStatus", "powerStatus"),
         value_map={0: "Idle", 2: "Drive"},
     ),
@@ -426,6 +451,19 @@ def _condition(data: dict[str, Any]) -> dict[str, Any]:
     return data.get("condition") or {}
 
 
+_TIRE_PATHS: tuple[tuple[str, ...], ...] = (
+    ("tire", "leftFront", "pressure"),
+    ("tire", "rightFront", "pressure"),
+    ("tire", "leftBack", "pressure"),
+    ("tire", "rightBack", "pressure"),
+)
+
+
+def _tire_pressures(condition: dict[str, Any]) -> list[float]:
+    values = (_path_value(condition, path) for path in _TIRE_PATHS)
+    return [value for value in values if isinstance(value, int | float)]
+
+
 def _sensor_supported(description: DeepalSensorDescription):
     """Return a predicate telling whether the vehicle reports this sensor's data."""
     key = description.key
@@ -440,6 +478,8 @@ def _sensor_supported(description: DeepalSensorDescription):
         return lambda data: _path_value(_condition(data), ("hvac", "acStatus")) is not None
     if key == "steering_wheel_heater":
         return lambda data: _path_value(_condition(data), ("vehicleStatus", "steeringWheelHeater")) is not None
+    if key == "tire_lowest_pressure":
+        return lambda data: bool(_tire_pressures(_condition(data)))
     path = description.path
     return lambda data: _path_value(_condition(data), path) is not None
 
@@ -486,6 +526,9 @@ class DeepalSensor(DeepalEntity, SensorEntity):
             return _format_hhmm(_charge_schedule(self.condition).get("endTime"))
         if self.entity_description.key == "steering_wheel_heater":
             return _steering_wheel_heater_state(self.condition)
+        if self.entity_description.key == "tire_lowest_pressure":
+            pressures = _tire_pressures(self.condition)
+            return min(pressures) if pressures else None
         if self.entity_description.key == "refresh_failure_count":
             return self.coordinator.refresh_failure_count
         if self.entity_description.key == "img_url":
@@ -554,7 +597,7 @@ class DeepalRawConditionSensor(DeepalEntity, SensorEntity):
     """Diagnostic sensor exposing the complete condition payload."""
 
     _attr_translation_key = "raw_condition"
-    _attr_name = "Raw Condition Data"
+    _attr_name = "Raw condition data"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_device_class = SensorDeviceClass.TIMESTAMP
     _attr_entity_registry_enabled_default = False
@@ -580,7 +623,7 @@ class DeepalSdaDataSensor(DeepalEntity, SensorEntity):
     """
 
     _attr_translation_key = "sda_data"
-    _attr_name = "SDA Data"
+    _attr_name = "SDA data"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_entity_registry_enabled_default = False
     _unrecorded_attributes = frozenset({MATCH_ALL})

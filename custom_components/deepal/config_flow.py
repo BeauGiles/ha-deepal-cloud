@@ -30,6 +30,7 @@ from .const import (
     CONF_ENABLE_LIVE_MQTT,
     CONF_LANGUAGE,
     CONF_LOGIN_METHOD,
+    CONF_LOW_TYRE_PRESSURE_KPA,
     CONF_PRIVATE_KEY,
     CONF_RC_TOKEN,
     CONF_REFRESH_TOKEN,
@@ -39,6 +40,7 @@ from .const import (
     DEFAULT_APP_VERSION,
     DEFAULT_COUNTRY,
     DEFAULT_LANGUAGE,
+    DEFAULT_LOW_TYRE_PRESSURE_KPA,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     vehicle_supports_mqtt_commands,
@@ -454,6 +456,18 @@ class DeepalOptionsFlow(config_entries.OptionsFlow):
                 vol.Optional(CONF_ENABLE_COMMANDS, default=data.get(CONF_ENABLE_COMMANDS, False)): bool,
                 vol.Optional(CONF_ENABLE_API_LOGGING, default=data.get(CONF_ENABLE_API_LOGGING, False)): bool,
                 vol.Optional(CONF_ENABLE_LIVE_MQTT, default=data.get(CONF_ENABLE_LIVE_MQTT, False)): bool,
+                vol.Optional(
+                    CONF_LOW_TYRE_PRESSURE_KPA,
+                    default=data.get(CONF_LOW_TYRE_PRESSURE_KPA, DEFAULT_LOW_TYRE_PRESSURE_KPA),
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=150,
+                        max=350,
+                        mode=selector.NumberSelectorMode.BOX,
+                        step=1,
+                        unit_of_measurement="kPa",
+                    )
+                ),
                 vol.Optional("reauthenticate", default=False): bool,
             }
         )

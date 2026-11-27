@@ -75,6 +75,7 @@
           "enable_commands": "Activar comandos remotos",
           "enable_api_logging": "Activar el registro de API con datos ocultos",
           "enable_live_mqtt": "Mantener una conexión MQTT en vivo (solo S05)",
+          "low_tyre_pressure_kpa": "Umbral de aviso de presión baja de neumáticos",
           "reauthenticate": "Volver a autenticar ahora"
         },
         "data_description": {
@@ -84,6 +85,7 @@
           "enable_commands": "Permite que Home Assistant envíe comandos firmados como actualizar, bloquear, clima, carga, ventanillas, maletero, calefacción de asientos y del volante, luces y claxon. Los vehículos MQTT (p. ej., S05) solo admiten cerradura, ventanillas y maletero.",
           "enable_api_logging": "Escribe en el registro de Home Assistant las solicitudes y respuestas de la API de Deepal con datos ocultos, para diagnosticar problemas. Se filtran tokens, PIN, firmas, claves e identificadores de cuenta, pero aún pueden aparecer datos del vehículo. Déjalo desactivado salvo que estés depurando.",
           "enable_live_mqtt": "Experimental. Mantiene una conexión MQTT abierta para enviar actualizaciones de telemetría entre los sondeos normales, en lugar de esperar al siguiente. Solo tiene efecto en un S05 que informa el protocolo MQTT (no el SDA-MQTT del E07, del que no se sabe que funcione todavía). El sondeo normal sigue funcionando de todos modos, así que desactivar esto (o un fallo de conexión) nunca hace que los datos queden desactualizados más allá del intervalo de sondeo habitual. No probado en un S05 real.",
+          "low_tyre_pressure_kpa": "Avisa cuando algún neumático baja de esta presión (usado por el sensor Presión baja de neumáticos). Por defecto 230 kPa; súbelo o bájalo para ajustarlo al mínimo de la placa de este coche.",
           "reauthenticate": "Vuelve a iniciar sesión para obtener una clave nueva de firma de comandos, sin eliminar ni volver a añadir la integración. Úsalo si los comandos remotos (cerradura, ventanillas, maletero, clima, carga, luces, claxon) fallan por completo mientras los datos del vehículo se siguen actualizando con normalidad. Cualquier otro cambio hecho en este mismo envío se ignora; vuelve a abrir este cuadro después para aplicarlos."
         }
       }

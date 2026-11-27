@@ -73,7 +73,7 @@ class DeepalVehicleImage(DeepalEntity, ImageEntity):
     """Renders the vehicle photo supplied by the Deepal API."""
 
     _attr_translation_key = "vehicle_image"
-    _attr_name = "Vehicle Image"
+    _attr_name = "Vehicle image"
 
     def __init__(self, hass: HomeAssistant, coordinator: DeepalDataUpdateCoordinator) -> None:
         DeepalEntity.__init__(self, coordinator, "vehicle_image")

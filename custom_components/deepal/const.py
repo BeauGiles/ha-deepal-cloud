@@ -67,12 +67,16 @@ CONF_CAC_TOKEN = "cac_token"
 CONF_USER_ID = "user_id"
 CONF_CA_USER_ID = "ca_user_id"
 CONF_CAC_USER_ID = "cac_user_id"
+CONF_LOW_TYRE_PRESSURE_KPA = "low_tyre_pressure_kpa"
 
 DEFAULT_COUNTRY = "GB"
 DEFAULT_LANGUAGE = "en_US"
 DEFAULT_APP_VERSION = "V1.12.0"
 DEFAULT_SCAN_INTERVAL = 60
 DEFAULT_ACTIVE_REFRESH_INTERVAL = 300
+# Comfortably under a typical placard minimum (~230 kPa / 33 psi). Configurable
+# per vehicle under Configure, since the right cutoff depends on the car/tyres.
+DEFAULT_LOW_TYRE_PRESSURE_KPA = 230
 
 # MQTT vehicle wake (manual refresh only; the periodic poll never wakes the
 # car). Waking drains the 12 V battery, so it is throttled. Values follow

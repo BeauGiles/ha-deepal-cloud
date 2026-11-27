@@ -16,6 +16,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from .const import CONF_LOW_TYRE_PRESSURE_KPA, DEFAULT_LOW_TYRE_PRESSURE_KPA
 from .coordinator import DeepalDataUpdateCoordinator
 from .entity import DeepalEntity
 from .gating import async_add_supported
@@ -82,45 +83,59 @@ def _charge_schedule_enabled(data: dict[str, Any]) -> bool | None:
     return plan.get("startSwitch") == 1 and plan.get("endSwitch") == 1
 
 
+_TIRE_PRESSURE_PATHS: tuple[tuple[str, ...], ...] = (
+    ("tire", "leftFront", "pressure"),
+    ("tire", "rightFront", "pressure"),
+    ("tire", "leftBack", "pressure"),
+    ("tire", "rightBack", "pressure"),
+)
+
+
+def _tire_pressures(data: dict[str, Any]) -> list[float]:
+    values = (_path_value(data, path) for path in _TIRE_PRESSURE_PATHS)
+    return [value for value in values if isinstance(value, int | float)]
+
+
 @dataclass(frozen=True, kw_only=True)
 class DeepalBinarySensorDescription(BinarySensorEntityDescription):
     value_fn: Callable[[dict[str, Any]], bool | None]
 
 
 BINARY_SENSOR_NAMES = {
-    "any_door_open": "Any Door",
-    "front_left_door_open": "Front Left Door",
-    "front_right_door_open": "Front Right Door",
-    "rear_left_door_open": "Rear Left Door",
-    "rear_right_door_open": "Rear Right Door",
-    "any_window_open": "Any Window",
+    "any_door_open": "Any door",
+    "front_left_door_open": "Front left door",
+    "front_right_door_open": "Front right door",
+    "rear_left_door_open": "Rear left door",
+    "rear_right_door_open": "Rear right door",
+    "any_window_open": "Any window",
     "trunk": "Boot",
-    "driver_lock": "Driver Door Locked",
-    "passenger_lock": "Passenger Door Locked",
-    "front_left_window_open": "Front Left Window",
-    "front_right_window_open": "Front Right Window",
-    "rear_left_window_open": "Rear Left Window",
-    "rear_right_window_open": "Rear Right Window",
-    "charge_con_status": "Charging Cable",
-    "dc_charge_gun_connect_status": "DC Charge Gun",
+    "driver_lock": "Driver door locked",
+    "passenger_lock": "Passenger door locked",
+    "front_left_window_open": "Front left window",
+    "front_right_window_open": "Front right window",
+    "rear_left_window_open": "Rear left window",
+    "rear_right_window_open": "Rear right window",
+    "charge_con_status": "Charging cable",
+    "dc_charge_gun_connect_status": "DC charge gun",
     "charge_status": "Charging",
-    "charge_schedule_enabled": "Charge Schedule Enabled",
-    "defrost_status": "Defrost Status",
-    "connect_status": "Vehicle Connected",
-    "engine_sts": "Engine On",
-    "high_beam": "High Beam",
-    "low_beam": "Low Beam",
-    "position_lamp": "Position Lamp",
-    "left_turn": "Left Turn Signal",
-    "right_turn": "Right Turn Signal",
-    "driver_seat_heater_on": "Driver Seat Heater On",
-    "front_passenger_seat_heater_on": "Front Passenger Seat Heater On",
-    "driver_seat_ventilation_on": "Driver Seat Ventilation On",
-    "front_passenger_seat_ventilation_on": "Front Passenger Seat Ventilation On",
-    "tire_front_left_warning": "Front Left Tyre Pressure Warning",
-    "tire_front_right_warning": "Front Right Tyre Pressure Warning",
-    "tire_rear_left_warning": "Rear Left Tyre Pressure Warning",
-    "tire_rear_right_warning": "Rear Right Tyre Pressure Warning",
+    "charge_schedule_enabled": "Charging schedule enabled",
+    "defrost_status": "Defrost status",
+    "connect_status": "Vehicle connected",
+    "engine_sts": "Engine on",
+    "high_beam": "High beam",
+    "low_beam": "Low beam",
+    "position_lamp": "Position lamp",
+    "left_turn": "Left turn signal",
+    "right_turn": "Right turn signal",
+    "driver_seat_heater_on": "Driver seat heater on",
+    "front_passenger_seat_heater_on": "Front passenger seat heater on",
+    "driver_seat_ventilation_on": "Driver seat ventilation on",
+    "front_passenger_seat_ventilation_on": "Front passenger seat ventilation on",
+    "tire_front_left_warning": "Front left tyre pressure warning",
+    "tire_front_right_warning": "Front right tyre pressure warning",
+    "tire_rear_left_warning": "Rear left tyre pressure warning",
+    "tire_rear_right_warning": "Rear right tyre pressure warning",
+    "tire_low_pressure": "Low tyre pressure",
 }
 
 
@@ -334,6 +349,23 @@ BINARY_SENSORS: tuple[DeepalBinarySensorDescription, ...] = (
         device_class=BinarySensorDeviceClass.PROBLEM,
         value_fn=lambda data: _path_value(data, ("tire", "rightBack", "warning")) != 0 if _path_value(data, ("tire", "rightBack", "warning")) is not None else None,
     ),
+    # Built-in equivalent of a min_max + threshold helper pair: on when any
+    # wheel is below _LOW_TIRE_PRESSURE_KPA. Unlike a threshold helper this is
+    # stateless (no hysteresis), so it can flip on and off right at the edge of
+    # the cutoff; the warning flags above (where the car reports them) don't
+    # have that problem since the car decides. Available on every vehicle that
+    # reports any tyre pressure, not just S05.
+    DeepalBinarySensorDescription(
+        key="tire_low_pressure",
+        translation_key="tire_low_pressure",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+        # Only used to decide whether this entity exists at all (see
+        # _binary_supported below); the real, per-vehicle-configurable value
+        # comes from DeepalBinarySensor.is_on's special case for this key.
+        value_fn=lambda data: (
+            min(_tire_pressures(data)) < DEFAULT_LOW_TYRE_PRESSURE_KPA if _tire_pressures(data) else None
+        ),
+    ),
 )
 
 
@@ -366,6 +398,14 @@ class DeepalBinarySensor(DeepalEntity, BinarySensorEntity):
 
     @property
     def is_on(self) -> bool | None:
+        if self.entity_description.key == "tire_low_pressure":
+            pressures = _tire_pressures(self.condition)
+            if not pressures:
+                return None
+            threshold = (self.coordinator.entry.data | self.coordinator.entry.options).get(
+                CONF_LOW_TYRE_PRESSURE_KPA, DEFAULT_LOW_TYRE_PRESSURE_KPA
+            )
+            return min(pressures) < threshold
         return self.entity_description.value_fn(self.condition)
 
     @property

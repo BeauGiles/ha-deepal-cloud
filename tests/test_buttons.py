@@ -67,10 +67,10 @@ class TestNamesAndKeys:
     @pytest.mark.parametrize(
         ("cls", "kwargs", "name", "key"),
         [
-            (button.DeepalWindowsButton, {"lower": True}, "Lower Windows", "windows_lower"),
-            (button.DeepalWindowsButton, {"lower": False}, "Raise Windows", "windows_raise"),
-            (button.DeepalBootButton, {"open_boot": True}, "Open Boot", "boot_open"),
-            (button.DeepalBootButton, {"open_boot": False}, "Close Boot", "boot_close"),
+            (button.DeepalWindowsButton, {"lower": True}, "Lower windows", "windows_lower"),
+            (button.DeepalWindowsButton, {"lower": False}, "Raise windows", "windows_raise"),
+            (button.DeepalBootButton, {"open_boot": True}, "Open boot", "boot_open"),
+            (button.DeepalBootButton, {"open_boot": False}, "Close boot", "boot_close"),
         ],
     )
     def test_each_button_says_exactly_what_it_does(self, cls, kwargs, name, key):
@@ -149,22 +149,22 @@ class TestSetup:
 
     def test_rest_vehicle_gets_window_and_boot_buttons(self):
         names = self.added(FakeCoordinator())
-        assert {"Lower Windows", "Raise Windows", "Open Boot", "Close Boot"} <= names
+        assert {"Lower windows", "Raise windows", "Open boot", "Close boot"} <= names
 
     def test_mqtt_vehicle_without_commands_gets_none(self):
         coordinator = FakeCoordinator(mqtt=True, supported=True)
         coordinator.client.commands_enabled = False
         names = self.added(coordinator)
-        assert not {"Lower Windows", "Open Boot"} & names
+        assert not {"Lower windows", "Open boot"} & names
 
     def test_mqtt_vehicle_with_commands_gets_them(self):
         names = self.added(FakeCoordinator(mqtt=True, supported=True))
-        assert {"Lower Windows", "Raise Windows", "Open Boot", "Close Boot"} <= names
+        assert {"Lower windows", "Raise windows", "Open boot", "Close boot"} <= names
 
     def test_unsupported_mqtt_variant_gets_none(self):
         # e.g. SDA-MQTT (E07): telemetry only, no remote commands.
         names = self.added(FakeCoordinator(mqtt=True, supported=False))
-        assert not {"Lower Windows", "Open Boot"} & names
+        assert not {"Lower windows", "Open boot"} & names
 
 
 class TestRetiredCovers:

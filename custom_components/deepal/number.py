@@ -44,7 +44,7 @@ class DeepalChargeLimitNumber(DeepalEntity, NumberEntity):
     """Maximum battery state-of-charge for AC charging."""
 
     _attr_translation_key = "charge_limit_control"
-    _attr_name = "Charge Limit"
+    _attr_name = "Charge limit"
     _attr_native_min_value = 60
     _attr_native_max_value = 100
     _attr_native_step = 1
@@ -90,7 +90,7 @@ class DeepalSeatLevelNumber(DeepalEntity, NumberEntity):
         key = f"{seat}_seat_{noun}_control"
         super().__init__(coordinator, key)
         self._attr_translation_key = key
-        self._attr_name = f"{'Driver' if driver else 'Front Passenger'} Seat {noun.title()}"
+        self._attr_name = f"{'Driver' if driver else 'Front passenger'} seat {noun}"
         self._attr_icon = "mdi:car-seat-heater" if function == "heat" else "mdi:car-seat-cooler"
         self._driver = driver
         self._function = function

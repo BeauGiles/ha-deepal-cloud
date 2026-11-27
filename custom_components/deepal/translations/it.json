@@ -75,6 +75,7 @@
           "enable_commands": "Attiva i comandi remoti",
           "enable_api_logging": "Attiva il log API oscurato",
           "enable_live_mqtt": "Mantieni una connessione MQTT live (solo S05)",
+          "low_tyre_pressure_kpa": "Soglia di avviso per pressione pneumatici bassa",
           "reauthenticate": "Riautentica ora"
         },
         "data_description": {
@@ -84,6 +85,7 @@
           "enable_commands": "Consente a Home Assistant di inviare comandi firmati come aggiornamento, blocco, clima, ricarica, finestrini, bagagliaio, riscaldamento di sedili e volante, luci e clacson. I veicoli MQTT (ad es. S05) supportano solo serrature, finestrini e bagagliaio.",
           "enable_api_logging": "Scrive nel log di Home Assistant le richieste e le risposte dell'API Deepal con i dati oscurati, per la risoluzione dei problemi. Token, PIN, firme, chiavi e identificativi dell'account vengono filtrati, ma i dati del veicolo potrebbero comunque comparire. Lascialo disattivato se non stai eseguendo il debug.",
           "enable_live_mqtt": "Sperimentale. Mantiene aperta una connessione MQTT per inviare aggiornamenti di telemetria tra i normali sondaggi, invece di aspettare il successivo. Ha effetto solo su un S05 che segnala il protocollo MQTT (non l'SDA-MQTT dell'E07, con cui non è noto che funzioni ancora). Il sondaggio normale continua comunque a funzionare, quindi disattivare questa opzione (o un errore di connessione) non rende mai i dati obsoleti oltre il normale intervallo di sondaggio. Non testato su un S05 reale.",
+          "low_tyre_pressure_kpa": "Avvisa quando uno pneumatico scende sotto questa pressione (usato dal sensore Pressione pneumatici bassa). Predefinito 230 kPa; alzalo o abbassalo per adattarlo alla targhetta minima di questa auto.",
           "reauthenticate": "Esegue di nuovo l'accesso per ottenere una nuova chiave di firma dei comandi, senza eliminare né riaggiungere l'integrazione. Usalo se i comandi remoti (serrature, finestrini, bagagliaio, clima, ricarica, luci, clacson) falliscono del tutto mentre i dati del veicolo si aggiornano normalmente. Qualsiasi altra modifica fatta nello stesso invio viene ignorata: riapri questa finestra dopo per applicarle."
         }
       }
