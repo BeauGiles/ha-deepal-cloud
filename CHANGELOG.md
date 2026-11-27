@@ -4,6 +4,10 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
 ## [Unreleased]
 
+## [0.4.5] - 2026-11-27
+
+More findings from the same live S07 install that reported 0.4.4's bugs, this time from its diagnostics download. **If you had the "Charging schedule enabled" binary sensor, it's removed by this release** - Home Assistant will show it as unavailable; delete it from Settings → Devices & services → Entities if you'd like it gone from the entity list too. Anything that used it (automations, dashboards) should switch to the Charging schedule switch entity instead, which now carries the same extra details as attributes.
+
 ### Fixed
 
 - **"Reported charging current" is now derived from AC/DC when the car never sends the combined field.** Confirmed from a real S07's diagnostics: `acChargeCurrent`/`dcChargeCurrent` are present but the plain `chargeCurrent` field is never sent at all. The sensor now falls back to whichever of the two is actually reporting a non-zero current, and is created for cars that only ever report the breakdown.
