@@ -4,6 +4,10 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
 ## [Unreleased]
 
+## [0.4.4] - 2026-11-27
+
+Urgent bugfix release. Reported directly from a live 0.4.3 S07 install within hours of that release going out - see below.
+
 ### Fixed
 
 - **"Deepal location permission is off" repair fired for every vehicle, not just the S05 it's meant for.** The S07's raw REST condition response carries its own top-level `locationGeo` block (not something this integration maps there itself), which the 0.4.3 location-permission check read without first confirming the vehicle actually uses MQTT. Now gated the same way the location device tracker already is, and clears any issue a non-S05 vehicle was mistakenly given.
