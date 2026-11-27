@@ -4,6 +4,10 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
 ## [Unreleased]
 
+### Added
+
+- **`deepal.set_charge_window` service.** Sets the charging schedule's start and end times in one call, keeping the current start/end switches as they are - the existing switch and Time entities always set both switches together, so there was no way to change just the times without also forcing the schedule on. Target the Charge Schedule switch entity. `control_charge_schedule` in `api.py` now accepts `start_enabled`/`end_enabled` independently of `enabled` to support this. Ported from [danperks/ha-deepal](https://github.com/danperks/ha-deepal) (MIT).
+
 ## [0.4.3-beta2] - 2026-11-27
 
 **Beta.** One more experimental, opt-in S05 feature (cabin climate, seat heating/ventilation and steering-wheel heating over MQTT), plus a concurrency fix for the live MQTT session added in 0.4.3-beta1. Install it from HACS with **Redownload → Show beta versions**. **Still no S05 or S05 PHEV owner has tested any of the S05-specific work in this fork** - if you have one, please try it and report back. Home Assistant 2026.3.0 or newer is still required.
