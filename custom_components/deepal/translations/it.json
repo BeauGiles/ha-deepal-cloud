@@ -111,7 +111,6 @@
     },
     "location_permission": {
       "title": "L'autorizzazione posizione di Deepal è disattivata",
-      "description": "L'auto non sta condividendo la sua posizione. Sull'unità centrale, apri Privacy → Autorizzazione posizione, poi incolla l'URL del codice QR in questa riparazione.",
       "fix_flow": {
         "error": {
           "qr_auth_failed": "Non è stato possibile autorizzare quel codice QR. Apri di nuovo la schermata di autorizzazione posizione sull'auto e incolla il nuovo URL."

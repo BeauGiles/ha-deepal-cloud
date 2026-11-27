@@ -111,7 +111,6 @@
     },
     "location_permission": {
       "title": "El permiso de ubicación de Deepal está desactivado",
-      "description": "El coche no está compartiendo su ubicación. En la unidad central, abre Privacidad → Permiso de ubicación y pega la URL del código QR en esta reparación.",
       "fix_flow": {
         "error": {
           "qr_auth_failed": "No se pudo autorizar ese código QR. Abre otra vez la pantalla de permiso de ubicación en el coche y pega la nueva URL."

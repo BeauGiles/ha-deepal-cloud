@@ -111,7 +111,6 @@
     },
     "location_permission": {
       "title": "Deepal-locatietoestemming staat uit",
-      "description": "De auto deelt zijn locatie niet. Open op de boordcomputer Privacy → Locatietoestemming en plak de QR-URL in deze reparatie.",
       "fix_flow": {
         "error": {
           "qr_auth_failed": "Deze QR-code kon niet worden geautoriseerd. Open het scherm voor locatietoestemming op de auto opnieuw en plak de nieuwe URL."

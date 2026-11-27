@@ -415,7 +415,6 @@
     },
     "location_permission": {
       "title": "Deepal location permission is off",
-      "description": "The car is not sharing its location. On the head unit, open Privacy → Location permission, then paste the QR URL into this repair.",
       "fix_flow": {
         "error": {
           "qr_auth_failed": "Could not authorise that QR code. Open the location permission screen on the car again and paste the new URL."
