@@ -128,6 +128,8 @@ Commands run one at a time in order (up to four queued). Open/closed buttons hav
 
 VIN is used as the device serial number. An OTA status sensor is created where the car provides one. Remaining charge time is available both as minutes and as an `H:MM` sensor for dashboards.
 
+**`deepal.set_charge_window` service.** Sets the Charge Schedule start and end times in one call, without disturbing whether each is currently on or off (the plain switch and the Time entities always set both together). Target the Charge Schedule switch entity. Ported from [danperks/ha-deepal](https://github.com/danperks/ha-deepal) (MIT).
+
 ## Known Limitations
 
 - **E07:** No remote controls. The app sends them over a separate MQTT broker that is not implemented. Tyre pressures, outside temperature and humidity are not mapped yet, and the charging-state mapping is inferred from one car's report.
