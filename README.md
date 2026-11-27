@@ -81,7 +81,7 @@ Commands run one at a time in order (up to four queued). Open/closed buttons hav
 | Charging status, current, remaining charge time | ✅ | ✅ | 🧪 |
 | Charging cable / gun connected | ✅ | ✅ | 🧪 |
 | Charge limit (read) | ✅ | ➖ | ➖ |
-| Charging schedule (read) | ✅ | 🧪 (opt-in, untested on a real S05, BEV only) | ➖ |
+| Charging schedule (read) | ✅ | 🧪[^1][^2] | ➖ |
 | Doors, windows, boot, Any Door/Any Window | ✅ | ✅ | ✅ |
 | Door lock status | ✅ | ✅ | ◐ |
 | Cabin climate status | ✅ | ✅ | ✅ |
@@ -96,18 +96,23 @@ Commands run one at a time in order (up to four queued). Open/closed buttons hav
 | Odometer | ✅ | ✅ | ✅ |
 | Vehicle image, VIN, OTA status | ✅ | ◐ | ◐ |
 
+[^1]: Opt-in, and untested on a real S05.
+[^2]: BEV only; not implemented for the S05 PHEV, whose charging-schedule plan behaves differently.
+
 ### Control
 
 | Feature | S07 | S05 | E07 |
 | --- | :---: | :---: | :---: |
-| Lock / unlock | ✅ | 🧪 (opt-in, untested on a real S05) | ➖ |
-| Windows, boot (open/close) | ✅ | 🧪 (opt-in, untested on a real S05) | ➖ |
+| Lock / unlock | ✅ | 🧪[^1] | ➖ |
+| Windows, boot (open/close) | ✅ | 🧪[^1] | ➖ |
 | Flash lights, honk horn | ✅ | ➖ | ➖ |
-| Cabin climate start/stop, target temperature | ✅ | 🧪 (opt-in, untested on a real S05) | ➖ |
+| Cabin climate start/stop, target temperature | ✅ | 🧪[^1] | ➖ |
 | Charge limit | ✅ | ➖ | ➖ |
-| Charging schedule | ✅ | 🧪 (opt-in, untested on a real S05, BEV only) | ➖ |
-| Seat heating/ventilation level, steering wheel heater | ✅ | 🧪 (opt-in, untested on a real S05) | ➖ |
-| Manual refresh (wakes a stale car) | ✅ | ✅ | ➖ (REST needs no wake) |
+| Charging schedule | ✅ | 🧪[^1][^2] | ➖ |
+| Seat heating/ventilation level, steering wheel heater | ✅ | 🧪[^1] | ➖ |
+| Manual refresh (wakes a stale car) | ✅ | ✅ | ➖[^3] |
+
+[^3]: The E07 uses a REST endpoint, which doesn't need a wake request.
 
 > [!CAUTION]
 > Commands act on a real car. You are responsible for how you use them and for any automations you build on them.
