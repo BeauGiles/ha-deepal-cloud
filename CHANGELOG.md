@@ -4,6 +4,10 @@ All notable changes to this fork are documented here. Dates are in `YYYY-MM-DD`.
 
 ## [Unreleased]
 
+### Added
+
+- **Norway added to the login country list** (`NO`, +47, European cluster). Ported from [Sunek0/ha-deepal-alternative](https://github.com/Sunek0/ha-deepal-alternative) (MIT), who note that whether Changan actually accepts a Norwegian account is still up to their backend - not confirmed through this integration.
+
 ## [0.4.5] - 2026-11-27
 
 More findings from the same live S07 install that reported 0.4.4's bugs, this time from its diagnostics download. **If you had the "Charging schedule enabled" binary sensor, it's removed by this release** - Home Assistant will show it as unavailable; delete it from Settings → Devices & services → Entities if you'd like it gone from the entity list too. Anything that used it (automations, dashboards) should switch to the Charging schedule switch entity instead, which now carries the same extra details as attributes.
