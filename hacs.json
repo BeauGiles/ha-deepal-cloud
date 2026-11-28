@@ -1,5 +1,5 @@
 {
   "name": "Changan Deepal Cloud",
-  "country": ["AU", "AT", "BE", "FR", "DE", "GR", "HK", "ID", "IE", "IL", "IT", "LU", "MO", "MY", "MN", "NL", "NZ", "PH", "PT", "SG", "ES", "CH", "TH", "GB", "VN"],
+  "country": ["AU", "AT", "BE", "FR", "DE", "GR", "HK", "ID", "IE", "IL", "IT", "LU", "MO", "MY", "MN", "NL", "NZ", "NO", "PH", "PT", "SG", "ES", "CH", "TH", "GB", "VN"],
   "homeassistant": "2026.3.0"
 }

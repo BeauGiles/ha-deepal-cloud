@@ -50,6 +50,7 @@ _COUNTRIES = (
     Country("MN", "Mongolia", "976", REGION_APAC),
     Country("NL", "Netherlands", "31", REGION_EUROPE),
     Country("NZ", "New Zealand", "64", REGION_APAC),
+    Country("NO", "Norway", "47", REGION_EUROPE),
     Country("PH", "Philippines", "63", REGION_APAC),
     Country("PT", "Portugal", "351", REGION_EUROPE, verified=True),
     Country("SG", "Singapore", "65", REGION_APAC),
